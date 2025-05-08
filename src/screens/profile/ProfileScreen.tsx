@@ -145,6 +145,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   headerTitle: {
+    paddingTop: 35,
     ...FONTS.bold,
     fontSize: SIZES.xxxLarge,
     color: COLORS.text,

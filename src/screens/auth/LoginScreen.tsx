@@ -17,7 +17,7 @@ import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import CustomButton from '../../components/common/CustomButton';
 import CustomTextInput from '../../components/common/CustomTextInput';
 import Header from '../../components/common/Header';
-import {useAuth} from '../../context/AuthContext'; // Đúng đường dẫn import
+import {useAuth} from './AuthContext';
 
 type LoginScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,

@@ -12,7 +12,7 @@ import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme';
 import {Course} from '../../types';
 
 const {width} = Dimensions.get('window');
-const CARD_WIDTH = width * 0.85;
+const CARD_WIDTH = width * 0.25;
 
 interface CourseCardProps {
   course: Course;
@@ -22,11 +22,11 @@ interface CourseCardProps {
 const CourseCard: React.FC<CourseCardProps> = ({course, onPress}) => {
   const getLevelColor = (level: string) => {
     switch (level) {
-      case 'beginner':
+      case 'Cơ bản':
         return COLORS.success;
-      case 'intermediate':
+      case 'Sơ cấp':
         return COLORS.warning;
-      case 'advanced':
+      case 'Trung cấp':
         return COLORS.error;
       default:
         return COLORS.primary;
@@ -35,12 +35,12 @@ const CourseCard: React.FC<CourseCardProps> = ({course, onPress}) => {
 
   const getLevelText = (level: string) => {
     switch (level) {
-      case 'beginner':
+      case 'Cơ bản':
+        return 'Cơ bản';
+      case 'Sơ cấp':
         return 'Sơ cấp';
-      case 'intermediate':
+      case 'Trung cấp':
         return 'Trung cấp';
-      case 'advanced':
-        return 'Cao cấp';
       default:
         return 'Không xác định';
     }
@@ -48,69 +48,70 @@ const CourseCard: React.FC<CourseCardProps> = ({course, onPress}) => {
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={styles.wrapper}
       onPress={() => onPress(course)}
       activeOpacity={0.9}>
-      <View style={styles.imageContainer}>
-        <Image
-          source={{uri: course.imageUrl}}
-          style={styles.image}
-          resizeMode="cover"
-        />
-        <View
-          style={[
-            styles.levelBadge,
-            {backgroundColor: getLevelColor(course.level)},
-          ]}>
-          <Text style={styles.levelText}>{getLevelText(course.level)}</Text>
-        </View>
-      </View>
-
-      <View style={styles.contentContainer}>
-        <Text style={styles.title} numberOfLines={2}>
-          {course.title}
-        </Text>
-        <Text style={styles.description} numberOfLines={2}>
-          {course.description}
-        </Text>
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Bài học</Text>
-            <Text style={styles.infoValue}>{course.lessonsCount}</Text>
-          </View>
-
-          <View style={styles.separator} />
-
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Thời gian</Text>
-            <Text style={styles.infoValue}>{course.duration}</Text>
-          </View>
-        </View>
-
-        {course.progress !== undefined && (
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBarBackground}>
-              <View
-                style={[styles.progressBar, {width: `${course.progress}%`}]}
-              />
+      <View
+        style={[
+          styles.rowContainer,
+          {
+            flexDirection:
+              parseInt(course.topic_code) % 2 === 0 ? 'row-reverse' : 'row',
+          },
+        ]}>
+        <View style={styles.cardContainer}>
+          <View style={styles.imageContainer}>
+            <Image
+              source={{uri: course.imageUrl}}
+              style={styles.image}
+              resizeMode="cover"
+            />
+            <View
+              style={[
+                styles.levelBadge,
+                {backgroundColor: getLevelColor(course.levelCode)},
+              ]}>
+              <Text style={styles.levelText}>
+                {getLevelText(course.levelCode)}
+              </Text>
             </View>
-            <Text style={styles.progressText}>
-              {course.progress}% hoàn thành
-            </Text>
           </View>
-        )}
+        </View>
+
+        <Text style={styles.titleText}>{course.title}</Text>
       </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
+    marginBottom: 15,
+  },
+  rowContainer: {
+    flexDirection: 'row', // sẽ bị ghi đè bởi điều kiện ở trên
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  cardContainer: {
     width: CARD_WIDTH,
     backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius * 2,
-    marginBottom: 20,
+    borderRadius: SIZES.radius * 2.5,
+    overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  titleText: {
+    ...FONTS.bold,
+    fontSize: SIZES.medium,
+    color: COLORS.text,
+    marginHorizontal: 10,
+    width: 100, // hoặc tuỳ chỉnh
+  },
+  container: {
+    width: CARD_WIDTH, // nhớ giảm CARD_WIDTH ở trên, ví dụ: width * 0.65
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius * 1.5,
+    marginBottom: 15,
     overflow: 'hidden',
     ...SHADOWS.medium,
   },
@@ -119,15 +120,15 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 150,
+    height: 100, // giảm chiều cao hình ảnh
   },
   levelBadge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: SIZES.radius * 2,
+    top: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: SIZES.radius,
   },
   levelText: {
     ...FONTS.medium,
@@ -135,25 +136,25 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
   },
   contentContainer: {
-    padding: SIZES.padding,
+    padding: SIZES.padding / 1.5, // giảm padding bên trong
   },
   title: {
     ...FONTS.bold,
-    fontSize: SIZES.large,
+    fontSize: SIZES.medium, // giảm kích thước chữ
     color: COLORS.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   description: {
     ...FONTS.regular,
-    fontSize: SIZES.medium,
+    fontSize: SIZES.small,
     color: COLORS.textLight,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   infoContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   infoItem: {
     flex: 1,
@@ -162,38 +163,38 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
     fontSize: SIZES.small,
     color: COLORS.textLight,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   infoValue: {
     ...FONTS.medium,
-    fontSize: SIZES.medium,
+    fontSize: SIZES.small,
     color: COLORS.text,
   },
   separator: {
     width: 1,
-    height: 30,
+    height: 20,
     backgroundColor: COLORS.border,
-    marginHorizontal: 10,
+    marginHorizontal: 8,
   },
   progressContainer: {
     marginTop: 5,
   },
   progressBarBackground: {
-    height: 6,
+    height: 5,
     backgroundColor: COLORS.border,
-    borderRadius: 3,
+    borderRadius: 2.5,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     backgroundColor: COLORS.primary,
-    borderRadius: 3,
+    borderRadius: 2.5,
   },
   progressText: {
     ...FONTS.medium,
     fontSize: SIZES.small,
     color: COLORS.primary,
-    marginTop: 5,
+    marginTop: 4,
   },
 });
 

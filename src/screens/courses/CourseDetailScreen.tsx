@@ -1,37 +1,43 @@
 // src/screens/courses/CourseDetailScreen.tsx
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  Image, 
-  TouchableOpacity, 
-  SafeAreaView 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { CoursesStackParamList } from '../../navigation';
-import { COLORS, FONTS, SIZES, SHADOWS } from '../../constants/theme';
+import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {CoursesStackParamList} from '../../navigation';
+import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme';
 import Header from '../../components/common/Header';
 import LessonItem from '../../components/lessons/LessonItem';
 import CustomButton from '../../components/common/CustomButton';
-import { mockCourses, mockLessons } from '../../mocks/courseData';
-import { Lesson } from '../../types';
+import {mockCourses, mockLessons} from '../../mocks/courseData';
+import {Lesson} from '../../types';
 
-type CourseDetailScreenRouteProp = RouteProp<CoursesStackParamList, 'CourseDetail'>;
-type CourseDetailScreenNavigationProp = StackNavigationProp<CoursesStackParamList, 'CourseDetail'>;
+type CourseDetailScreenRouteProp = RouteProp<
+  CoursesStackParamList,
+  'CourseDetail'
+>;
+type CourseDetailScreenNavigationProp = StackNavigationProp<
+  CoursesStackParamList,
+  'CourseDetail'
+>;
 
 const CourseDetailScreen: React.FC = () => {
   const route = useRoute<CourseDetailScreenRouteProp>();
   const navigation = useNavigation<CourseDetailScreenNavigationProp>();
-  const { courseId } = route.params;
-  
+  const {courseId} = route.params;
+
   // Lấy thông tin khóa học từ mock data
-  const course = mockCourses.find(c => c.id === courseId);
+  const course = mockCourses.find(c => c.topic_code === courseId);
   // Lấy danh sách bài học của khóa học từ mock data
   const lessons = mockLessons[courseId] || [];
-  
+
   if (!course) {
     return (
       <SafeAreaView style={styles.errorContainer}>
@@ -40,7 +46,7 @@ const CourseDetailScreen: React.FC = () => {
           title="Quay lại"
           onPress={() => navigation.goBack()}
           type="primary"
-          style={{ marginTop: 20 }}
+          style={{marginTop: 20}}
         />
       </SafeAreaView>
     );
@@ -58,9 +64,9 @@ const CourseDetailScreen: React.FC = () => {
         return 'Không xác định';
     }
   };
-  
+
   const handleLessonPress = (lesson: Lesson) => {
-    navigation.navigate('Lesson', { lessonId: lesson.id, courseId });
+    navigation.navigate('Lesson', {lessonId: lesson.id, courseId});
   };
 
   const getCompletedLessonsCount = () => {
@@ -70,65 +76,33 @@ const CourseDetailScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Chi tiết khóa học" />
-      
+
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.courseHeader}>
-          <Image
-            source={{ uri: course.imageUrl }}
-            style={styles.courseImage}
-            resizeMode="cover"
-          />
-          
           <View style={styles.courseInfoContainer}>
             <Text style={styles.courseTitle}>{course.title}</Text>
-            
+
             <View style={styles.infoRow}>
               <View style={styles.infoItem}>
                 <Text style={styles.infoIcon}>🎯</Text>
-                <Text style={styles.infoText}>{getLevelText(course.level)}</Text>
-              </View>
-              
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>🕒</Text>
-                <Text style={styles.infoText}>{course.duration}</Text>
-              </View>
-              
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>📚</Text>
-                <Text style={styles.infoText}>{course.lessonsCount} bài học</Text>
-              </View>
-            </View>
-            
-            {course.progress !== undefined && (
-              <View style={styles.progressContainer}>
-                <View style={styles.progressHeader}>
-                  <Text style={styles.progressTitle}>Tiến độ hoàn thành</Text>
-                  <Text style={styles.progressPercentage}>{course.progress}%</Text>
-                </View>
-                <View style={styles.progressBarBackground}>
-                  <View 
-                    style={[
-                      styles.progressBar, 
-                      { width: `${course.progress}%` }
-                    ]}
-                  />
-                </View>
-                <Text style={styles.completedText}>
-                  {getCompletedLessonsCount()}/{lessons.length} bài học
+                <Text style={styles.infoText}>
+                  {getLevelText(course.levelCode)}
                 </Text>
               </View>
-            )}
+
+              <View style={styles.infoItem}>
+                <Text style={styles.infoIcon}>📚</Text>
+                <Text style={styles.infoText}>
+                  {course.quantityLesson} bài học
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
-        
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.sectionTitle}>Mô tả khóa học</Text>
-          <Text style={styles.descriptionText}>{course.description}</Text>
-        </View>
-        
+
         <View style={styles.lessonsContainer}>
           <Text style={styles.sectionTitle}>Nội dung khóa học</Text>
-          
+
           {lessons.length > 0 ? (
             lessons.map((lesson, index) => (
               <LessonItem
@@ -147,10 +121,10 @@ const CourseDetailScreen: React.FC = () => {
           )}
         </View>
       </ScrollView>
-      
+
       <View style={styles.bottomBar}>
         <CustomButton
-          title={lessons.length > 0 ? "Bắt đầu học" : "Tham gia khóa học"}
+          title={lessons.length > 0 ? 'Bắt đầu học' : 'Tham gia khóa học'}
           onPress={() => {
             if (lessons.length > 0) {
               handleLessonPress(lessons[0]);
@@ -170,6 +144,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    paddingTop: 35,
   },
   errorContainer: {
     flex: 1,

@@ -7,19 +7,16 @@ export interface User {
 }
 
 export interface Course {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
-  lessonsCount: number;
-  duration: string; // Ví dụ: "4 tuần"
-  progress?: number; // 0-100
+  topic_code: string; // Mã chủ đề (từ bảng topics)
+  title: string; // Tên khóa học
+  imageUrl: string; // Đường dẫn đến hình ảnh
+  levelCode: string; // Mã cấp độ (từ bảng levels)
+  quantityLesson: number; // Số lượng bài học
 }
 
 export interface Lesson {
   id: string;
-  courseId: string;
+  topic_code: string;
   title: string;
   description: string;
   type: 'reading' | 'listening' | 'writing' | 'vocabulary' | 'grammar' | 'test';

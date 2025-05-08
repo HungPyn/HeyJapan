@@ -35,26 +35,6 @@ const LessonItem: React.FC<LessonItemProps> = ({lesson, index, onPress}) => {
     }
   };
 
-  const getTypeIcon = () => {
-    // Vì không thể sử dụng Vector Icons, sử dụng Text thay thế
-    switch (lesson.type) {
-      case 'reading':
-        return '📖';
-      case 'listening':
-        return '🎧';
-      case 'writing':
-        return '✏️';
-      case 'vocabulary':
-        return '📝';
-      case 'grammar':
-        return '📏';
-      case 'test':
-        return '📋';
-      default:
-        return '📚';
-    }
-  };
-
   return (
     <TouchableOpacity
       style={styles.container}
@@ -63,21 +43,12 @@ const LessonItem: React.FC<LessonItemProps> = ({lesson, index, onPress}) => {
       <View style={styles.numberContainer}>
         <Text style={styles.numberText}>{index + 1}</Text>
       </View>
-
-      <View style={styles.typeIconContainer}>
-        <Text style={styles.typeIcon}>{getTypeIcon()}</Text>
-      </View>
-
       <View style={styles.contentContainer}>
         <Text style={styles.title} numberOfLines={1}>
           {lesson.title}
         </Text>
-        <Text style={styles.description} numberOfLines={1}>
-          {lesson.description}
-        </Text>
 
         <View style={styles.infoContainer}>
-          <Text style={styles.duration}>{lesson.duration}</Text>
           <Text style={[styles.status, {color: getStatusColor()}]}>
             {getStatusText()}
           </Text>

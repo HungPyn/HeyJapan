@@ -1,32 +1,38 @@
 // src/screens/courses/CourseListScreen.tsx
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
+import React, {useState} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
   FlatList,
   TouchableOpacity,
   TextInput,
   StatusBar,
   ScrollView,
-  RefreshControl
+  RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { CoursesStackParamList } from '../../navigation';
-import { COLORS, FONTS, SIZES } from '../../constants/theme';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {CoursesStackParamList} from '../../navigation';
+import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import CourseCard from '../../components/courses/CourseCard';
-import { mockCourses } from '../../mocks/courseData';
-import { Course } from '../../types';
+import {mockCourses} from '../../mocks/courseData';
+import {Course} from '../../types';
+import {ImageBackground} from 'react-native';
+import backgroundImg from '../../assets/images/nen3.jpg'; // Đường dẫn đúng đến ảnh
+import WavyBackground from '../lessons/components/WavyBackground';
 
-type CourseListScreenNavigationProp = StackNavigationProp<CoursesStackParamList, 'CourseList'>;
+type CourseListScreenNavigationProp = StackNavigationProp<
+  CoursesStackParamList,
+  'CourseList'
+>;
 
 const LEVELS = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'beginner', label: 'Sơ cấp' },
-  { id: 'intermediate', label: 'Trung cấp' },
-  { id: 'advanced', label: 'Cao cấp' },
+  {id: 'all', label: 'Tất cả'},
+  {id: 'beginner', label: 'Sơ cấp'},
+  {id: 'intermediate', label: 'Trung cấp'},
+  {id: 'advanced', label: 'Cao cấp'},
 ];
 
 const CourseListScreen: React.FC = () => {
@@ -35,16 +41,10 @@ const CourseListScreen: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
 
-  const filteredCourses = mockCourses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         course.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesLevel = selectedLevel === 'all' || course.level === selectedLevel;
-    
-    return matchesSearch && matchesLevel;
-  });
+  const filteredCourses = mockCourses;
 
   const handleCoursePress = (course: Course) => {
-    navigation.navigate('CourseDetail', { courseId: course.id });
+    navigation.navigate('CourseDetail', {courseId: course.topic_code});
   };
 
   const onRefresh = () => {
@@ -55,53 +55,51 @@ const CourseListScreen: React.FC = () => {
     }, 1000);
   };
 
-  const renderLevelFilter = () => {
-    return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterContainer}
-      >
-        {LEVELS.map(level => (
-          <TouchableOpacity
-            key={level.id}
-            style={[
-              styles.filterItem,
-              selectedLevel === level.id && styles.selectedFilter
-            ]}
-            onPress={() => setSelectedLevel(level.id)}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedLevel === level.id && styles.selectedFilterText
-              ]}
-            >
-              {level.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    );
-  };
+  // const renderLevelFilter = () => {
+  //   return (
+  //     <ScrollView
+  //       horizontal
+  //       showsHorizontalScrollIndicator={false}
+  //       contentContainerStyle={styles.filterContainer}>
+  //       {LEVELS.map(level => (
+  //         <TouchableOpacity
+  //           key={level.id}
+  //           style={[
+  //             styles.filterItem,
+  //             selectedLevel === level.id && styles.selectedFilter,
+  //           ]}
+  //           onPress={() => setSelectedLevel(level.id)}>
+  //           <Text
+  //             style={[
+  //               styles.filterText,
+  //               selectedLevel === level.id && styles.selectedFilterText,
+  //             ]}>
+  //             {level.label}
+  //           </Text>
+  //         </TouchableOpacity>
+  //       ))}
+  //     </ScrollView>
+  //   );
+  // };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-      
+
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Khóa học</Text>
         <TouchableOpacity onPress={() => console.log('Notifications')}>
           <Text style={styles.iconPlaceholder}>🔔</Text>
         </TouchableOpacity>
       </View>
-      
-      <View style={styles.searchContainer}>
+
+      {/* <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm kiếm khóa học..."
+            placeholder="Tìm kiếm..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor={COLORS.textLight}
@@ -112,41 +110,56 @@ const CourseListScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
+      </View> */}
+
+      {/* Nền riêng chỉ cho FlatList */}
+      <View style={{flex: 1}}>
+        {/* Nền ảnh */}
+        <WavyBackground />
+        <ImageBackground
+          source={backgroundImg}
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={{opacity: 0.4}} // có thể chỉnh độ mờ ảnh nền
+        />
+
+        <FlatList
+          data={filteredCourses}
+          keyExtractor={item => item.topic_code}
+          contentContainerStyle={styles.coursesList}
+          ListHeaderComponent={<View style={{height: 70}} />}
+          renderItem={({item, index}) => {
+            const offsetX = (index % 2 === 0 ? -1 : 1) * 70;
+            const offsetY = Math.sin(index) * 20;
+
+            return (
+              <View
+                style={{
+                  marginTop: index === 0 ? 40 : 0,
+                  transform: [{translateX: offsetX}, {translateY: offsetY}],
+                }}>
+                <CourseCard course={item} onPress={handleCoursePress} />
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {searchQuery.length > 0
+                  ? `Không tìm thấy khóa học cho "${searchQuery}"`
+                  : 'Chưa có khóa học nào'}
+              </Text>
+            </View>
+          }
+        />
       </View>
-      
-      {renderLevelFilter()}
-      
-      <FlatList
-        data={filteredCourses}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.coursesList}
-        renderItem={({ item }) => (
-          <CourseCard course={item} onPress={handleCoursePress} />
-        )}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              {searchQuery.length > 0
-                ? `Không tìm thấy khóa học cho "${searchQuery}"`
-                : 'Chưa có khóa học nào'}
-            </Text>
-          </View>
-        }
-      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  listBackground: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -158,6 +171,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.padding,
     paddingTop: SIZES.padding,
     paddingBottom: SIZES.padding / 2,
+    marginTop: 35, // 👈 thêm dòng này đâyr header xuống
   },
   headerTitle: {
     ...FONTS.bold,

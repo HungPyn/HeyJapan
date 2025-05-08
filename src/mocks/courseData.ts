@@ -3,56 +3,60 @@ import {Course, Lesson} from '../types';
 
 export const mockCourses: Course[] = [
   {
-    id: '1',
-    title: 'Tiếng Nhật cơ bản cho người mới bắt đầu',
-    description:
-      'Làm quen với bảng chữ cái Hiragana, Katakana và các câu chào hỏi cơ bản',
-    imageUrl: 'https://example.com/basic_course.jpg', // Sẽ thay thế bằng local image
-    level: 'beginner',
-    lessonsCount: 15,
-    duration: '4 tuần',
-    progress: 0,
+    topic_code: '1',
+    title: 'Cơ bản 1',
+    imageUrl: 'https://i.imgur.com/na3U2uk.png', // Sẽ thay thế bằng local image
+    levelCode: 'Cơ bản', // Cấp độ (Beginner)
+    quantityLesson: 10, // Số lượng bài học (ví dụ)
   },
   {
-    id: '2',
-    title: 'Ngữ pháp N5 - Nền tảng tiếng Nhật',
-    description: 'Học các cấu trúc ngữ pháp cơ bản trong kỳ thi JLPT N5',
-    imageUrl: 'https://example.com/n5_grammar.jpg',
-    level: 'beginner',
-    lessonsCount: 20,
-    duration: '6 tuần',
-    progress: 30,
+    topic_code: '2',
+    title: 'Cơ bản 2',
+    imageUrl: 'https://i.imgur.com/na3U2uk.png',
+    levelCode: 'Cơ bản',
+    quantityLesson: 8,
   },
   {
-    id: '3',
-    title: 'Từ vựng chủ đề đời sống hàng ngày',
-    description: 'Các từ vựng thông dụng về nhà cửa, ăn uống, giao thông...',
-    imageUrl: 'https://example.com/daily_vocab.jpg',
-    level: 'beginner',
-    lessonsCount: 12,
-    duration: '3 tuần',
-    progress: 75,
+    topic_code: '3',
+    title: 'Ngữ pháp',
+    imageUrl: 'https://i.imgur.com/R8WeIEv.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 12,
   },
   {
-    id: '4',
-    title: 'Luyện nghe tiếng Nhật giao tiếp',
-    description:
-      'Nâng cao kỹ năng nghe hiểu với các tình huống giao tiếp thực tế',
-    imageUrl: 'https://example.com/listening.jpg',
-    level: 'intermediate',
-    lessonsCount: 18,
-    duration: '5 tuần',
-    progress: 15,
+    topic_code: '4',
+    title: 'Trường học',
+    imageUrl: 'https://i.imgur.com/BI2iGmn.jpeg',
+    levelCode: 'Sơ cấp', // Cấp độ (Intermediate)
+    quantityLesson: 15,
   },
   {
-    id: '5',
-    title: 'Kanji N4 - 150 chữ Hán thông dụng',
-    description: 'Học và ghi nhớ 150 chữ Kanji trong kỳ thi JLPT N4',
-    imageUrl: 'https://example.com/n4_kanji.jpg',
-    level: 'intermediate',
-    lessonsCount: 24,
-    duration: '8 tuần',
-    progress: 0,
+    topic_code: '5',
+    title: 'Cây cối',
+    imageUrl: 'https://i.imgur.com/4NYSRPT.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 20,
+  },
+  {
+    topic_code: '6',
+    title: 'Công việc',
+    imageUrl: 'https://i.imgur.com/Q7zBfOg.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 12,
+  },
+  {
+    topic_code: '7',
+    title: 'Món ăn',
+    imageUrl: 'https://i.imgur.com/loLlsoi.png',
+    levelCode: 'Trung cấp', // Cấp độ (Intermediate)
+    quantityLesson: 15,
+  },
+  {
+    topic_code: '8',
+    title: 'Động vật',
+    imageUrl: 'https://i.imgur.com/CJQ8ooS.jpeg',
+    levelCode: 'Trung cấp',
+    quantityLesson: 20,
   },
 ];
 
@@ -60,7 +64,7 @@ export const mockLessons: Record<string, Lesson[]> = {
   '1': [
     {
       id: 'L1-1',
-      courseId: '1',
+      topic_code: '1',
       title: 'Bảng chữ cái Hiragana - Phần 1',
       description: 'Học cách đọc và viết các chữ cái Hiragana cơ bản (あ～こ)',
       type: 'writing',
@@ -70,7 +74,7 @@ export const mockLessons: Record<string, Lesson[]> = {
     },
     {
       id: 'L1-2',
-      courseId: '1',
+      topic_code: '1',
       title: 'Bảng chữ cái Hiragana - Phần 2',
       description:
         'Học cách đọc và viết các chữ cái Hiragana tiếp theo (さ～と)',
@@ -81,7 +85,7 @@ export const mockLessons: Record<string, Lesson[]> = {
     },
     {
       id: 'L1-3',
-      courseId: '1',
+      topic_code: '1',
       title: 'Bảng chữ cái Hiragana - Phần 3',
       description:
         'Học cách đọc và viết các chữ cái Hiragana tiếp theo (な～ほ)',
@@ -92,7 +96,7 @@ export const mockLessons: Record<string, Lesson[]> = {
     },
     {
       id: 'L1-4',
-      courseId: '1',
+      topic_code: '1',
       title: 'Bảng chữ cái Hiragana - Phần 4',
       description:
         'Học cách đọc và viết các chữ cái Hiragana cuối cùng (ま～ん)',
@@ -103,7 +107,7 @@ export const mockLessons: Record<string, Lesson[]> = {
     },
     {
       id: 'L1-5',
-      courseId: '1',
+      topic_code: '1',
       title: 'Lời chào và giới thiệu bản thân',
       description: 'Học cách chào hỏi và giới thiệu bản thân bằng tiếng Nhật',
       type: 'vocabulary',
@@ -115,7 +119,7 @@ export const mockLessons: Record<string, Lesson[]> = {
   '2': [
     {
       id: 'L2-1',
-      courseId: '2',
+      topic_code: '2',
       title: 'Cấu trúc câu cơ bản',
       description: 'Cấu trúc câu tiếng Nhật và thứ tự từ trong câu',
       type: 'grammar',
@@ -125,7 +129,7 @@ export const mockLessons: Record<string, Lesson[]> = {
     },
     {
       id: 'L2-2',
-      courseId: '2',
+      topic_code: '2',
       title: 'Đại từ nhân xưng',
       description: 'Các đại từ nhân xưng và cách sử dụng',
       type: 'grammar',
@@ -135,7 +139,7 @@ export const mockLessons: Record<string, Lesson[]> = {
     },
     {
       id: 'L2-3',
-      courseId: '2',
+      topic_code: '2',
       title: 'Từ chỉ định: この, その, あの, どの',
       description: 'Cách sử dụng các từ chỉ định trong tiếng Nhật',
       type: 'grammar',

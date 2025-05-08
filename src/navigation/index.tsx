@@ -18,7 +18,8 @@ import DictionaryScreen from '../screens/tools/DictionaryScreen';
 import FlashcardsScreen from '../screens/tools/FlashcardsScreen';
 
 import {COLORS} from '../constants/theme';
-import {AuthProvider, useAuth} from '../context/AuthContext';
+
+import {AuthProvider, useAuth} from '../screens/auth/AuthContext';
 
 // Định nghĩa các type cho navigation
 export type RootStackParamList = {
@@ -56,7 +57,11 @@ const CoursesStack = createStackNavigator<CoursesStackParamList>();
 
 // Tab icon component (thay thế cho vector icons)
 const TabIcon = ({iconText, focused}: {iconText: string; focused: boolean}) => (
-  <View style={{alignItems: 'center', justifyContent: 'center'}}>
+  <View
+    style={{
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
     <Text
       style={{
         fontSize: 20,
@@ -66,16 +71,18 @@ const TabIcon = ({iconText, focused}: {iconText: string; focused: boolean}) => (
     </Text>
     <Text
       style={{
-        fontSize: 12,
+        fontSize: 9,
         color: focused ? COLORS.primary : COLORS.textLight,
-        marginTop: 2,
-      }}>
+        marginTop: 3,
+        paddingTop: 2,
+      }}
+      numberOfLines={1}>
       {iconText === '📚'
         ? 'Khóa học'
         : iconText === '📖'
         ? 'Từ điển'
         : iconText === '🗂️'
-        ? 'Thẻ ghi nhớ'
+        ? 'Ghi nhớ'
         : 'Cá nhân'}
     </Text>
   </View>
@@ -86,6 +93,7 @@ const AuthNavigator = () => (
   <AuthStack.Navigator
     screenOptions={{
       headerShown: false,
+
       cardStyle: {backgroundColor: COLORS.background},
     }}>
     <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
@@ -113,6 +121,7 @@ const MainNavigator = () => (
   <MainTab.Navigator
     screenOptions={{
       headerShown: false,
+      tabBarShowLabel: false,
       tabBarStyle: {
         height: 60,
         paddingVertical: 5,

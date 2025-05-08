@@ -37,7 +37,7 @@ const LessonScreen: React.FC = () => {
   const {lessonId, courseId} = route.params;
 
   // Lấy thông tin khóa học và bài học từ mock data
-  const course = mockCourses.find(c => c.id === courseId);
+  const course = mockCourses.find(c => c.topic_code === courseId);
   const lessons = mockLessons[courseId] || [];
   const lesson = lessons.find(l => l.id === lessonId);
 
