@@ -8,12 +8,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme';
 import CustomButton from '../../components/common/CustomButton';
+import {useAuth} from '../auth/AuthContext';
 
 const ProfileScreen: React.FC = () => {
-  // Mock user data
+  const {logout} = useAuth(); // Lấy hàm logout từ AuthContext
+
+  // Dữ liệu người dùng mẫu
   const user = {
     name: 'Nguyễn Văn A',
     email: 'nguyenvana@gmail.com',
@@ -60,6 +64,30 @@ const ProfileScreen: React.FC = () => {
     },
     {title: 'Về ứng dụng', icon: 'ℹ️', action: () => console.log('About')},
   ];
+
+  // Hàm đăng xuất
+  // Hàm đăng xuất với confirm
+  const handleLogout = async () => {
+    Alert.alert(
+      'Xác nhận đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất?',
+      [
+        {
+          text: 'Hủy',
+          onPress: () => console.log('Đăng xuất bị hủy'),
+          style: 'cancel',
+        },
+        {
+          text: 'OK',
+          onPress: async () => {
+            await logout(); // Gọi hàm logout từ AuthContext để đăng xuất
+            // Có thể điều hướng về màn hình đăng nhập sau khi đăng xuất (nếu sử dụng react-navigation)
+          },
+        },
+      ],
+      {cancelable: false},
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -122,7 +150,7 @@ const ProfileScreen: React.FC = () => {
 
         <CustomButton
           title="Đăng xuất"
-          onPress={() => console.log('Logged out')}
+          onPress={handleLogout}
           type="outline"
           size="large"
           style={styles.logoutButton}
@@ -145,7 +173,6 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   headerTitle: {
-    paddingTop: 35,
     ...FONTS.bold,
     fontSize: SIZES.xxxLarge,
     color: COLORS.text,

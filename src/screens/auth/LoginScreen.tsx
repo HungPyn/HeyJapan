@@ -151,13 +151,6 @@ const LoginScreen: React.FC = () => {
                 type="outline"
                 style={styles.socialButton}
               />
-
-              <CustomButton
-                title="Facebook"
-                onPress={() => console.log('Facebook login pressed')}
-                type="outline"
-                style={styles.socialButton}
-              />
             </View>
           </View>
 
@@ -238,8 +231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   socialButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   socialButton: {
     flex: 0.48,
