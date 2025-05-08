@@ -123,13 +123,17 @@ const MainNavigator = () => (
       headerShown: false,
       tabBarShowLabel: false,
       tabBarStyle: {
-        height: 60,
+        height: 80,
         paddingVertical: 5,
         backgroundColor: COLORS.white,
         borderTopColor: COLORS.border,
+        paddingTop: 10,
       },
       tabBarActiveTintColor: COLORS.primary,
       tabBarInactiveTintColor: COLORS.textLight,
+      tabBarItemStyle: {
+        paddingHorizontal: 0,
+      },
     }}>
     <MainTab.Screen
       name="Courses"
