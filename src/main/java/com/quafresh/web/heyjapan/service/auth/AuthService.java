@@ -1,9 +1,9 @@
 package com.quafresh.web.heyjapan.service.auth;
 
-import com.quafresh.web.heyjapan.dto.user.auth.RequestLogin;
-import com.quafresh.web.heyjapan.dto.user.auth.RequestSignUp;
+
+import com.quafresh.web.heyjapan.dto.user.auth.SignUpRequest;
 
 public interface AuthService {
-    String register(RequestSignUp requestSignUp);
-    String login(RequestLogin requestLogin);
+    String register(SignUpRequest requestSignUp);
+    String login(SignUpRequest requestLogin);
 }

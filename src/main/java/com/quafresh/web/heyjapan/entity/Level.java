@@ -8,6 +8,7 @@ import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -29,9 +30,13 @@ public class Level {
     @Column(name = "quantity_topic")
     private Integer quantityTopic;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "day_creation")
-    private Instant dayCreation;
+    private LocalDateTime dayCreation;
+
+    @PrePersist
+    protected void onCreate() {
+        dayCreation = LocalDateTime.now();
+    }
 
     @OneToMany(mappedBy = "levelCode")
     private Set<com.quafresh.web.heyjapan.entity.Topic> topics = new LinkedHashSet<>();

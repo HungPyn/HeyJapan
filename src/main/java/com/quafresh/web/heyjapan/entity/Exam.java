@@ -6,8 +6,10 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -33,9 +35,13 @@ public class Exam {
     @Column(name = "quantity_question")
     private Integer quantityQuestion;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "day_creation")
-    private Instant dayCreation;
+    private LocalDateTime dayCreation;
+
+    @PrePersist
+    protected void onCreate() {
+        dayCreation = LocalDateTime.now();
+    }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topic_code")

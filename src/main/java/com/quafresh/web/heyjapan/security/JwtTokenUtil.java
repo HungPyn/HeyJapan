@@ -3,59 +3,103 @@ package com.quafresh.web.heyjapan.security;
 import com.quafresh.web.heyjapan.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtTokenUtil {
 
-    @Value("${jwt.secret}")
-    private String secretKey;
+    private static final Logger logger = LoggerFactory.getLogger(JwtTokenUtil.class);
 
-    @Value("${jwt.expiration}")
-    private long expiration;
+    @Value("${app.auth.jwt.secret}")
+    private String jwtSecret;
+
+    @Value("${app.auth.jwt.token-validity-in-seconds}")
+    private int jwtExpirationInMs;
 
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(User user) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("role", user.isUserRole() ? "ROLE_ADMIN" : "ROLE_USER");
+    public String createToken(Authentication authentication) {
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        // Lấy thông tin quyền và chuyển thành chuỗi
+        String roles = userPrincipal.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .collect(Collectors.joining(","));
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs * 1000);
 
         return Jwts.builder()
-                .setSubject(user.getEmail())
-                .setClaims(claims)
+                .setSubject(userPrincipal.getId().toString())
+                .claim("roles", roles)  // Thêm thông tin quyền vào token
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .setExpiration(expiryDate)
+                .signWith(getSigningKey())
                 .compact();
     }
 
-    public String getUsernameFromToken(String token) {
-        return getClaimsFromToken(token).getSubject();
-    }
-
-    public String getRoleFromToken(String token) {
-        return getClaimsFromToken(token).get("role", String.class);
-    }
-
-    public Claims getClaimsFromToken(String token) {
-        return Jwts.parserBuilder()
+    public String getUserIdFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+
+        return claims.getSubject();
     }
 
-    public boolean isTokenExpired(String token) {
-        Date expiration = getClaimsFromToken(token).getExpiration();
-        return expiration.before(new Date());
+    // Thêm phương thức để đọc thông tin quyền từ token
+    public List<GrantedAuthority> getAuthoritiesFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        String roles = claims.get("roles", String.class);
+        if (roles == null || roles.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return Arrays.stream(roles.split(","))
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
+    }
+
+    public boolean validateToken(String authToken) {
+        try {
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(authToken);
+            return true;
+        } catch (SignatureException ex) {
+            logger.error("Invalid JWT signature");
+        } catch (MalformedJwtException ex) {
+            logger.error("Invalid JWT token");
+        } catch (ExpiredJwtException ex) {
+            logger.error("Expired JWT token");
+        } catch (UnsupportedJwtException ex) {
+            logger.error("Unsupported JWT token");
+        } catch (IllegalArgumentException ex) {
+            logger.error("JWT claims string is empty.");
+        }
+        return false;
     }
 }

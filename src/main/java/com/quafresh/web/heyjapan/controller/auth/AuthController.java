@@ -1,28 +1,77 @@
 package com.quafresh.web.heyjapan.controller.auth;
 
-import com.quafresh.web.heyjapan.dto.user.auth.RequestLogin;
-import com.quafresh.web.heyjapan.dto.user.auth.RequestSignUp;
-import com.quafresh.web.heyjapan.service.auth.AuthService;
-import com.quafresh.web.heyjapan.service.auth.impl.AuthServiceImpl;
-import jakarta.validation.Valid;
+import com.quafresh.web.heyjapan.dto.user.auth.ApiResponse;
+import com.quafresh.web.heyjapan.dto.user.auth.AuthResponse;
+import com.quafresh.web.heyjapan.dto.user.auth.LoginRequest;
+import com.quafresh.web.heyjapan.dto.user.auth.SignUpRequest;
+import com.quafresh.web.heyjapan.entity.AuthProvider;
+import com.quafresh.web.heyjapan.entity.User;
+import com.quafresh.web.heyjapan.repository.UserRepository;
+import com.quafresh.web.heyjapan.security.JwtTokenUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import jakarta.validation.Valid;
+import java.net.URI;
+import java.util.UUID;
 
 @RestController
+@RequestMapping("/test")
 @RequiredArgsConstructor
-@RequestMapping("/api/auth")
 public class AuthController {
-    private final AuthService authService;
-    @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody @Valid RequestSignUp requestSignUp) {
-        authService.register(requestSignUp);
-        return ResponseEntity.ok("Đăng ký tài khoản thành công");
-    }
+
+    private final AuthenticationManager authenticationManager;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenUtil tokenProvider;
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody RequestLogin requestLogin) {
-        String token = authService.login(requestLogin);
-        return ResponseEntity.ok(token);
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.getEmail(),
+                        loginRequest.getPassword()
+                )
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String token = tokenProvider.createToken(authentication);
+
+        return ResponseEntity.ok(new AuthResponse(token));
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<?> registerUser(@Valid @RequestBody SignUpRequest signUpRequest) {
+        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse(false, "Email is already taken!"));
+        }
+
+        // Tạo tài khoản người dùng
+        User user = new User();
+        user.setUserCode(UUID.randomUUID().toString());
+        user.setName(signUpRequest.getName());
+        user.setEmail(signUpRequest.getEmail());
+        user.setUserPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+        user.setProvider(AuthProvider.LOCAL);
+
+        User result = userRepository.save(user);
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath().path("/user/me")
+                .buildAndExpand(result.getUserCode()).toUri();
+
+        return ResponseEntity.created(location)
+                .body(new ApiResponse(true, "User registered successfully"));
     }
 }

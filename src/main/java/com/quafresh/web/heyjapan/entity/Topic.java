@@ -8,6 +8,7 @@ import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -33,9 +34,13 @@ public class Topic {
     @Column(name = "quantity_lesson")
     private Integer quantityLesson;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "day_creation")
-    private Instant dayCreation;
+    private LocalDateTime dayCreation;
+
+    @PrePersist
+    protected void onCreate() {
+        dayCreation = LocalDateTime.now();
+    }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "level_code")
