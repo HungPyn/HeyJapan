@@ -1,24 +1,27 @@
 // src/screens/auth/ForgotPasswordScreen.tsx
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import React, {useState} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert
+  Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { AuthStackParamList } from '../../navigation';
-import { COLORS, FONTS, SIZES } from '../../constants/theme';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {AuthStackParamList} from '../../navigation';
+import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import CustomButton from '../../components/common/CustomButton';
 import CustomTextInput from '../../components/common/CustomTextInput';
 import Header from '../../components/common/Header';
 
-type ForgotPasswordScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
+type ForgotPasswordScreenNavigationProp = StackNavigationProp<
+  AuthStackParamList,
+  'ForgotPassword'
+>;
 
 const ForgotPasswordScreen: React.FC = () => {
   const navigation = useNavigation<ForgotPasswordScreenNavigationProp>();
@@ -29,7 +32,7 @@ const ForgotPasswordScreen: React.FC = () => {
   const handleResetPassword = () => {
     // Reset error
     setError('');
-    
+
     // Kiểm tra email
     if (!email) {
       setError('Email không được để trống');
@@ -38,11 +41,11 @@ const ForgotPasswordScreen: React.FC = () => {
       setError('Email không hợp lệ');
       return;
     }
-    
+
     // Giả lập gửi email khôi phục mật khẩu
     console.log('Reset password requested for email: ', email);
     setIsSent(true);
-    
+
     // Hiển thị thông báo
     Alert.alert(
       'Gửi thành công',
@@ -50,29 +53,28 @@ const ForgotPasswordScreen: React.FC = () => {
       [
         {
           text: 'OK',
-          onPress: () => navigation.navigate('Login')
-        }
-      ]
+          onPress: () => navigation.navigate('Login'),
+        },
+      ],
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Header title="Quên mật khẩu" />
-      
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidingView}
-      >
+        style={styles.keyboardAvoidingView}>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
-          showsVerticalScrollIndicator={false}
-        >
+          showsVerticalScrollIndicator={false}>
           <Text style={styles.titleText}>Khôi phục mật khẩu</Text>
           <Text style={styles.subtitleText}>
-            Vui lòng nhập địa chỉ email đã đăng ký. Chúng tôi sẽ gửi cho bạn hướng dẫn để đặt lại mật khẩu.
+            Vui lòng nhập địa chỉ email đã đăng ký. Chúng tôi sẽ gửi cho bạn
+            hướng dẫn để đặt lại mật khẩu.
           </Text>
-          
+
           <View style={styles.formContainer}>
             <CustomTextInput
               label="Email"
@@ -83,7 +85,7 @@ const ForgotPasswordScreen: React.FC = () => {
               onChangeText={setEmail}
               error={error}
             />
-            
+
             <CustomButton
               title="Gửi hướng dẫn khôi phục"
               onPress={handleResetPassword}
@@ -92,12 +94,12 @@ const ForgotPasswordScreen: React.FC = () => {
               style={styles.resetButton}
               loading={isSent}
             />
-            
+
             <CustomButton
               title="Quay lại đăng nhập"
               onPress={() => navigation.navigate('Login')}
               type="text"
-              size="medium"
+              size="large"
               style={styles.backButton}
             />
           </View>
@@ -140,6 +142,7 @@ const styles = StyleSheet.create({
   resetButton: {
     marginTop: 10,
     marginBottom: 20,
+    borderRadius: 50,
   },
   backButton: {
     marginTop: 10,

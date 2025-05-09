@@ -19,6 +19,7 @@ import CustomButton from '../../components/common/CustomButton';
 import CustomTextInput from '../../components/common/CustomTextInput';
 import Header from '../../components/common/Header';
 import axios from 'axios';
+import {Image} from 'react-native';
 
 type SignUpScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -130,31 +131,34 @@ const SignUpScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Đăng ký" />
-
+      <Image
+        source={require('../../assets/images/Logo.png')} // chỉnh đường dẫn nếu cần
+        style={{
+          width: 110,
+          height: 110,
+          alignSelf: 'center',
+          justifyContent: 'flex-end',
+          marginTop: 100,
+        }}
+        resizeMode="contain"
+      />
+      <View style={{height: 30}} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}>
-          <Text style={styles.welcomeText}>Tạo tài khoản mới</Text>
-          <Text style={styles.subtitleText}>
-            Hãy bắt đầu hành trình học tiếng Nhật của bạn
-          </Text>
-
           <View style={styles.formContainer}>
             <CustomTextInput
-              label="Họ tên"
-              placeholder="Nhập họ tên của bạn"
+              placeholder="Tên người dùng"
               value={fullName}
               onChangeText={setFullName}
               error={errors.fullName}
             />
 
             <CustomTextInput
-              label="Email"
-              placeholder="Nhập địa chỉ email của bạn"
+              placeholder="Email"
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -163,8 +167,7 @@ const SignUpScreen: React.FC = () => {
             />
 
             <CustomTextInput
-              label="Mật khẩu"
-              placeholder="Tạo mật khẩu (ít nhất 6 ký tự)"
+              placeholder="Mật khẩu (ít nhất 6 ký tự)"
               secureTextEntry
               showTogglePassword
               value={password}
@@ -173,7 +176,6 @@ const SignUpScreen: React.FC = () => {
             />
 
             <CustomTextInput
-              label="Xác nhận mật khẩu"
               placeholder="Nhập lại mật khẩu"
               secureTextEntry
               showTogglePassword
@@ -189,21 +191,6 @@ const SignUpScreen: React.FC = () => {
               size="large"
               style={styles.signUpButton}
             />
-
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Hoặc đăng ký với</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <View style={styles.socialButtonsContainer}>
-              <CustomButton
-                title="Google"
-                onPress={() => console.log('Google sign up pressed')}
-                type="outline"
-                style={styles.socialButton}
-              />
-            </View>
           </View>
 
           <View style={styles.loginContainer}>
@@ -256,7 +243,7 @@ const styles = StyleSheet.create({
   },
   signUpButton: {
     marginTop: 10,
-    marginBottom: 20,
+    borderRadius: 50,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -285,17 +272,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 'auto',
-    paddingTop: 20,
+    paddingTop: 0,
   },
   loginText: {
     ...FONTS.regular,
     fontSize: SIZES.medium,
-    color: COLORS.textLight,
+    color: COLORS.black,
   },
   loginLink: {
     ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.primary,
+    fontSize: SIZES.large,
+    color: COLORS.black,
+    fontWeight: 'bold',
   },
   termsText: {
     ...FONTS.regular,

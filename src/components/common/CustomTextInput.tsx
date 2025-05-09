@@ -1,5 +1,6 @@
 // src/components/common/CustomTextInput.tsx
 import React, {useState} from 'react';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import {
   View,
   TextInput,
@@ -50,9 +51,11 @@ const CustomTextInput: React.FC<CustomTextInputProps> = ({
         <TouchableOpacity
           style={styles.togglePasswordButton}
           onPress={togglePasswordVisibility}>
-          <Text style={styles.togglePasswordText}>
-            {isPasswordVisible ? 'Ẩn' : 'Hiện'}
-          </Text>
+          <Ionicons
+            name={isPasswordVisible ? 'eye-off' : 'eye'}
+            size={24}
+            color="#333"
+          />
         </TouchableOpacity>
       );
     }

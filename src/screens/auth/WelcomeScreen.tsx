@@ -1,21 +1,24 @@
 // src/screens/auth/WelcomeScreen.tsx
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ImageBackground, 
-  Image, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ImageBackground,
+  Image,
   StatusBar,
-  SafeAreaView 
+  SafeAreaView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { AuthStackParamList } from '../../navigation';
-import { COLORS, FONTS, SIZES } from '../../constants/theme';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {AuthStackParamList} from '../../navigation';
+import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import CustomButton from '../../components/common/CustomButton';
 
-type WelcomeScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Welcome'>;
+type WelcomeScreenNavigationProp = StackNavigationProp<
+  AuthStackParamList,
+  'Welcome'
+>;
 
 const WelcomeScreen: React.FC = () => {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
@@ -30,26 +33,29 @@ const WelcomeScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
-      
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle="dark-content"
+      />
+
       <ImageBackground
-        source={{ uri: 'https://example.com/background.jpg' }}
+        source={{uri: 'https://example.com/background.jpg'}}
         style={styles.backgroundImage}
-        resizeMode="cover"
-      >
+        resizeMode="cover">
         <SafeAreaView style={styles.content}>
           <View style={styles.logoContainer}>
-            <Image 
-              source={{ uri: 'https://example.com/logo.png' }}
+            <Image
+              source={require('../../assets/images/Logo.png')} // chỉnh đường dẫn nếu cần
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.appName}>Sakura Nihongo</Text>
+            <Text style={styles.appName}>JaVis</Text>
             <Text style={styles.appSlogan}>
-              Học tiếng Nhật hiệu quả cùng với Sakura Nihongo
+              Học tiếng Nhật hiệu quả cùng với JaVis
             </Text>
           </View>
-          
+
           <View style={styles.buttonContainer}>
             <CustomButton
               title="Đăng nhập"
@@ -58,7 +64,7 @@ const WelcomeScreen: React.FC = () => {
               size="large"
               style={styles.loginButton}
             />
-            
+
             <CustomButton
               title="Đăng ký"
               onPress={handleSignUp}
@@ -66,11 +72,12 @@ const WelcomeScreen: React.FC = () => {
               size="large"
               style={styles.signUpButton}
             />
-            
+
             <Text style={styles.termsText}>
               Bằng cách tiếp tục, bạn đồng ý với các{' '}
               <Text style={styles.termsLink}>Điều khoản sử dụng</Text> và{' '}
-              <Text style={styles.termsLink}>Chính sách bảo mật</Text> của chúng tôi.
+              <Text style={styles.termsLink}>Chính sách bảo mật</Text> của chúng
+              tôi.
             </Text>
           </View>
         </SafeAreaView>
@@ -120,15 +127,18 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     marginBottom: 12,
+    borderRadius: 50,
   },
   signUpButton: {
-    marginBottom: 20,
+    marginBottom: 180,
+    borderRadius: 50,
   },
   termsText: {
     ...FONTS.regular,
     fontSize: SIZES.small,
     color: COLORS.textLight,
     textAlign: 'center',
+    paddingBottom: 20,
   },
   termsLink: {
     ...FONTS.medium,

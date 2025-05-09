@@ -1,4 +1,3 @@
-// src/components/common/CustomButton.tsx
 import React from 'react';
 import {
   TouchableOpacity,
@@ -20,6 +19,7 @@ interface CustomButtonProps {
   loading?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  titleStyle?: TextStyle; // Thêm titleStyle vào đây
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
 }
@@ -33,6 +33,7 @@ const CustomButton: React.FC<CustomButtonProps> = ({
   loading = false,
   style,
   textStyle,
+  titleStyle, // Thêm titleStyle vào đây
   icon,
   iconPosition = 'left',
 }) => {
@@ -128,7 +129,9 @@ const CustomButton: React.FC<CustomButtonProps> = ({
       );
     }
 
-    const buttonText = <Text style={[getTextStyle(), textStyle]}>{title}</Text>;
+    const buttonText = (
+      <Text style={[getTextStyle(), textStyle, titleStyle]}>{title}</Text> // Thêm titleStyle ở đây
+    );
 
     if (icon) {
       return (

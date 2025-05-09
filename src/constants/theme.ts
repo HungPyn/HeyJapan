@@ -17,6 +17,7 @@ export const COLORS = {
   disabled: '#CCCCCC', // Bị vô hiệu hóa
   white: '#FFFFFF',
   black: '#000000',
+  gray: '#808080',
   transparent: 'transparent',
 };
 

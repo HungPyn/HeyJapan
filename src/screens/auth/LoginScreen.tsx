@@ -18,6 +18,7 @@ import CustomButton from '../../components/common/CustomButton';
 import CustomTextInput from '../../components/common/CustomTextInput';
 import Header from '../../components/common/Header';
 import {useAuth} from './AuthContext';
+import {Image} from 'react-native';
 
 type LoginScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -90,33 +91,41 @@ const LoginScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Đăng nhập" />
-
+      <Image
+        source={require('../../assets/images/Logo.png')} // chỉnh đường dẫn nếu cần
+        style={{
+          width: 130,
+          height: 130,
+          alignSelf: 'center',
+          justifyContent: 'flex-end',
+          marginTop: 150,
+        }}
+        resizeMode="contain"
+      />
+      <View style={{height: 30}} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}>
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}>
-          <Text style={styles.welcomeText}>Chào mừng trở lại</Text>
-          <Text style={styles.subtitleText}>
-            Vui lòng đăng nhập để tiếp tục
-          </Text>
-
           <View style={styles.formContainer}>
             <CustomTextInput
-              label="Email"
-              placeholder="Nhập địa chỉ email của bạn"
+              placeholder="Email"
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
               error={errors.email}
+              style={{
+                borderRadius: 50,
+                paddingHorizontal: 15,
+                paddingVertical: 10,
+              }}
             />
 
             <CustomTextInput
-              label="Mật khẩu"
-              placeholder="Nhập mật khẩu của bạn"
+              placeholder="Mật khẩu"
               secureTextEntry
               showTogglePassword
               value={password}
@@ -138,34 +147,38 @@ const LoginScreen: React.FC = () => {
               style={styles.loginButton}
             />
 
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>Hoặc đăng nhập với</Text>
-              <View style={styles.dividerLine} />
+            <View style={styles.signUpContainer}>
+              <Text style={styles.signUpText}>Bạn có tài khoản chưa? </Text>
+              <TouchableOpacity onPress={handleSignUp}>
+                <Text style={styles.signUpLink}>Đăng ký</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.socialButtonsContainer}>
               <CustomButton
-                title="Google"
+                title="Đăng nhập bằng Google"
                 onPress={() => console.log('Google login pressed')}
                 type="outline"
-                style={styles.socialButton}
+                style={{
+                  ...styles.socialButton, // Kết hợp style từ socialButton
+                  borderColor: COLORS.gray,
+                  height: 50,
+                  // Thêm borderColor mới
+                }}
+                titleStyle={{color: 'black'}}
+                icon={
+                  <Image
+                    source={require('../../assets/images/googleLogo.jpg')}
+                    style={{width: 20, height: 20}}
+                  />
+                }
               />
             </View>
           </View>
 
-          <View style={styles.signUpContainer}>
-            <Text style={styles.signUpText}>Bạn chưa có tài khoản? </Text>
-            <TouchableOpacity onPress={handleSignUp}>
-              <Text style={styles.signUpLink}>Đăng ký ngay</Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Thêm gợi ý tài khoản test */}
           <View style={styles.testAccountContainer}>
-            <Text style={styles.testAccountText}>
-              Tài khoản test: test@example.com / password123
-            </Text>
+            <Text style={styles.testAccountText}></Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -174,6 +187,13 @@ const LoginScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  input: {
+    height: 50,
+    borderWidth: 1, // Đặt độ dày viền
+    borderRadius: 50, // Bo góc input
+    paddingLeft: 10, // Thêm padding bên trái
+    borderColor: '#A7E57D', // Màu viền mặc định (xanh dương)
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -203,16 +223,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotPasswordContainer: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     marginBottom: 20,
   },
   forgotPasswordText: {
     ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.primary,
+    fontSize: SIZES.large,
+    color: COLORS.error,
   },
   loginButton: {
     marginBottom: 30,
+    borderRadius: 50,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -235,6 +256,7 @@ const styles = StyleSheet.create({
   },
   socialButton: {
     flex: 0.48,
+    borderRadius: 50,
   },
   signUpContainer: {
     flexDirection: 'row',
@@ -246,12 +268,13 @@ const styles = StyleSheet.create({
   signUpText: {
     ...FONTS.regular,
     fontSize: SIZES.medium,
-    color: COLORS.textLight,
+    color: COLORS.black,
   },
   signUpLink: {
     ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.primary,
+    fontSize: SIZES.large,
+    color: COLORS.error,
+    fontWeight: 'bold',
   },
   testAccountContainer: {
     alignItems: 'center',
