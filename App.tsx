@@ -3,6 +3,7 @@ import React, {useEffect} from 'react';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/index';
 import SplashScreen from 'react-native-splash-screen';
+import FlashMessage from 'react-native-flash-message';
 
 const App = () => {
   // 3. Sử dụng useEffect để ẩn SplashScreen
@@ -15,6 +16,7 @@ const App = () => {
   return (
     <SafeAreaProvider>
       <AppNavigator />
+      <FlashMessage position="center" />
     </SafeAreaProvider>
   );
 };

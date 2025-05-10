@@ -1,389 +1,267 @@
-// src/screens/tools/DictionaryScreen.tsx
-import React, {useState} from 'react';
+// src/screens/theo_doi/FollowScreen.tsx (Hoặc đường dẫn bạn chọn)
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
-  TextInput,
-  TouchableOpacity,
   ScrollView,
-  FlatList,
+  TouchableOpacity,
+  Image, // Image component đã có sẵn
+  ImageBackground,
+  StatusBar,
+  FlatList, // Sử dụng FlatList cho hiệu năng
 } from 'react-native';
-import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme';
+import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme'; // Đảm bảo đường dẫn đúng
 
-// Định nghĩa type cho từ điển
-interface DictionaryItem {
-  id: string;
-  japanese: string;
-  furigana: string;
-  vietnamese: string;
-  partOfSpeech: string;
-  examples: {
-    japanese: string;
-    furigana: string;
-    vietnamese: string;
-  }[];
+// Định nghĩa Type cho Course
+interface Course {
+  topic_code: string;
+  title: string;
+  imageUrl: string;
+  levelCode: string;
+  quantityLesson: number;
 }
 
-// Mock data cho từ điển
-const mockDictionaryResults: DictionaryItem[] = [
+// Dữ liệu mockCourses bạn cung cấp
+export const mockCourses: Course[] = [
   {
-    id: '1',
-    japanese: '日本語',
-    furigana: 'にほんご',
-    vietnamese: 'Tiếng Nhật',
-    partOfSpeech: 'Danh từ',
-    examples: [
-      {
-        japanese: '私は日本語を勉強しています。',
-        furigana: 'わたしはにほんごをべんきょうしています。',
-        vietnamese: 'Tôi đang học tiếng Nhật.',
-      },
-    ],
+    topic_code: '1',
+    title: 'Cơ bản 1',
+    imageUrl: 'https://i.imgur.com/na3U2uk.png',
+    levelCode: 'Cơ bản',
+    quantityLesson: 10,
   },
   {
-    id: '2',
-    japanese: '勉強する',
-    furigana: 'べんきょうする',
-    vietnamese: 'Học tập',
-    partOfSpeech: 'Động từ',
-    examples: [
-      {
-        japanese: '毎日勉強しています。',
-        furigana: 'まいにちべんきょうしています。',
-        vietnamese: 'Tôi học tập mỗi ngày.',
-      },
-    ],
+    topic_code: '2',
+    title: 'Cơ bản 2',
+    imageUrl: 'https://i.imgur.com/na3U2uk.png',
+    levelCode: 'Cơ bản',
+    quantityLesson: 8,
   },
   {
-    id: '3',
-    japanese: '先生',
-    furigana: 'せんせい',
-    vietnamese: 'Giáo viên',
-    partOfSpeech: 'Danh từ',
-    examples: [
-      {
-        japanese: '彼は日本語の先生です。',
-        furigana: 'かれはにほんごのせんせいです。',
-        vietnamese: 'Anh ấy là giáo viên tiếng Nhật.',
-      },
-    ],
+    topic_code: '3',
+    title: 'Ngữ pháp',
+    imageUrl: 'https://i.imgur.com/R8WeIEv.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 12,
+  },
+  {
+    topic_code: '4',
+    title: 'Trường học',
+    imageUrl: 'https://i.imgur.com/BI2iGmn.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 15,
+  },
+  {
+    topic_code: '5',
+    title: 'Cây cối',
+    imageUrl: 'https://i.imgur.com/4NYSRPT.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 20,
+  },
+  {
+    topic_code: '6',
+    title: 'Công việc',
+    imageUrl: 'https://i.imgur.com/Q7zBfOg.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 12,
+  },
+  {
+    topic_code: '7',
+    title: 'Món ăn',
+    imageUrl: 'https://i.imgur.com/loLlsoi.png',
+    levelCode: 'Trung cấp',
+    quantityLesson: 15,
+  },
+  {
+    topic_code: '8',
+    title: 'Động vật',
+    imageUrl: 'https://i.imgur.com/CJQ8ooS.jpeg',
+    levelCode: 'Trung cấp',
+    quantityLesson: 20,
+  },
+  {
+    topic_code: '0',
+    title: 'Bảng chữ cái',
+    imageUrl: 'https://i.imgur.com/oVacZ4F.png', // Ví dụ một URL ảnh khác
+    levelCode: 'Sơ cấp',
+    quantityLesson: 5,
   },
 ];
 
-const DictionaryScreen: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<DictionaryItem[]>(
-    mockDictionaryResults,
-  );
-  const [selectedItem, setSelectedItem] = useState<DictionaryItem | null>(null);
+// << THAY ĐỔIỞ ĐÂY: Component để hiển thị hình ảnh từ imageUrl >>
+const CourseItemImage = ({imageUrl}: {imageUrl: string}) => (
+  <Image
+    source={{uri: imageUrl}}
+    style={styles.itemImage}
+    resizeMode="cover" // Hoặc "contain" tùy theo ảnh của bạn và style bạn muốn
+  />
+);
 
-  const handleSearch = () => {
-    // Mô phỏng tìm kiếm từ điển
-    if (searchQuery.trim() === '') {
-      setSearchResults(mockDictionaryResults);
-    } else {
-      const filteredResults = mockDictionaryResults.filter(
-        item =>
-          item.japanese.includes(searchQuery) ||
-          item.furigana.includes(searchQuery) ||
-          item.vietnamese.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-      setSearchResults(filteredResults);
-    }
-    setSelectedItem(null);
+const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
+  const handleItemPress = (course: Course) => {
+    console.log(`Đã chọn khóa học: ${course.title}, ID: ${course.topic_code}`);
+    // Ví dụ điều hướng:
+    // navigation.navigate('CourseDetailScreen', { courseId: course.topic_code });
   };
 
-  const handleSelectItem = (item: DictionaryItem) => {
-    setSelectedItem(item);
+  const handleMenuPress = () => {
+    console.log('Menu button pressed');
+    // if (navigation && navigation.openDrawer) navigation.openDrawer();
   };
 
-  const renderDictionaryItem = ({item}: {item: DictionaryItem}) => (
+  const renderCourseItem = ({item}: {item: Course}) => (
     <TouchableOpacity
-      style={[
-        styles.dictionaryItem,
-        selectedItem?.id === item.id && styles.selectedDictionaryItem,
-      ]}
-      onPress={() => handleSelectItem(item)}>
-      <View style={styles.dictionaryItemHeader}>
-        <Text style={styles.japaneseText}>{item.japanese}</Text>
-        <Text style={styles.partOfSpeech}>{item.partOfSpeech}</Text>
-      </View>
-      <Text style={styles.furiganaText}>{item.furigana}</Text>
-      <Text style={styles.vietnameseText}>{item.vietnamese}</Text>
+      style={styles.trackItem}
+      onPress={() => handleItemPress(item)}>
+      {/* << THAY ĐỔI Ở ĐÂY: Sử dụng CourseItemImage và truyền imageUrl >> */}
+      <CourseItemImage imageUrl={item.imageUrl} />
+      <Text style={styles.trackItemText}>{item.title}</Text>
+      {/* Bạn có thể thêm thông tin khác như số bài học hoặc cấp độ ở đây nếu muốn */}
+      {/* <Text style={styles.itemDetails}>{item.levelCode} - {item.quantityLesson} bài</Text> */}
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Từ điển Nhật-Việt</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm từ tiếng Nhật hoặc tiếng Việt"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-            <Text style={styles.searchIcon}>🔍</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.contentContainer}>
-        {searchResults.length > 0 ? (
-          <View style={styles.resultsContainer}>
-            <FlatList
-              data={searchResults}
-              renderItem={renderDictionaryItem}
-              keyExtractor={item => item.id}
-              style={[
-                styles.resultsList,
-                {
-                  flex: selectedItem ? 0.4 : 1,
-                  marginBottom: selectedItem ? 10 : 0,
-                },
-              ]}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ImageBackground
+        source={require('../../assets/images/nen3.jpg')}
+        style={StyleSheet.absoluteFillObject}
+        imageStyle={{opacity: 0.3}}
+        resizeMode="cover">
+        <View style={styles.container}>
+          {/* Header Section */}
+          <View style={styles.header}>
+            <Image
+              source={require('../../assets/images/Logo.png')}
+              style={styles.avatar}
             />
-
-            {selectedItem && (
-              <View style={styles.detailsContainer}>
-                <View style={styles.detailsHeader}>
-                  <Text style={styles.detailsJapanese}>
-                    {selectedItem.japanese}
-                  </Text>
-                  <Text style={styles.detailsFurigana}>
-                    {selectedItem.furigana}
-                  </Text>
-                  <Text style={styles.detailsVietnamese}>
-                    {selectedItem.vietnamese}
-                  </Text>
-                  <Text style={styles.detailsPartOfSpeech}>
-                    {selectedItem.partOfSpeech}
-                  </Text>
-                </View>
-
-                <View style={styles.examplesContainer}>
-                  <Text style={styles.examplesTitle}>Ví dụ:</Text>
-                  {selectedItem.examples.map((example, index) => (
-                    <View key={index} style={styles.exampleItem}>
-                      <Text style={styles.exampleJapanese}>
-                        {example.japanese}
-                      </Text>
-                      <Text style={styles.exampleFurigana}>
-                        {example.furigana}
-                      </Text>
-                      <Text style={styles.exampleVietnamese}>
-                        {example.vietnamese}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Tiếng Nhật mới bắt đầu</Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleMenuPress}
+              style={[
+                styles.menuButton,
+                {
+                  backgroundColor: COLORS.primary,
+                  borderRadius: 50, // hoặc 50 nếu muốn tròn nhưng không quá to
+                  padding: 10,
+                  paddingTop: 3, // thêm padding để icon không bị dính mép
+                  paddingBottom: 3,
+                },
+              ]}>
+              <Text style={{fontSize: 24, color: 'white'}}>☰</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.noResultsContainer}>
-            <Text style={styles.noResultsText}>Không tìm thấy kết quả nào</Text>
-            <Text style={styles.noResultsSubText}>
-              Hãy thử tìm kiếm với từ khóa khác
-            </Text>
-          </View>
-        )}
-      </View>
+
+          {/* Course Items Section */}
+          <FlatList // Sử dụng FlatList thay cho ScrollView + map để tối ưu hiệu năng
+            data={mockCourses} // Sử dụng dữ liệu mockCourses
+            renderItem={renderCourseItem}
+            keyExtractor={item => item.topic_code} // Sử dụng topic_code làm key
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  container: {
+    flex: 1,
+  },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.padding,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingVertical: SIZES.padding * 0.75,
+    marginTop: StatusBar.currentHeight || 20,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: COLORS.primary, // Màu xanh lá
+    paddingHorizontal: SIZES.padding * 1.5,
+    paddingVertical: SIZES.padding * 0.5,
+    borderRadius: SIZES.radius * 3,
+    marginHorizontal: SIZES.padding,
   },
   headerTitle: {
-    paddingTop: 35,
-    ...FONTS.bold,
-    fontSize: SIZES.xxxLarge,
-    color: COLORS.text,
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontSize: SIZES.large, // Điều chỉnh kích thước cho phù hợp
+    fontWeight: 'bold',
+    color: COLORS.white,
   },
-  searchContainer: {
-    padding: SIZES.padding,
-    backgroundColor: COLORS.white,
+  menuButton: {
+    padding: SIZES.padding * 0.5,
   },
-  searchInputContainer: {
+  scrollView: {
+    // Style này giờ áp dụng cho FlatList
+    flex: 1,
+  },
+  scrollViewContent: {
+    // Style này cho contentContainer của FlatList
+    paddingHorizontal: SIZES.padding * 1.5,
+    paddingTop: SIZES.padding,
+    paddingBottom: SIZES.padding * 2,
+  },
+  trackItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 15,
+    backgroundColor: COLORS.nenItem,
+    padding: SIZES.padding * 0.2, // Điều chỉnh padding cho item
+    borderRadius: SIZES.radius * 1.5,
+
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
+    marginBottom: SIZES.margin,
+
+    // Thêm shadow nếu muốn
+    // shadowColor: "#000",
+    // shadowOffset: { width: 0, height: 1 },
+    // shadowOpacity: 0.18,
+    // shadowRadius: 1.00,
+    // elevation: 1,
   },
-  searchInput: {
-    flex: 1,
-    height: 50,
-    color: COLORS.text,
-    ...FONTS.regular,
-    fontSize: SIZES.medium,
+  // << THÊM MỚI: Style cho Image của mỗi item >>
+  itemImage: {
+    width: 48, // Kích thước ảnh (điều chỉnh cho giống "manTheoDoi.png")
+    height: 48,
+    borderRadius: 10, // Bo tròn nếu ảnh của bạn là vuông và muốn nó tròn
+    marginRight: SIZES.padding * 1.5,
+    backgroundColor: COLORS.gray, // Màu nền tạm thời khi ảnh đang tải
   },
-  searchButton: {
-    padding: 10,
+  // itemIconText style cũ có thể không cần nữa nếu bạn luôn dùng ảnh
+  // itemIconText: {
+  //   fontSize: SIZES.h1,
+  //   marginRight: SIZES.padding * 1.5,
+  // },
+  trackItemText: {
+    fontFamily: FONTS.medium?.fontFamily || 'System',
+    fontSize: SIZES.medium * 1.15, // Tăng kích thước chữ một chút
+    color: COLORS.black,
+    flex: 1, // Cho phép text co giãn
   },
-  searchIcon: {
-    fontSize: 20,
-    color: COLORS.primary,
-  },
-  contentContainer: {
-    flex: 1,
-    padding: SIZES.padding,
-  },
-  resultsContainer: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-  resultsList: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    ...SHADOWS.medium,
-  },
-  dictionaryItem: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  selectedDictionaryItem: {
-    backgroundColor: COLORS.card,
-  },
-  dictionaryItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  japaneseText: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.text,
-  },
-  partOfSpeech: {
-    ...FONTS.regular,
-    fontSize: SIZES.xSmall,
-    color: COLORS.textLight,
-    backgroundColor: COLORS.border,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  furiganaText: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.textLight,
-    marginBottom: 5,
-  },
-  vietnameseText: {
-    ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.primary,
-  },
-  detailsContainer: {
-    flex: 0.6,
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    ...SHADOWS.medium,
-  },
-  detailsHeader: {
-    marginBottom: 15,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  detailsJapanese: {
-    ...FONTS.bold,
-    fontSize: SIZES.xxLarge,
-    color: COLORS.text,
-    marginBottom: 5,
-  },
-  detailsFurigana: {
-    ...FONTS.regular,
-    fontSize: SIZES.medium,
-    color: COLORS.textLight,
-    marginBottom: 10,
-  },
-  detailsVietnamese: {
-    ...FONTS.medium,
-    fontSize: SIZES.large,
-    color: COLORS.primary,
-    marginBottom: 5,
-  },
-  detailsPartOfSpeech: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.textLight,
-  },
-  examplesContainer: {
-    flex: 1,
-  },
-  examplesTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.medium,
-    color: COLORS.text,
-    marginBottom: 10,
-  },
-  exampleItem: {
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius,
-    padding: 10,
-    marginBottom: 10,
-  },
-  exampleJapanese: {
-    ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.text,
-    marginBottom: 5,
-  },
-  exampleFurigana: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.textLight,
-    marginBottom: 5,
-  },
-  exampleVietnamese: {
-    ...FONTS.regular,
-    fontSize: SIZES.medium,
-    color: COLORS.text,
-    fontStyle: 'italic',
-  },
-  noResultsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noResultsText: {
-    ...FONTS.medium,
-    fontSize: SIZES.large,
-    color: COLORS.textLight,
-    marginBottom: 10,
-  },
-  noResultsSubText: {
-    ...FONTS.regular,
-    fontSize: SIZES.medium,
-    color: COLORS.textLight,
-  },
+  // itemDetails: { // Nếu bạn muốn hiển thị thêm thông tin như level, số bài học
+  //   fontSize: SIZES.small,
+  //   color: COLORS.gray,
+  //   marginTop: 2,
+  // }
 });
 
-export default DictionaryScreen;
+export default FollowScreen;

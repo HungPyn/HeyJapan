@@ -9,64 +9,42 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ImageBackground, // Thêm ImageBackground
+  StatusBar, // Thêm StatusBar
 } from 'react-native';
 import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme';
-import CustomButton from '../../components/common/CustomButton';
-import {useAuth} from '../auth/AuthContext';
+// import CustomButton from '../../components/common/CustomButton'; // Bạn đã bỏ CustomButton
+import {useAuth} from '../auth/AuthContext'; // Giữ lại để dùng logout
+
+// Component MenuIcon không được định nghĩa bên ngoài StyleSheet,
+// nó nên được định nghĩa ở đây hoặc import từ file khác.
+// Tôi sẽ định nghĩa nó lại ở đây cho rõ ràng.
+const MenuIcon = ({icon}: {icon: any}) => (
+  <Image source={icon} style={[styles.menuItem]} />
+);
+const menuItems = [
+  {
+    id: 'notifications',
+    title: 'Thông báo nhắc nhở',
+    icon: require('../../assets/images/notification.png'), // Đảm bảo đường dẫn đúng
+    action: () => console.log('Navigate to Notification Settings Screen'),
+  },
+  // Bạn có thể thêm các mục menu khác ở đây
+];
 
 const ProfileScreen: React.FC = () => {
-  const {logout} = useAuth(); // Lấy hàm logout từ AuthContext
-
-  // Dữ liệu người dùng mẫu
-  const user = {
-    name: 'Nguyễn Văn A',
-    email: 'nguyenvana@gmail.com',
-    level: 'Sơ cấp',
-    streakDays: 7,
-    totalPoints: 1250,
-    completedLessons: 18,
-    totalHoursStudied: 15.5,
-    profilePic: 'https://example.com/profile.jpg', // Sẽ thay bằng ảnh local
-  };
-
-  const stats = [
-    {label: 'Số ngày liên tiếp', value: user.streakDays, icon: '🔥'},
-    {label: 'Tổng điểm', value: user.totalPoints, icon: '⭐'},
-    {label: 'Bài học hoàn thành', value: user.completedLessons, icon: '✅'},
-    {
-      label: 'Giờ học tích lũy',
-      value: `${user.totalHoursStudied}h`,
-      icon: '⏱️',
-    },
-  ];
+  const {logout} = useAuth();
 
   const menuItems = [
     {
-      title: 'Cài đặt tài khoản',
-      icon: '⚙️',
-      action: () => console.log('Account settings'),
+      id: 'notifications',
+      title: 'Thông báo nhắc nhở',
+      icon: require('../../assets/images/notification.png'),
+      action: () => console.log('Navigate to Notification Settings Screen'),
     },
-    {
-      title: 'Nhắc nhở học tập',
-      icon: '🔔',
-      action: () => console.log('Reminders'),
-    },
-    {
-      title: 'Thành tích đạt được',
-      icon: '🏆',
-      action: () => console.log('Achievements'),
-    },
-    {title: 'Trợ giúp & Hỗ trợ', icon: '❓', action: () => console.log('Help')},
-    {
-      title: 'Điều khoản sử dụng',
-      icon: '📜',
-      action: () => console.log('Terms'),
-    },
-    {title: 'Về ứng dụng', icon: 'ℹ️', action: () => console.log('About')},
+    // Bạn có thể thêm các mục menu khác ở đây
   ];
 
-  // Hàm đăng xuất
-  // Hàm đăng xuất với confirm
   const handleLogout = async () => {
     Alert.alert(
       'Xác nhận đăng xuất',
@@ -80,8 +58,7 @@ const ProfileScreen: React.FC = () => {
         {
           text: 'OK',
           onPress: async () => {
-            await logout(); // Gọi hàm logout từ AuthContext để đăng xuất
-            // Có thể điều hướng về màn hình đăng nhập sau khi đăng xuất (nếu sử dụng react-navigation)
+            await logout();
           },
         },
       ],
@@ -90,232 +67,141 @@ const ProfileScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Tài khoản</Text>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.profileCard}>
-          <View style={styles.profileHeader}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ImageBackground
+        source={require('../../assets/images/nen3.jpg')} // Đảm bảo đường dẫn này chính xác
+        style={StyleSheet.absoluteFillObject}
+        imageStyle={{opacity: 0.3}}
+        resizeMode="cover">
+        <View style={styles.container}>
+          <View style={styles.header}>
             <Image
-              source={{uri: user.profilePic}}
-              style={styles.profileImage}
+              source={require('../../assets/images/Logo.png')}
+              style={styles.avatar}
             />
-            <View style={styles.profileInfo}>
-              <Text style={styles.userName}>{user.name}</Text>
-              <Text style={styles.userEmail}>{user.email}</Text>
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelText}>{user.level}</Text>
-              </View>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Cài đặt</Text>
             </View>
           </View>
 
-          <TouchableOpacity style={styles.editProfileButton}>
-            <Text style={styles.editProfileText}>Chỉnh sửa hồ sơ</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.statsCard}>
-          <Text style={styles.cardTitle}>Thống kê học tập</Text>
-          <View style={styles.statsGrid}>
-            {stats.map((item, index) => (
-              <View key={index} style={styles.statItem}>
-                <Text style={styles.statIcon}>{item.icon}</Text>
-                <Text style={styles.statValue}>{item.value}</Text>
-                <Text style={styles.statLabel}>{item.label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.menuCard}>
-          <Text style={styles.cardTitle}>Cài đặt</Text>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.menuItem,
-                index === menuItems.length - 1 ? styles.lastMenuItem : null,
-              ]}
-              onPress={item.action}>
-              <Text style={styles.menuIcon}>{item.icon}</Text>
-              <Text style={styles.menuText}>{item.title}</Text>
-              <Text style={styles.menuArrow}>›</Text>
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}>
+            {menuItems.map(
+              (
+                item, // Bỏ index nếu không dùng đến
+              ) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.menuItem}
+                  onPress={item.action}>
+                  <Image
+                    source={require('../../assets/images/notification.png')}
+                    style={styles.menuIconText} // Đảm bảo ảnh có kích thước phù hợp
+                    resizeMode="contain" // Điều chỉnh cách ảnh được chứa
+                  />
+                  <Text style={styles.menuItemText}>{item.title}</Text>
+                </TouchableOpacity>
+              ),
+            )}
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <Image
+                source={require('../../assets/images/logout.png')}
+                style={styles.menuIconText}
+                resizeMode="contain"
+              />
+              <Text style={styles.menuItemText}>Đăng xuất</Text>
             </TouchableOpacity>
-          ))}
+          </ScrollView>
         </View>
-
-        <CustomButton
-          title="Đăng xuất"
-          onPress={handleLogout}
-          type="outline"
-          size="large"
-          style={styles.logoutButton}
-        />
-      </ScrollView>
+      </ImageBackground>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  backgroundImage: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+  },
   header: {
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.padding,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.padding * 1.5,
+    paddingTop: SIZES.padding,
+    paddingBottom: SIZES.padding,
+    marginTop: StatusBar.currentHeight || 20,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+
+    marginRight: SIZES.padding,
+  },
+  headerTitleContainer: {
+    backgroundColor: COLORS.primary, // Màu này nên lấy từ COLORS nếu có
+    paddingHorizontal: SIZES.padding * 7.5,
+    paddingVertical: SIZES.padding * 0.5,
+    borderRadius: SIZES.radius * 10,
   },
   headerTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.xxxLarge,
-    color: COLORS.text,
+    // ...FONTS.medium, // Gây lỗi nếu FONTS.medium không phải là object style hợp lệ
+    // Bạn cần đảm bảo FONTS.medium được định nghĩa đúng, ví dụ:
+    // medium: { fontFamily: 'YourFont-Medium', fontSize: SIZES.mediumFontSize }
+    // Nếu không, hãy chỉ định các thuộc tính font trực tiếp:
+    fontFamily: FONTS.medium?.fontFamily || 'System', // Lấy fontFamily nếu có, nếu không dùng font hệ thống
+    fontSize: SIZES.large, // Ví dụ, hoặc SIZES.large / SIZES.mediumFontSize
+    fontWeight: 'bold',
+    color: COLORS.white,
   },
   scrollView: {
     flex: 1,
-    padding: SIZES.padding,
-  },
-  profileCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    marginBottom: 20,
-    ...SHADOWS.medium,
-  },
-  profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginRight: 15,
-    borderWidth: 3,
-    borderColor: COLORS.primary,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  userName: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.text,
-    marginBottom: 5,
-  },
-  userEmail: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.textLight,
-    marginBottom: 10,
-  },
-  levelBadge: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  levelText: {
-    ...FONTS.medium,
-    fontSize: SIZES.xSmall,
-    color: COLORS.white,
-  },
-  editProfileButton: {
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  editProfileText: {
-    ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.primary,
-  },
-  statsCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    marginBottom: 20,
-    ...SHADOWS.medium,
-  },
-  cardTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.text,
-    marginBottom: 15,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    width: '48%',
-    backgroundColor: COLORS.card,
-    borderRadius: SIZES.radius,
-    padding: 15,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  statIcon: {
-    fontSize: 24,
-    marginBottom: 5,
-  },
-  statValue: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.primary,
-    marginBottom: 5,
-  },
-  statLabel: {
-    ...FONTS.regular,
-    fontSize: SIZES.small,
-    color: COLORS.textLight,
-    textAlign: 'center',
-  },
-  menuCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    marginBottom: 20,
-    ...SHADOWS.medium,
+    paddingHorizontal: SIZES.padding * 1.5,
+    marginTop: 50,
   },
   menuItem: {
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.nenItem,
+
+    paddingHorizontal: SIZES.padding, // Cách trái/phải hợp lý
+    paddingVertical: 8, // Không quá cao để tránh lấn chữ
+
+    marginBottom: SIZES.margin,
+    borderRadius: 15,
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
   },
-  lastMenuItem: {
-    borderBottomWidth: 0,
+  menuIconText: {
+    // fontSize: SIZES.medium, // Nên là một giá trị số cụ thể hoặc SIZES.h2 như trong ảnh mẫu
+    fontSize: SIZES.large || 24, // Ví dụ
+    marginRight: SIZES.padding * 1.5,
   },
-  menuIcon: {
-    fontSize: 20,
-    marginRight: 15,
-  },
-  menuText: {
-    ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.text,
+  menuItemText: {
+    // ...FONTS.medium, // Tương tự như headerTitle, đảm bảo FONTS.medium hợp lệ
+    fontFamily: FONTS.medium?.fontFamily || 'System',
+    fontSize: SIZES.large || 16, // Ví dụ, hoặc SIZES.mediumFontSize
+    color: COLORS.black,
     flex: 1,
   },
-  menuArrow: {
-    ...FONTS.regular,
-    fontSize: SIZES.xxLarge,
-    color: COLORS.textLight,
+  menuItemArrow: {
+    // ...FONTS.medium, // Tương tự
+    fontFamily: FONTS.medium?.fontFamily || 'System',
+    fontSize: SIZES.large || 24, // Cho mũi tên to hơn
+    color: COLORS.gray,
   },
   logoutButton: {
-    marginBottom: 30,
+    // Style riêng cho nút logout
   },
+  logoutText: {},
 });
 
 export default ProfileScreen;

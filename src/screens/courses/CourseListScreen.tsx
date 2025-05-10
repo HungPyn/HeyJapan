@@ -1,260 +1,274 @@
-// src/screens/courses/CourseListScreen.tsx
-import React, {useState} from 'react';
+// src/screens/theo_doi/FollowScreen.tsx (Hoặc đường dẫn bạn chọn)
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  StatusBar,
   ScrollView,
-  RefreshControl,
+  TouchableOpacity,
+  Image, // Image component đã có sẵn
+  ImageBackground,
+  StatusBar,
+  FlatList, // Sử dụng FlatList cho hiệu năng
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import {StackNavigationProp} from '@react-navigation/stack';
-import {CoursesStackParamList} from '../../navigation';
-import {COLORS, FONTS, SIZES} from '../../constants/theme';
-import CourseCard from '../../components/courses/CourseCard';
-import {mockCourses} from '../../mocks/courseData';
-import {Course} from '../../types';
-import {ImageBackground} from 'react-native';
-import backgroundImg from '../../assets/images/nen3.jpg'; // Đường dẫn đúng đến ảnh
-import WavyBackground from '../lessons/components/WavyBackground';
+import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme'; // Đảm bảo đường dẫn đúng
 
-type CourseListScreenNavigationProp = StackNavigationProp<
-  CoursesStackParamList,
-  'CourseList'
->;
+// Định nghĩa Type cho Course
+interface Course {
+  topic_code: string;
+  title: string;
+  imageUrl: string;
+  levelCode: string;
+  quantityLesson: number;
+}
 
-const LEVELS = [
-  {id: 'all', label: 'Tất cả'},
-  {id: 'beginner', label: 'Sơ cấp'},
-  {id: 'intermediate', label: 'Trung cấp'},
-  {id: 'advanced', label: 'Cao cấp'},
+// Dữ liệu mockCourses bạn cung cấp
+export const mockCourses: Course[] = [
+  {
+    topic_code: '101',
+    title: 'Bảng chữ cái',
+    imageUrl: 'https://i.imgur.com/oVacZ4F.png', // Ví dụ một URL ảnh khác
+    levelCode: 'Sơ cấp',
+    quantityLesson: 5,
+  },
+  {
+    topic_code: '101',
+    title: 'Cơ bản 1',
+    imageUrl: 'https://i.imgur.com/na3U2uk.png',
+    levelCode: 'Cơ bản',
+    quantityLesson: 10,
+  },
+  {
+    topic_code: '2',
+    title: 'Cơ bản 2',
+    imageUrl: 'https://i.imgur.com/na3U2uk.png',
+    levelCode: 'Cơ bản',
+    quantityLesson: 8,
+  },
+  {
+    topic_code: '3',
+    title: 'Ngữ pháp',
+    imageUrl: 'https://i.imgur.com/R8WeIEv.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 12,
+  },
+  {
+    topic_code: '4',
+    title: 'Trường học',
+    imageUrl: 'https://i.imgur.com/BI2iGmn.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 15,
+  },
+  {
+    topic_code: '5',
+    title: 'Cây cối',
+    imageUrl: 'https://i.imgur.com/4NYSRPT.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 20,
+  },
+  {
+    topic_code: '6',
+    title: 'Công việc',
+    imageUrl: 'https://i.imgur.com/Q7zBfOg.jpeg',
+    levelCode: 'Sơ cấp',
+    quantityLesson: 12,
+  },
+  {
+    topic_code: '7',
+    title: 'Món ăn',
+    imageUrl: 'https://i.imgur.com/loLlsoi.png',
+    levelCode: 'Trung cấp',
+    quantityLesson: 15,
+  },
+  {
+    topic_code: '8',
+    title: 'Động vật',
+    imageUrl: 'https://i.imgur.com/CJQ8ooS.jpeg',
+    levelCode: 'Trung cấp',
+    quantityLesson: 20,
+  },
 ];
 
-const CourseListScreen: React.FC = () => {
-  const navigation = useNavigation<CourseListScreenNavigationProp>();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLevel, setSelectedLevel] = useState('all');
-  const [refreshing, setRefreshing] = useState(false);
+// << THAY ĐỔIỞ ĐÂY: Component để hiển thị hình ảnh từ imageUrl >>
+const CourseItemImage = ({imageUrl}: {imageUrl: string}) => (
+  <Image
+    source={{uri: imageUrl}}
+    style={styles.itemImage}
+    resizeMode="cover" // Hoặc "contain" tùy theo ảnh của bạn và style bạn muốn
+  />
+);
 
-  const filteredCourses = mockCourses;
-
-  const handleCoursePress = (course: Course) => {
-    navigation.navigate('CourseDetail', {courseId: course.topic_code});
+const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
+  const handleItemPress = (course: Course) => {
+    console.log(`Đã chọn khóa học: ${course.title}, ID: ${course.topic_code}`);
+    // Ví dụ điều hướng:
+    // navigation.navigate('CourseDetailScreen', { courseId: course.topic_code });
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    // Giả lập tải dữ liệu
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+  const handleMenuPress = () => {
+    console.log('Menu button pressed');
+    // if (navigation && navigation.openDrawer) navigation.openDrawer();
   };
 
-  // const renderLevelFilter = () => {
-  //   return (
-  //     <ScrollView
-  //       horizontal
-  //       showsHorizontalScrollIndicator={false}
-  //       contentContainerStyle={styles.filterContainer}>
-  //       {LEVELS.map(level => (
-  //         <TouchableOpacity
-  //           key={level.id}
-  //           style={[
-  //             styles.filterItem,
-  //             selectedLevel === level.id && styles.selectedFilter,
-  //           ]}
-  //           onPress={() => setSelectedLevel(level.id)}>
-  //           <Text
-  //             style={[
-  //               styles.filterText,
-  //               selectedLevel === level.id && styles.selectedFilterText,
-  //             ]}>
-  //             {level.label}
-  //           </Text>
-  //         </TouchableOpacity>
-  //       ))}
-  //     </ScrollView>
-  //   );
-  // };
+  const renderCourseItem = ({item}: {item: Course}) => (
+    <TouchableOpacity
+      style={styles.trackItem}
+      onPress={() =>
+        navigation.navigate('CourseDetail', {
+          courseId: item.topic_code.toString(),
+          title: item.title, // thêm dòng này
+        })
+      }>
+      {/* << THAY ĐỔI Ở ĐÂY: Sử dụng CourseItemImage và truyền imageUrl >> */}
+      <CourseItemImage imageUrl={item.imageUrl} />
+      <Text style={styles.trackItemText}>{item.title}</Text>
+      {/* Bạn có thể thêm thông tin khác như số bài học hoặc cấp độ ở đây nếu muốn */}
+      {/* <Text style={styles.itemDetails}>{item.levelCode} - {item.quantityLesson} bài</Text> */}
+    </TouchableOpacity>
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Khóa học</Text>
-        <TouchableOpacity onPress={() => console.log('Notifications')}>
-          <Text style={styles.iconPlaceholder}>🔔</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm kiếm..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor={COLORS.textLight}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Text style={styles.clearIcon}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View> */}
-
-      {/* Nền riêng chỉ cho FlatList */}
-      <View style={{flex: 1}}>
-        {/* Nền ảnh */}
-        <WavyBackground />
-        <ImageBackground
-          source={backgroundImg}
-          style={StyleSheet.absoluteFillObject}
-          imageStyle={{opacity: 0.4}} // có thể chỉnh độ mờ ảnh nền
-        />
-
-        <FlatList
-          data={filteredCourses}
-          keyExtractor={item => item.topic_code}
-          contentContainerStyle={styles.coursesList}
-          ListHeaderComponent={<View style={{height: 70}} />}
-          renderItem={({item, index}) => {
-            const offsetX = (index % 2 === 0 ? -1 : 1) * 70;
-            const offsetY = Math.sin(index) * 20;
-
-            return (
-              <View
-                style={{
-                  marginTop: index === 0 ? 40 : 0,
-                  transform: [{translateX: offsetX}, {translateY: offsetY}],
-                }}>
-                <CourseCard course={item} onPress={handleCoursePress} />
-              </View>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchQuery.length > 0
-                  ? `Không tìm thấy khóa học cho "${searchQuery}"`
-                  : 'Chưa có khóa học nào'}
-              </Text>
+      <ImageBackground
+        source={require('../../assets/images/nen3.jpg')}
+        style={StyleSheet.absoluteFillObject}
+        imageStyle={{opacity: 0.3}}
+        resizeMode="cover">
+        <View style={styles.container}>
+          {/* Header Section */}
+          <View style={styles.header}>
+            <Image
+              source={require('../../assets/images/Logo.png')}
+              style={styles.avatar}
+            />
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Tiếng Nhật mới bắt đầu</Text>
             </View>
-          }
-        />
-      </View>
+            <TouchableOpacity
+              onPress={handleMenuPress}
+              style={[
+                styles.menuButton,
+                {
+                  backgroundColor: COLORS.primary,
+                  borderRadius: 50, // hoặc 50 nếu muốn tròn nhưng không quá to
+                  padding: 10,
+                  paddingTop: 3, // thêm padding để icon không bị dính mép
+                  paddingBottom: 3,
+                },
+              ]}>
+              <Text style={{fontSize: 24, color: 'white'}}>☰</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={{marginTop: 20}}></Text>
+
+          {/* Course Items Section */}
+          <FlatList // Sử dụng FlatList thay cho ScrollView + map để tối ưu hiệu năng
+            data={mockCourses} // Sử dụng dữ liệu mockCourses
+            renderItem={renderCourseItem}
+            keyExtractor={item => item.topic_code} // Sử dụng topic_code làm key
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  listBackground: {
-    flex: 1,
-  },
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  container: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.padding,
-    paddingBottom: SIZES.padding / 2,
-    marginTop: 35, // 👈 thêm dòng này đâyr header xuống
+    paddingVertical: SIZES.padding * 0.75,
+    marginTop: StatusBar.currentHeight || 20,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: COLORS.primary, // Màu xanh lá
+    paddingHorizontal: SIZES.padding * 1.5,
+    paddingVertical: SIZES.padding * 0.5,
+    borderRadius: SIZES.radius * 3,
+    marginHorizontal: SIZES.padding,
   },
   headerTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.xxxLarge,
-    color: COLORS.text,
-  },
-  iconPlaceholder: {
-    fontSize: 24,
-    color: COLORS.text,
-  },
-  searchContainer: {
-    paddingHorizontal: SIZES.padding,
-    marginBottom: 15,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: 8,
-    color: COLORS.textLight,
-  },
-  searchInput: {
-    flex: 1,
-    height: 46,
-    color: COLORS.text,
-    ...FONTS.regular,
-    fontSize: SIZES.medium,
-  },
-  clearIcon: {
-    fontSize: 16,
-    color: COLORS.textLight,
-    padding: 5,
-  },
-  filterContainer: {
-    paddingHorizontal: SIZES.padding,
-    paddingBottom: 15,
-  },
-  filterItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  selectedFilter: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  filterText: {
-    ...FONTS.medium,
-    fontSize: SIZES.small,
-    color: COLORS.text,
-  },
-  selectedFilterText: {
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontSize: SIZES.large, // Điều chỉnh kích thước cho phù hợp
+    fontWeight: 'bold',
     color: COLORS.white,
   },
-  coursesList: {
-    paddingHorizontal: SIZES.padding,
-    paddingBottom: 20,
-    alignItems: 'center',
+  menuButton: {
+    padding: SIZES.padding * 0.5,
   },
-  emptyContainer: {
+  scrollView: {
+    // Style này giờ áp dụng cho FlatList
     flex: 1,
-    justifyContent: 'center',
+  },
+  scrollViewContent: {
+    // Style này cho contentContainer của FlatList
+    paddingHorizontal: SIZES.padding * 1.5,
+    paddingTop: SIZES.padding,
+    paddingBottom: SIZES.padding * 2,
+  },
+  trackItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    marginTop: 50,
+    backgroundColor: COLORS.nenItem,
+    padding: SIZES.padding * 0.4, // Điều chỉnh padding cho item
+    borderRadius: SIZES.radius * 1.5,
+
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
+    marginBottom: SIZES.margin,
+
+    // Thêm shadow nếu muốn
+    // shadowColor: "#000",
+    // shadowOffset: { width: 0, height: 1 },
+    // shadowOpacity: 0.18,
+    // shadowRadius: 1.00,
+    // elevation: 1,
   },
-  emptyText: {
-    ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.textLight,
-    textAlign: 'center',
+  // << THÊM MỚI: Style cho Image của mỗi item >>
+  itemImage: {
+    width: 48, // Kích thước ảnh (điều chỉnh cho giống "manTheoDoi.png")
+    height: 48,
+    borderRadius: 10, // Bo tròn nếu ảnh của bạn là vuông và muốn nó tròn
+    marginRight: SIZES.padding * 1.5,
+    backgroundColor: COLORS.gray, // Màu nền tạm thời khi ảnh đang tải
   },
+  // itemIconText style cũ có thể không cần nữa nếu bạn luôn dùng ảnh
+  // itemIconText: {
+  //   fontSize: SIZES.h1,
+  //   marginRight: SIZES.padding * 1.5,
+  // },
+  trackItemText: {
+    fontFamily: FONTS.medium?.fontFamily || 'System',
+    fontSize: SIZES.medium * 1.15, // Tăng kích thước chữ một chút
+    color: COLORS.black,
+    flex: 1, // Cho phép text co giãn
+  },
+  // itemDetails: { // Nếu bạn muốn hiển thị thêm thông tin như level, số bài học
+  //   fontSize: SIZES.small,
+  //   color: COLORS.gray,
+  //   marginTop: 2,
+  // }
 });
 
-export default CourseListScreen;
+export default FollowScreen;

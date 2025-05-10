@@ -1,6 +1,6 @@
 // src/constants/theme.ts
 export const COLORS = {
-  primary: '#4CAF50', // Xanh lá tươi (giống HeyJapan)
+  primary: '#8DCC63', // Xanh lá tươi (giống HeyJapan)
 
   primaryDark: '#E05555', // Phiên bản đậm hơn của primary
   secondary: '#4ECDC4', // Màu phụ - Xanh ngọc
@@ -19,6 +19,7 @@ export const COLORS = {
   black: '#000000',
   gray: '#808080',
   transparent: 'transparent',
+  nenItem: 'rgba(241, 233, 217, 0.99)',
 };
 
 export const SIZES = {
@@ -30,6 +31,8 @@ export const SIZES = {
   xLarge: 18,
   xxLarge: 20,
   xxxLarge: 24,
+  font: 14,
+  h2: 18,
 
   // Spacing
   padding: 15,

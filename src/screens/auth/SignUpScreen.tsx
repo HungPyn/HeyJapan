@@ -20,6 +20,7 @@ import CustomTextInput from '../../components/common/CustomTextInput';
 import Header from '../../components/common/Header';
 import axios from 'axios';
 import {Image} from 'react-native';
+import {showMessage} from 'react-native-flash-message';
 
 type SignUpScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -103,24 +104,47 @@ const SignUpScreen: React.FC = () => {
         if (response.status === 200) {
           console.log('Đăng ký thành công', response.data);
           // Điều hướng về màn hình đăng nhập sau khi đăng ký thành công
-          Alert.alert('Thành công', 'Đăng ký thành công!');
+          showMessage({
+            message: 'Đăng ký thành công',
+            type: 'danger', // 'danger' thường được dùng cho các lỗi
+            duration: 2000,
+            position: 'center',
+            style: {
+              backgroundColor: 'rgba(128, 128, 128, 0.6)', // Màu nền trắng
+            },
+            textStyle: {
+              fontSize: 16,
+            },
+          });
           navigation.navigate('Login');
         } else {
           // Nếu có lỗi, xử lý tại đây
-          Alert.alert('Lỗi', 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại.');
+          showMessage({
+            message: 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại.',
+            type: 'danger', // 'danger' thường được dùng cho các lỗi
+            duration: 2000,
+            position: 'center',
+            style: {
+              backgroundColor: 'rgba(128, 128, 128, 0.6)', // Màu nền trắng
+            },
+            textStyle: {
+              fontSize: 16,
+            },
+          });
         }
       } catch (error: any) {
-        console.error('Lỗi đăng ký:', error);
-        Alert.alert(
-          'Lỗi',
-          error.response.data.error || 'Đã xảy ra lỗi không xác định',
-          [
-            {
-              text: 'OK',
-              onPress: () => console.log('User acknowledged the error'),
-            },
-          ],
-        );
+        showMessage({
+          message: error.response.data.error || 'Đã xảy ra lỗi không xác định',
+          type: 'danger', // 'danger' thường được dùng cho các lỗi
+          duration: 3000,
+          position: 'center',
+          style: {
+            backgroundColor: 'rgba(128, 128, 128, 0.6)', // Màu nền trắng
+          },
+          textStyle: {
+            fontSize: 16,
+          },
+        });
       }
     }
   };

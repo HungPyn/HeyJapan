@@ -19,6 +19,7 @@ import CustomTextInput from '../../components/common/CustomTextInput';
 import Header from '../../components/common/Header';
 import {useAuth} from './AuthContext';
 import {Image} from 'react-native';
+import {showMessage} from 'react-native-flash-message';
 
 type LoginScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -32,7 +33,17 @@ const LoginScreen: React.FC = () => {
   const [errors, setErrors] = useState({email: '', password: ''});
   const {login} = useAuth();
 
-  const handleLogin = () => {
+  //dang ky
+  const handleLoginGoole = () => {
+    showMessage({
+      message: 'Đăng nhập bằng Google',
+      type: 'danger',
+    });
+  };
+
+  //dăng nhapnhap
+
+  const handleLogin = async () => {
     // Reset errors
     setErrors({email: '', password: ''});
 
@@ -60,15 +71,9 @@ const LoginScreen: React.FC = () => {
 
     if (isValid) {
       // Gọi hàm login từ AuthContext
-      const loginSuccess = login(email, password);
+      const loginSuccess = await login(email, password);
 
       if (!loginSuccess) {
-        // Hiển thị thông báo lỗi đăng nhập nếu không thành công
-        Alert.alert(
-          'Đăng nhập thất bại',
-          'Email hoặc mật khẩu không chính xác',
-          [{text: 'OK'}],
-        );
         setErrors({
           email: 'Email hoặc mật khẩu không chính xác',
           password: 'Email hoặc mật khẩu không chính xác',
@@ -117,11 +122,11 @@ const LoginScreen: React.FC = () => {
               value={email}
               onChangeText={setEmail}
               error={errors.email}
-              style={{
-                borderRadius: 50,
-                paddingHorizontal: 15,
-                paddingVertical: 10,
-              }}
+              // style={{
+              //   borderColor: '#888',
+              //   borderRadius: 30,
+              //   borderWidth: 1,
+              // }}
             />
 
             <CustomTextInput
@@ -157,7 +162,7 @@ const LoginScreen: React.FC = () => {
             <View style={styles.socialButtonsContainer}>
               <CustomButton
                 title="Đăng nhập bằng Google"
-                onPress={() => console.log('Google login pressed')}
+                onPress={handleLoginGoole}
                 type="outline"
                 style={{
                   ...styles.socialButton, // Kết hợp style từ socialButton
