@@ -87,6 +87,14 @@ export const FONTS = {
     fontFamily: 'Roboto-Bold',
     fontWeight: 'bold' as 'bold',
   },
+  h3: {
+    fontFamily: 'Roboto-Bold',
+    fontWeight: 'bold' as 'bold',
+  },
+  h2: {
+    fontFamily: 'Roboto-Bold',
+    fontWeight: 'bold' as 'bold',
+  },
   light: {
     fontFamily: 'Roboto-Light',
     fontWeight: '300' as '300',

@@ -418,9 +418,10 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.padding * 0.5,
   },
   backButtonText: {
-    fontSize: SIZES.xLarge * 2,
-    color: COLORS.black,
-    fontWeight: '800',
+    fontSize: SIZES.xLarge * 2.5,
+    color: COLORS.darkGray,
+    fontWeight: '600',
+    marginBottom: 10,
   },
   headerTitleContainer: {
     flex: 1, // Cho phép tiêu đề chiếm không gian còn lại ở giữa

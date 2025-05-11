@@ -421,9 +421,10 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.gray,
   },
   backButton: {
-    paddingRight: SIZES.padding,
-    paddingLeft: SIZES.padding * 0.5,
-    paddingVertical: SIZES.padding * 0.5,
+    fontSize: SIZES.xLarge * 2.5,
+    color: COLORS.darkGray,
+    fontWeight: '600',
+    marginBottom: 10,
   },
   backButtonText: {
     fontSize: SIZES.xLarge * 2,

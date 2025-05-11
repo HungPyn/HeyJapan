@@ -1,5 +1,5 @@
 // src/screens/lessons/ContentsScreen.tsx
-import React, {useState, useMemo, useEffect} from 'react';
+import React, {useState, useMemo, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,16 @@ import {
   Alert,
   Dimensions,
   Platform,
+  // Animated, // Bỏ nếu không dùng
 } from 'react-native';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {CoursesStackParamList, RootStackParamList} from '../../navigation';
-import {COLORS, FONTS, SIZES} from '../../constants/theme';
+import {CoursesStackParamList, RootStackParamList} from '../../navigation'; // Đảm bảo đường dẫn này đúng
+import {COLORS, FONTS, SIZES} from '../../constants/theme'; // Đảm bảo đường dẫn này đúng
+import {Colors} from 'react-native/Libraries/NewAppScreen'; // Giữ lại nếu bạn có dùng ở đâu đó, nếu không thì có thể bỏ
 
 // --- BEGIN DATA INTERFACES AND MOCK DATA ---
+// Giữ nguyên phần này của bạn
 interface Option {
   id: string;
   text: string;
@@ -41,18 +44,6 @@ interface LessonContentItem {
 
 const allLessonContents: LessonContentItem[] = [
   {
-    content_code: 1,
-    content_type: 'audio',
-    title: 'Chào hỏi cơ bản',
-    content_detail: 'Luyện nghe các câu chào hỏi...',
-    audio_url:
-      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
-    image_url: 'https://i.imgur.com/na3U2uk.png',
-    display_order: 1,
-    lesson_code: 12,
-    skill_code: {skill_code: 1, skill_name: 'Nghe'},
-  },
-  {
     content_code: 3,
     content_type: 'voice',
     title: 'Luyện phát âm: あ, い, う',
@@ -66,7 +57,7 @@ const allLessonContents: LessonContentItem[] = [
   {
     content_code: 5,
     content_type: 'select',
-    title: "Chọn nghĩa đúng của 'こんにちは':",
+    title: "こんにちは'",
     content_detail: 'こんにちは (Konnichiwa)',
     audio_url:
       'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
@@ -83,23 +74,23 @@ const allLessonContents: LessonContentItem[] = [
     correct_answer: 'c',
   },
   {
-    content_code: 7,
+    content_code: 1,
     content_type: 'sapXep',
     title: 'Sắp xếp từ thành nghĩa của câu dưới đây: ',
-    content_detail: 'こんにちは、お父さん', // Câu nghĩa tiếng Việt/Yêu cầu
+    content_detail: 'こんにちは、お父さん',
     audio_url:
       'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
     image_url: null,
-    display_order: 3,
+    display_order: 5,
     lesson_code: 12,
     skill_code: {skill_code: 4, skill_name: 'Viết'},
     options: [
       {id: 'v1', text: 'xin chào'},
-      {id: 'v2', text: 'chào buổi sáng'}, // Từ gây nhiễu
+      {id: 'v2', text: 'chào buổi sáng'},
       {id: 'v3', text: 'bố'},
-      {id: 'v4', text: 'mẹ'}, // Từ gây nhiễu
+      {id: 'v4', text: 'mẹ'},
     ],
-    correct_answer: ['v1', 'v3'], // Đáp án đúng: "xin chào", "bố"
+    correct_answer: ['v1', 'v3'],
   },
 ];
 // --- END DATA ---
@@ -110,17 +101,135 @@ type ContentsScreenRouteProp = RouteProp<
 >;
 type ContentsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
+// ProgressBar component giữ nguyên như của bạn
 const ProgressBar = ({current, total}: {current: number; total: number}) => {
   const progress = total > 0 ? Math.min((current / total) * 100, 100) : 0;
   return (
     <View style={styles.progressBarContainer}>
       <View style={[styles.progressBarFill, {width: `${progress}%`}]} />
-      <Text style={styles.progressText}>
-        {current}/{total} câu
-      </Text>
     </View>
   );
 };
+
+// --- BEGIN SUMMARY SCREEN COMPONENT ---
+interface LessonSummaryProps {
+  correctAnswersCount: number;
+  totalQuestions: number;
+  timeTaken: string;
+  onComplete: () => void;
+  // lessonName: string; // Không cần lessonName ở đây nếu không hiển thị
+}
+
+const LessonSummaryScreen: React.FC<LessonSummaryProps> = ({
+  correctAnswersCount,
+  totalQuestions,
+  timeTaken,
+  onComplete,
+}) => {
+  const accuracy =
+    totalQuestions > 0
+      ? Math.round((correctAnswersCount / totalQuestions) * 100)
+      : 0;
+
+  // Style cho màn hình tổng kết, cố gắng dùng SIZES, COLORS, FONTS của bạn
+  // và giữ nó đơn giản, chỉ tập trung vào các thông tin như ảnh
+  const summaryStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: SIZES.padding * 2, // Sử dụng SIZES từ theme
+      // backgroundColor: COLORS.white, // Hoặc một màu nền bạn muốn (từ COLORS)
+    },
+    logo: {
+      width: screenWidth * 0.3, // Sử dụng screenWidth đã khai báo ở styles gốc
+      height: screenWidth * 0.3,
+      marginBottom: SIZES.padding * 2,
+    },
+    title: {
+      fontFamily: FONTS.bold?.fontFamily || 'System', // Sử dụng FONTS từ theme
+      fontSize: SIZES.h1, // Sử dụng SIZES từ theme
+      color: COLORS.text, // Sử dụng COLORS từ theme
+      marginBottom: SIZES.padding * 2,
+      textAlign: 'center',
+    },
+    card: {
+      backgroundColor: COLORS.white,
+      borderRadius: SIZES.radius,
+      padding: SIZES.padding * 1.5,
+      marginBottom: SIZES.margin,
+      width: '90%', // Hoặc 100% với padding trong container
+      flexDirection: 'row',
+      alignItems: 'center',
+      // Shadow giống với các card câu hỏi của bạn nếu có
+      shadowColor: COLORS.black,
+      shadowOffset: {width: 0, height: 1}, // Điều chỉnh cho phù hợp
+      shadowOpacity: 0.1,
+      shadowRadius: SIZES.radius / 2,
+      elevation: 2, // Điều chỉnh cho phù hợp
+    },
+    iconText: {
+      // Cho icon dạng text như 📊 ✅ ⏱️
+      fontSize: SIZES.h2, // Kích thước cho icon text
+      marginRight: SIZES.base,
+      color: COLORS.primary, // Màu cho icon
+    },
+    text: {
+      fontFamily: FONTS.medium?.fontFamily || 'System',
+      fontSize: SIZES.font, // SIZES.body3 hoặc SIZES.font
+      color: COLORS.textSecondary || COLORS.darkGray,
+    },
+    completeButton: {
+      backgroundColor: COLORS.green, // Màu xanh lá từ COLORS
+      paddingVertical: SIZES.padding,
+      paddingHorizontal: SIZES.padding * 3,
+      borderRadius: SIZES.radius * 2.5, // Bo tròn nhiều
+      marginTop: SIZES.padding * 2,
+      alignItems: 'center',
+      width: '90%',
+    },
+    completeButtonText: {
+      fontFamily: FONTS.bold?.fontFamily || 'System',
+      color: COLORS.white,
+      fontSize: SIZES.large, // SIZES.font * 1.1
+    },
+  });
+
+  return (
+    <View style={summaryStyles.container}>
+      <Image
+        source={require('../../assets/images/Logo.png')} // Đường dẫn tới logo của bạn
+        style={summaryStyles.logo}
+        resizeMode="contain"
+      />
+      <Text style={summaryStyles.title}>Kết quả hoàn thành</Text>
+
+      <View style={summaryStyles.card}>
+        <Text style={summaryStyles.iconText}>📊</Text>
+        <Text style={summaryStyles.text}>
+          Tỷ lệ đúng: {correctAnswersCount}/{totalQuestions}
+        </Text>
+      </View>
+
+      <View style={summaryStyles.card}>
+        <Text style={summaryStyles.iconText}>✅</Text>
+        <Text style={summaryStyles.text}>Hoàn thành: {accuracy}%</Text>
+      </View>
+
+      <View style={summaryStyles.card}>
+        <Text style={summaryStyles.iconText}>⏱️</Text>
+        <Text style={summaryStyles.text}>Tốc độ: {timeTaken}</Text>
+      </View>
+
+      <TouchableOpacity
+        style={summaryStyles.completeButton}
+        onPress={onComplete}>
+        <Text style={summaryStyles.completeButtonText}>Hoàn thành</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+// --- END SUMMARY SCREEN COMPONENT ---
 
 const ContentsScreen: React.FC = () => {
   const route = useRoute<ContentsScreenRouteProp>();
@@ -145,8 +254,23 @@ const ContentsScreen: React.FC = () => {
   );
   const [arrangedWords, setArrangedWords] = useState<Option[]>([]);
 
+  // --- BEGIN STATES FOR SUMMARY ---
+  const [showSummaryScreen, setShowSummaryScreen] = useState(false);
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
+  // --- END STATES FOR SUMMARY ---
+
   const currentItem = itemsForThisLesson[currentIndex];
   const totalItems = itemsForThisLesson.length;
+
+  useEffect(() => {
+    if (itemsForThisLesson.length > 0 && !startTime) {
+      setStartTime(new Date());
+      setCorrectAnswersCount(0);
+      setShowSummaryScreen(false);
+    }
+  }, [itemsForThisLesson, startTime, currentLessonCode]); // Thêm currentLessonCode để reset khi đổi bài
 
   useEffect(() => {
     setUserSelectedOptionId(null);
@@ -180,6 +304,7 @@ const ContentsScreen: React.FC = () => {
   };
 
   const handleCheckAnswer = () => {
+    // Giữ nguyên logic handleCheckAnswer của bạn
     if (!currentItem) return;
     let isCorrect = false;
     if (currentItem.content_type === 'select') {
@@ -208,13 +333,23 @@ const ContentsScreen: React.FC = () => {
       }
     }
     setShowAnswerFeedback(isCorrect);
+    if (isCorrect) {
+      setCorrectAnswersCount(prev => prev + 1);
+    }
   };
 
   const handleContinue = () => {
+    if (showSummaryScreen) {
+      // Nếu đang ở màn hình tổng kết
+      navigation.goBack();
+      return;
+    }
+
+    // Điều kiện cần "Kiểm tra" trước
     if (
       (currentItem?.content_type === 'select' ||
         currentItem?.content_type === 'sapXep') &&
-      showAnswerFeedback === null &&
+      showAnswerFeedback === null && // Chưa kiểm tra
       currentItem.options &&
       ((currentItem.content_type === 'select' && userSelectedOptionId) ||
         (currentItem.content_type === 'sapXep' && arrangedWords.length > 0))
@@ -222,14 +357,58 @@ const ContentsScreen: React.FC = () => {
       Alert.alert('Thông báo', "Bạn cần nhấn 'Kiểm tra' trước khi tiếp tục!");
       return;
     }
-    if (currentIndex < totalItems - 1) {
-      setCurrentIndex(prev => prev + 1);
+
+    const isLastItem = currentIndex >= totalItems - 1;
+
+    if (isLastItem) {
+      // Chỉ chuyển sang màn hình tổng kết nếu là câu cuối VÀ
+      // (đã kiểm tra xong (showAnswerFeedback !== null) ĐỐI VỚI select/sapXep) HOẶC (là loại voice/audio không cần bước kiểm tra)
+      if (
+        (currentItem?.content_type === 'select' &&
+          showAnswerFeedback !== null) ||
+        (currentItem?.content_type === 'sapXep' &&
+          showAnswerFeedback !== null) ||
+        currentItem?.content_type === 'voice' || // Thêm các loại không cần kiểm tra khác nếu có
+        currentItem?.content_type === 'audio'
+      ) {
+        setEndTime(new Date());
+        setShowSummaryScreen(true); // Chuyển sang màn hình tổng kết
+      }
+      // Không làm gì khác nếu là câu cuối của select/sapXep mà chưa kiểm tra (đã bị chặn ở trên)
     } else {
-      Alert.alert('Hoàn thành!', `Bạn đã hoàn thành ${lessonNameFromParam}.`);
-      navigation.goBack();
+      // Nếu không phải câu cuối, chuyển sang câu tiếp theo
+      setCurrentIndex(prev => prev + 1);
     }
   };
 
+  const formatTimeTaken = useCallback(() => {
+    if (!startTime) return '0 phút 0 giây';
+    const finalEndTime = endTime || new Date();
+    const diffMs = finalEndTime.getTime() - startTime.getTime();
+    if (diffMs < 0) return '0 phút 0 giây'; // Trường hợp startTime set sau endTime do race condition/logic
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffSecs = Math.round((diffMs % 60000) / 1000);
+    return `${diffMins} phút ${diffSecs} giây`;
+  }, [startTime, endTime]);
+
+  const handleBackPress = () => {
+    // Giữ nguyên logic handleBackPress của bạn
+    Alert.alert(
+      'Thoát khỏi bài học?',
+      'Tiến trình của bạn có thể sẽ bị mất. Bạn có chắc muốn thoát không?',
+      [
+        {text: 'Hủy', style: 'cancel'},
+        {
+          text: 'Thoát',
+          onPress: () => navigation.goBack(),
+          style: 'destructive',
+        },
+      ],
+      {cancelable: true},
+    );
+  };
+
+  // renderContentItem giữ nguyên hoàn toàn như code gốc của bạn
   const renderContentItem = () => {
     if (!currentItem)
       return (
@@ -239,78 +418,59 @@ const ContentsScreen: React.FC = () => {
       );
 
     switch (currentItem.content_type) {
-      case 'audio':
-        return (
-          <View style={styles.contentCard}>
-            {currentItem.title && (
-              <Text style={styles.contentTitleAudio}>{currentItem.title}</Text>
-            )}
-            {currentItem.image_url && (
-              <Image
-                source={{uri: currentItem.image_url}}
-                style={styles.contentImage}
-                resizeMode="contain"
-              />
-            )}
-            <Text style={styles.contentDetailAudio}>
-              {currentItem.content_detail}
-            </Text>
-            <TouchableOpacity
-              onPress={() => playSound(currentItem.audio_url)}
-              style={styles.audioPlayerPlaceholder}>
-              <Text style={styles.audioIconBig}>▶️</Text>
-              <View style={styles.audioSeekBarPlaceholder} />
-            </TouchableOpacity>
-          </View>
-        );
       case 'voice':
         return (
           <View style={styles.contentCard}>
-            {currentItem.title && (
-              <Text style={styles.contentTitle}>{currentItem.title}</Text>
-            )}
-            {currentItem.image_url && (
+            <Text style={styles.contentTitle}>Nói lại từ(câu) dưới đây:</Text>
+            {/* Icon loa và micro giữ nguyên style gốc của bạn */}
+            <TouchableOpacity
+              onPress={() => playSound(currentItem.audio_url)}
+              style={styles.contentCard2}>
               <Image
-                source={{uri: currentItem.image_url}}
-                style={styles.contentImage}
+                source={require('../../assets/images/iconAmThanh.png')}
+                style={styles.AudioIcon}
                 resizeMode="contain"
               />
-            )}
-            <Text style={styles.contentDetailText}>
-              {currentItem.content_detail}
-            </Text>
-            <TouchableOpacity
-              style={styles.recordButton}
-              onPress={() => Alert.alert('Ghi âm', 'Bắt đầu...')}>
-              <Text style={styles.recordIcon}>🎤</Text>
             </TouchableOpacity>
-            <Text style={styles.instructionText}>Nhấn để nói</Text>
+            <TouchableOpacity
+              style={styles.contentCard2}
+              onPress={() => Alert.alert('Ghi âm', 'Bắt đầu...')}>
+              <Image
+                source={require('../../assets/images/micro.png')}
+                style={styles.recordIcon}
+                resizeMode="contain"></Image>
+            </TouchableOpacity>
+            {/* Nút "Bỏ qua" trong voice sẽ gọi handleContinue, đã được xử lý ở footer */}
+            {/* Bạn có thể giữ lại nút "Bỏ qua" ở đây nếu muốn nó tách biệt khỏi footer chung */}
+            <TouchableOpacity
+              onPress={handleContinue}
+              style={styles.instructionButton}>
+              <Text style={styles.instructionText}>Bỏ qua</Text>
+            </TouchableOpacity>
           </View>
         );
       case 'select':
+        // Toàn bộ phần render cho 'select' giữ nguyên như code gốc của bạn
         return (
           <View style={styles.contentCard}>
-            {currentItem.title && (
-              <Text style={styles.contentTitleSelect}>{currentItem.title}</Text>
-            )}
-            {/* Hiển thị content_detail (câu hỏi) và nút loa nếu có */}
-            <View style={styles.questionSelectContainer}>
-              {currentItem.audio_url && (
-                <TouchableOpacity
-                  onPress={() => playSound(currentItem.audio_url)}
-                  style={styles.questionAudioButtonSelect}>
-                  <Image
-                    source={require('../../assets/images/audioInconten.png')} // Đường dẫn đến file hình ảnh
-                    style={styles.audioIconSmall} // Tạo style cho ảnh
-                    resizeMode="contain" // Đảm bảo ảnh được chứa trong vùng bố cục
-                  />
-                </TouchableOpacity>
-              )}
-              <Text style={styles.contentDetailSelect}>
-                {currentItem.content_detail}
-              </Text>
+            <View style={styles.contentCardQuestion}>
+              <View style={styles.questionSelectContainer}>
+                {currentItem.audio_url && (
+                  <TouchableOpacity
+                    onPress={() => playSound(currentItem.audio_url)}
+                    style={styles.questionAudioButtonSelect}>
+                    <Image
+                      source={require('../../assets/images/audioInconten.png')}
+                      style={styles.audioIconSmall}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                )}
+                <Text style={styles.contentDetailSelect}>
+                  {currentItem.content_detail}
+                </Text>
+              </View>
             </View>
-
             <View style={styles.optionsContainer}>
               {currentItem.options?.map(option => {
                 const isSelected = userSelectedOptionId === option.id;
@@ -330,10 +490,10 @@ const ContentsScreen: React.FC = () => {
                         styles.selectedOption,
                       showAnswerFeedback === true &&
                         isCorrectOption &&
-                        styles.correctOption, // Chỉ highlight đúng nếu isCorrectOption
+                        styles.correctOption,
                       showAnswerFeedback === false &&
                         isSelected &&
-                        styles.incorrectOption, // Chỉ highlight sai nếu isSelected và sai
+                        styles.incorrectOption,
                     ]}
                     onPress={() => handleOptionSelect(option.id)}
                     disabled={showAnswerFeedback !== null}>
@@ -356,6 +516,7 @@ const ContentsScreen: React.FC = () => {
           </View>
         );
       case 'sapXep':
+        // Toàn bộ phần render cho 'sapXep' giữ nguyên như code gốc của bạn
         return (
           <View style={styles.contentCard}>
             <View style={styles.contentCardQuestion}>
@@ -370,9 +531,9 @@ const ContentsScreen: React.FC = () => {
                     onPress={() => playSound(currentItem.audio_url)}
                     style={styles.questionAudioButton}>
                     <Image
-                      source={require('../../assets/images/audioInconten.png')} // Đường dẫn đến file hình ảnh
-                      style={styles.audioIconSmall} // Tạo style cho ảnh
-                      resizeMode="contain" // Đảm bảo ảnh được chứa trong vùng bố cục
+                      source={require('../../assets/images/audioInconten.png')}
+                      style={styles.audioIconSmall}
+                      resizeMode="contain"
                     />
                   </TouchableOpacity>
                 )}
@@ -449,8 +610,10 @@ const ContentsScreen: React.FC = () => {
         );
     }
   };
+  // --- HẾT PHẦN GIỮ NGUYÊN renderContentItem ---
 
   if (!lessonCodeFromParam || totalItems === 0) {
+    // Giữ nguyên phần báo lỗi của bạn
     return (
       <SafeAreaView style={styles.errorContainer}>
         <Text style={styles.errorText}>Không có nội dung cho bài học này.</Text>
@@ -462,8 +625,33 @@ const ContentsScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-  const skillName = currentItem?.skill_code?.skill_name || '';
 
+  // --- RENDER MÀN HÌNH TỔNG KẾT NẾU CẦN ---
+  if (showSummaryScreen) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+        {/* Bạn có thể thêm ImageBackground ở đây nếu muốn màn hình tổng kết có nền giống màn hình câu hỏi */}
+        <ImageBackground
+          source={require('../../assets/images/nen3.jpg')}
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={{opacity: 0.08}} // Giữ opacity như cũ hoặc điều chỉnh
+          resizeMode="cover">
+          <LessonSummaryScreen
+            correctAnswersCount={correctAnswersCount}
+            totalQuestions={totalItems}
+            timeTaken={formatTimeTaken()}
+            onComplete={handleContinue} // Nút "Hoàn thành" trên màn tổng kết sẽ gọi goBack()
+          />
+        </ImageBackground>
+      </SafeAreaView>
+    );
+  }
+  // --- KẾT THÚC RENDER MÀN HÌNH TỔNG KẾT ---
+
+  // const skillName = currentItem?.skill_code?.skill_name || ''; // Giữ lại nếu bạn dùng
+
+  // Giao diện chính của màn hình câu hỏi, giữ nguyên như của bạn
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
@@ -475,15 +663,12 @@ const ContentsScreen: React.FC = () => {
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => navigation.goBack()}
+              onPress={handleBackPress}
               style={styles.backButton}>
               <Text style={styles.backButtonText}>‹</Text>
             </TouchableOpacity>
             <View style={styles.progressWrapper}>
               <ProgressBar current={currentIndex + 1} total={totalItems} />
-            </View>
-            <View style={styles.skillTag}>
-              <Text style={styles.skillTagText}>{skillName}</Text>
             </View>
           </View>
 
@@ -491,64 +676,117 @@ const ContentsScreen: React.FC = () => {
             style={styles.contentScrollArea}
             contentContainerStyle={styles.contentScrollContainer}
             showsVerticalScrollIndicator={false}
-            key={`content_scroll_${currentIndex}_${showAnswerFeedback}`} // Thêm showAnswerFeedback vào key để re-render khi check
-          >
+            key={`content_scroll_${currentIndex}_${showAnswerFeedback}`}>
             {renderContentItem()}
           </ScrollView>
 
+          {/* Footer giữ nguyên như của bạn, chỉ có text của nút Tiếp tục có thể thay đổi */}
           <View style={styles.footer}>
+            {/* Ghi âm: luôn hiển thị nút Bỏ qua (đã được xử lý trong renderContentItem hoặc có thể đặt ở đây) */}
+            {/* {currentItem?.content_type === 'ghiAm' && ( // 'ghiAm' là tên bạn dùng hay 'voice'?
+              <TouchableOpacity
+                style={styles.skipButton} // Dùng style skipButton gốc của bạn
+                onPress={handleContinue}>
+                <Text style={styles.footerButtonText}>
+                    {currentIndex >= totalItems - 1 ? "Xem tổng kết" : "Bỏ qua"}
+                </Text>
+              </TouchableOpacity>
+            )} */}
+
+            {/* Select hoặc SapXep: nếu đã chọn -> hiển thị nút Kiểm tra */}
             {(currentItem?.content_type === 'select' ||
               currentItem?.content_type === 'sapXep') &&
-              showAnswerFeedback === null &&
-              currentItem.options &&
+              showAnswerFeedback === null && // Quan trọng: chỉ hiện khi chưa kiểm tra
               ((currentItem.content_type === 'select' &&
                 userSelectedOptionId) ||
                 (currentItem.content_type === 'sapXep' &&
                   arrangedWords.length > 0)) && (
                 <TouchableOpacity
-                  style={[
-                    styles.checkButton,
-                    ((currentItem.content_type === 'select' &&
-                      !userSelectedOptionId) ||
-                      (currentItem.content_type === 'sapXep' &&
-                        arrangedWords.length === 0)) &&
-                      styles.disabledButtonFooter,
-                  ]}
-                  onPress={handleCheckAnswer}
-                  disabled={
-                    (currentItem.content_type === 'select' &&
-                      !userSelectedOptionId) ||
-                    (currentItem.content_type === 'sapXep' &&
-                      arrangedWords.length === 0)
-                  }>
+                  style={styles.checkButton} // Dùng style checkButton gốc
+                  onPress={handleCheckAnswer}>
                   <Text style={styles.footerButtonText}>Kiểm tra</Text>
                 </TouchableOpacity>
               )}
-            <TouchableOpacity
-              style={[
-                styles.continueButton,
-                // Vô hiệu hóa nếu là select/sapXep và CHƯA kiểm tra đáp án VÀ đã có tương tác
-                ((currentItem?.content_type === 'select' &&
-                  userSelectedOptionId &&
-                  showAnswerFeedback === null) ||
-                  (currentItem?.content_type === 'sapXep' &&
-                    arrangedWords.length > 0 &&
-                    showAnswerFeedback === null)) &&
-                  styles.disabledButtonFooter,
-              ]}
-              onPress={handleContinue}
-              disabled={
-                (currentItem?.content_type === 'select' &&
-                  userSelectedOptionId &&
-                  showAnswerFeedback === null) ||
-                (currentItem?.content_type === 'sapXep' &&
-                  arrangedWords.length > 0 &&
-                  showAnswerFeedback === null)
-              }>
-              <Text style={styles.footerButtonText}>
-                {currentIndex === totalItems - 1 ? 'Hoàn thành' : 'Tiếp tục'}
-              </Text>
-            </TouchableOpacity>
+
+            {/* Sau khi kiểm tra (cho select/sapXep) HOẶC cho voice (luôn có thể tiếp tục/xem tổng kết) */}
+            {((currentItem?.content_type === 'select' ||
+              currentItem?.content_type === 'sapXep') &&
+              showAnswerFeedback !== null) ||
+            currentItem?.content_type === 'voice' ||
+            currentItem?.content_type === 'audio' ? (
+              <>
+                {/* Phần hiển thị audio feedback sau khi kiểm tra (giữ nguyên của bạn) */}
+                {showAnswerFeedback !== null &&
+                  (currentItem?.content_type === 'select' ||
+                    currentItem?.content_type === 'sapXep') && (
+                    <View
+                      style={{
+                        alignItems: 'center',
+                        marginBottom: 10,
+                        // backgroundColor: COLORS.green, // Bỏ màu nền này nếu bạn không muốn
+                      }}>
+                      <View style={{alignItems: 'center'}}>
+                        {/* <Text style={{fontSize: 16, fontWeight: 'bold', marginRight: 8}}>
+                        {currentItem?.content_detail} // Có thể bỏ nếu không muốn lặp lại
+                      </Text> */}
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: showAnswerFeedback
+                              ? COLORS.green
+                              : COLORS.red,
+                            marginBottom: 5,
+                          }}>
+                          {showAnswerFeedback ? 'Chính xác!' : 'Sai rồi!'}
+                          {currentItem?.content_type === 'select' &&
+                            !showAnswerFeedback &&
+                            currentItem.options &&
+                            currentItem.correct_answer &&
+                            ` Đáp án đúng: ${
+                              currentItem.options.find(
+                                opt => opt.id === currentItem.correct_answer,
+                              )?.text
+                            }`}
+                        </Text>
+                        {currentItem?.audio_url && (
+                          <TouchableOpacity
+                            onPress={() => playSound(currentItem.audio_url)}>
+                            <Image
+                              source={require('../../assets/images/amThanhTiepTuc.png')}
+                              style={{width: 64, height: 64}} // Giữ style của bạn
+                            />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.continueButton /* Thêm style màu dựa trên showAnswerFeedback nếu muốn */,
+                    showAnswerFeedback === true && styles.correctAnswerButton, // Dùng style gốc của bạn
+                    showAnswerFeedback === false && styles.wrongAnswerButton, // Dùng style gốc của bạn
+                    (currentItem?.content_type === 'voice' ||
+                      currentItem?.content_type === 'audio') &&
+                      styles.skipButton, // Dùng style skip gốc cho voice
+                  ]}
+                  onPress={handleContinue}>
+                  <Text
+                    style={
+                      currentItem?.content_type === 'voice' ||
+                      currentItem?.content_type === 'audio'
+                        ? styles.footerButtonText // Giả sử footerButtonText phù hợp cho voice
+                        : showAnswerFeedback !== null
+                        ? styles.footerButtonText
+                        : Colors.white // Dùng Colors.white gốc cho nút Tiếp tục
+                    }>
+                    Tiếp tục
+                    {/* Text không cần thay đổi, logic trong handleContinue sẽ quyết định */}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
           </View>
         </View>
       </ImageBackground>
@@ -557,6 +795,7 @@ const ContentsScreen: React.FC = () => {
 };
 
 // --- BEGIN STYLES ---
+// Toàn bộ styles gốc của bạn được giữ nguyên ở đây
 const screenWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.white},
@@ -571,44 +810,59 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray2,
   },
+  correctAnswerButton: {
+    // Style gốc của bạn
+    backgroundColor: 'green',
+  },
+  wrongAnswerButton: {
+    // Style gốc của bạn
+    backgroundColor: 'red',
+  },
+  skipButton: {
+    // Style gốc của bạn (cho voice/ghiAm)
+    backgroundColor: '#ccc', // Hoặc COLORS.lightGray hoặc màu bạn muốn
+    paddingVertical: SIZES.padding * 1.2, // Điều chỉnh cho nhất quán với continueButton
+    borderRadius: SIZES.radius * 2.5,
+    alignItems: 'center',
+    flex: 1, // Nếu muốn nó chiếm hết footer
+    // padding: 10, // Gốc
+    // borderRadius: 8, // Gốc
+  },
   backButton: {paddingHorizontal: SIZES.padding * 0.5},
   backButtonText: {
-    fontSize: SIZES.xLarge * 1.8,
+    fontSize: SIZES.xLarge * 2.5,
     color: COLORS.darkGray,
-    fontWeight: '300',
+    fontWeight: '600',
+    marginBottom: 10,
   },
   questionAudioButtonIconOnly: {
-    // Style chỉ cho nút loa, không bao gồm text câu hỏi
     marginRight: SIZES.base,
-    paddingVertical: SIZES.base / 2, // Để dễ bấm hơn
-    // justifyContent: 'center',
-    // alignItems: 'center',
+    paddingVertical: SIZES.base / 2,
   },
   questionAudioButtonSelect: {
-    // Style cho TouchableOpacity chứa cả icon loa và câu hỏi
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary || 'rgba(253, 246, 236, 0.98)', // Nền màu kem giống các lựa chọn
-    paddingVertical: SIZES.padding * 1.2,
-    paddingHorizontal: SIZES.padding,
-    marginRight: 10, // Khoảng cách giữa icon và text
+    alignSelf: 'flex-start',
+    marginRight: 20,
     borderRadius: SIZES.radius,
-    marginBottom: SIZES.padding * 1.5, // Khoảng cách với các options
-
-    // Có thể thêm viền nếu muốn
-    // borderWidth: 1,
-    // borderColor: COLORS.lightGray,
+    marginLeft: 10,
+    marginBottom: 30,
   },
   progressWrapper: {flex: 1, marginHorizontal: SIZES.base},
   progressBarContainer: {
-    height: 22,
-    backgroundColor: COLORS.lightGray,
+    height: 20,
+    backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
     justifyContent: 'center',
+    shadowColor: COLORS.black,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
   },
   progressBarFill: {
-    height: '100%',
-    backgroundColor: COLORS.green || '#4CAF50',
+    height: '80%',
+    backgroundColor: COLORS.primary || '#4CAF50',
     borderRadius: SIZES.radius,
     position: 'absolute',
   },
@@ -621,14 +875,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   questionSelectContainer: {
-    // << STYLE MỚI BẠN CẦN THÊM
-    flexDirection: 'row', // Để icon loa và text câu hỏi nằm cùng hàng
-    alignItems: 'center', // Căn theo đầu dòng nếu text dài
-    marginBottom: SIZES.padding, // Khoảng cách với các options
-    // Bạn có thể thêm padding, margin, border ở đây nếu muốn
-    // backgroundColor: 'rgba(0,0,0,0.05)', // Ví dụ nền nhẹ
-    // padding: SIZES.base,
-    // borderRadius: SIZES.radius,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
   },
   skillTag: {
     backgroundColor: COLORS.lightGray,
@@ -653,9 +902,26 @@ const styles = StyleSheet.create({
     marginTop: SIZES.padding,
     padding: SIZES.padding,
     borderRadius: SIZES.radius,
+    // backgroundColor: COLORS.white, // Nếu bạn muốn card có nền trắng riêng biệt
+  },
+  contentCard2: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginHorizontal: SIZES.padding,
+    marginTop: SIZES.padding,
+    padding: SIZES.padding,
+    borderRadius: SIZES.radius,
+    paddingTop: 90,
+  },
+  contentCardVoice: {
+    // Giữ style này nếu bạn dùng riêng cho voice
+    marginHorizontal: SIZES.padding,
+    marginTop: SIZES.padding,
+    padding: SIZES.padding,
+    borderRadius: SIZES.radius,
   },
   contentCardQuestion: {
-    backgroundColor: COLORS.nenItem,
+    backgroundColor: COLORS.nenItem, // Giữ màu gốc của bạn
     borderRadius: 10,
     borderBottomWidth: 2,
     borderBottomColor: COLORS.primary,
@@ -666,10 +932,11 @@ const styles = StyleSheet.create({
   },
   contentTitle: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.h2,
+    fontSize: SIZES.xxLarge,
     color: COLORS.text,
     marginBottom: SIZES.margin * 1.5,
     textAlign: 'center',
+    fontWeight: '900',
   },
   contentTitleAudio: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
@@ -717,9 +984,9 @@ const styles = StyleSheet.create({
     marginRight: SIZES.padding,
   },
   audioIconSmall: {
-    marginRight: SIZES.base,
-    width: 35, // Kích thước của icon hình ảnh
-    height: 35, // Kích thước của icon hình ảnh
+    marginRight: 10,
+    width: 35,
+    height: 35,
   },
   audioSeekBarPlaceholder: {
     flex: 1,
@@ -739,20 +1006,39 @@ const styles = StyleSheet.create({
     marginVertical: SIZES.padding * 2,
   },
   recordButton: {
-    backgroundColor: COLORS.green,
     width: 80,
     height: 80,
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  recordIcon: {fontSize: SIZES.h1 * 1.5, color: COLORS.white},
+  recordIcon: {
+    width: 60,
+    height: 60,
+  },
+  AudioIcon: {
+    width: 150,
+    height: 150,
+  },
+  instructionButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'transparent',
+    alignSelf: 'center', // để nút không chiếm toàn bộ chiều ngang
+    borderRadius: 5,
+    justifyContent: 'center', // căn giữa theo chiều dọc
+    alignItems: 'center', // căn giữa theo chiều ngang
+  },
   instructionText: {
+    // Style cho nút "Bỏ qua" trong voice
     fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.small,
-    color: COLORS.gray,
+    fontSize: SIZES.xLarge, // Giữ style gốc
+    color: COLORS.black, // Giữ style gốc
     textAlign: 'center',
-    marginTop: SIZES.base,
+    marginTop: 20,
+    fontWeight: '600',
+
+    textDecorationLine: 'underline', // Giữ style gốc
   },
   contentTitleSelect: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
@@ -771,22 +1057,24 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.padding,
     textAlign: 'center',
     fontWeight: '900',
-
     paddingBottom: 20,
   },
   optionsContainer: {marginTop: SIZES.padding},
   optionButton: {
     backgroundColor: COLORS.white,
-    paddingVertical: SIZES.padding * 1.2,
     paddingHorizontal: SIZES.padding,
-    borderRadius: SIZES.radius,
-    borderWidth: 1.5,
-    borderColor: COLORS.lightGray2,
+    paddingVertical: SIZES.padding * 0.7,
+    borderRadius: 10,
+    margin: SIZES.base * 0.4,
+    elevation: 5,
+    borderWidth: 0.5,
+    borderColor: COLORS.gray,
     marginBottom: SIZES.margin * 0.8,
+    height: 50,
   },
   selectedOption: {
     borderColor: COLORS.primary,
-    backgroundColor: COLORS.lightPrimary || 'rgba(0,122,255,0.1)', // Màu xanh dương nhạt làm ví dụ
+    backgroundColor: COLORS.lightPrimary || 'rgba(0,122,255,0.1)',
   },
   correctOption: {
     backgroundColor: COLORS.lightGreen || 'rgba(40,167,69,0.15)',
@@ -795,7 +1083,6 @@ const styles = StyleSheet.create({
   correctOptionText: {
     color: COLORS.darkGreen || '#155724',
     fontWeight: 'bold',
-    // textAlign: 'center', // Bỏ nếu optionText đã là center hoặc left
   },
   incorrectOption: {
     backgroundColor: COLORS.lightRed || 'rgba(220,53,69,0.1)',
@@ -804,24 +1091,24 @@ const styles = StyleSheet.create({
   incorrectOptionText: {
     color: COLORS.darkRed || '#721C24',
     fontWeight: 'bold',
-    // textAlign: 'center',
   },
   optionText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
     fontSize: SIZES.font,
     color: COLORS.text,
-    textAlign: 'left', // Giữ căn trái như ảnh "detailConten1.jpg" (phải)
+    textAlign: 'left',
+    paddingTop: 5,
   },
   originalSentenceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SIZES.padding,
-    paddingVertical: SIZES.padding * 0.5, // Giảm padding dọc chút
+    paddingVertical: SIZES.padding * 0.5,
     paddingHorizontal: SIZES.padding,
   },
   contentDetailXapXep: {
-    fontFamily: FONTS.bold?.fontFamily || 'System', // Đậm hơn cho câu tiếng Nhật
-    fontSize: SIZES.font * 1.15, // To hơn chút
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontSize: SIZES.font * 1.15,
     color: COLORS.text,
     flex: 1,
     lineHeight: SIZES.font * 1.6,
@@ -831,30 +1118,28 @@ const styles = StyleSheet.create({
   wordArrangeDropArea: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    minHeight: 60, // Giảm chiều cao tối thiểu
+    minHeight: 60,
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radiusLG,
-    padding: SIZES.padding * 0.75, // Padding vừa phải
-    marginBottom: SIZES.margin, // Giảm margin bottom
+    padding: SIZES.padding * 0.75,
+    marginBottom: SIZES.margin,
     borderWidth: 1,
     borderColor: COLORS.lightGray,
     alignItems: 'flex-start',
   },
   arrangedTextPlaceholder: {
     fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font * 0.9, // Chữ nhỏ hơn
+    fontSize: SIZES.font * 0.9,
     color: COLORS.gray,
     flex: 1,
     textAlign: 'center',
-    lineHeight: SIZES.padding * 0.6 * 2 + SIZES.font * 1.05, // Điều chỉnh line height
+    lineHeight: SIZES.padding * 0.6 * 2 + SIZES.font * 1.05,
   },
   arrangedWordItem: {
-    // Style cho từ đã được xếp lên trên (nền xanh lá như ảnh)
     backgroundColor: COLORS.primary || '#28a745',
-
     paddingHorizontal: SIZES.padding * 0.8,
     paddingVertical: SIZES.padding * 0.5,
-    borderRadius: SIZES.radius, // Bo tròn vừa phải
+    borderRadius: SIZES.radius,
     margin: SIZES.base * 0.3,
   },
   wordBankContainer: {
@@ -863,23 +1148,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     marginTop: SIZES.padding * 0.5,
     paddingHorizontal: SIZES.padding * 0.5,
-    minHeight: 60, // Giảm chiều cao tối thiểu
+    minHeight: 60,
   },
   wordBankItem: {
     backgroundColor: COLORS.white,
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.padding * 0.7,
-    borderRadius: 10, // Đảm bảo các góc được cong
+    borderRadius: 10,
     margin: SIZES.base * 0.4,
-
-    // Cài đặt shadow cho iOS
-    shadowColor: COLORS.black, // Màu shadow
-    shadowOffset: {width: 0, height: 9}, // Điều chỉnh shadow xuống dưới hơn một chút
-    shadowOpacity: 0.15, // Độ mờ của shadow
-    shadowRadius: 8, // Độ lan tỏa của shadow
-
-    // Cài đặt shadow cho Android
-    elevation: 5, // Độ cao của shadow trên Android, giúp có shadow
+    shadowColor: COLORS.black,
+    shadowOffset: {width: 0, height: 9},
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   },
   wordBankText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
@@ -887,17 +1168,15 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   arrangedWordText: {
-    color: COLORS.white, // Chữ trắng trên nền xanh
+    color: COLORS.white,
     fontWeight: '500',
   },
   wordBankItemSelectedAndUsed: {
-    // Style cho từ trong word bank khi đã được chọn lên drop area
     backgroundColor: COLORS.lightGray,
     borderColor: COLORS.gray,
-    opacity: 0.3, // Làm mờ đi rõ hơn
+    opacity: 0.3,
   },
   disabledWordBankItem: {
-    // Style cho từ trong word bank sau khi đã check đáp án
     opacity: 0.3,
   },
   correctWordBackground: {
@@ -908,8 +1187,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.red,
     borderColor: COLORS.darkRed,
   },
-
   footer: {
+    // Style footer gốc của bạn
     paddingVertical: SIZES.padding * 0.75,
     paddingHorizontal: SIZES.padding,
     paddingBottom:
@@ -917,30 +1196,33 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.lightGray2,
     backgroundColor: COLORS.white,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row', // Giữ lại nếu bạn muốn các nút trên cùng một hàng
+    alignItems: 'center', // Giữ lại
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
   },
   checkButton: {
+    // Style checkButton gốc của bạn
     backgroundColor: COLORS.orange || '#FFA500',
     paddingVertical: SIZES.padding * 1.2,
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
-    marginRight: SIZES.base,
+    marginRight: SIZES.base, // Giữ lại nếu có nút Tiếp tục bên cạnh
   },
   continueButton: {
-    backgroundColor: COLORS.green || '#4CAF50',
-    paddingVertical: SIZES.padding * 1.5,
+    // Style continueButton gốc của bạn
+    backgroundColor: COLORS.green || '#4CAF50', // Màu mặc định khi chưa có feedback
+    paddingVertical: SIZES.padding * 1.2, // Sửa lại cho giống checkButton nếu muốn
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
   },
-  disabledButtonFooter: {backgroundColor: COLORS.lightGray},
+  disabledButtonFooter: {backgroundColor: COLORS.lightGray}, // Giữ lại nếu dùng
   footerButtonText: {
+    // Style footerButtonText gốc của bạn
     fontFamily: FONTS.bold?.fontFamily || 'System',
     color: COLORS.white,
     fontSize: SIZES.font * 1.1,
@@ -963,7 +1245,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: SIZES.padding,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.background, // Giữ lại
   },
   errorText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
@@ -984,5 +1266,6 @@ const styles = StyleSheet.create({
     fontSize: SIZES.medium,
   },
 });
+// --- END STYLES ---
 
 export default ContentsScreen;

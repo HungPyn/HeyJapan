@@ -1,6 +1,9 @@
 // src/navigation/index.tsx
 import React from 'react';
-import {NavigationContainer} from '@react-navigation/native';
+import {
+  getFocusedRouteNameFromRoute,
+  NavigationContainer,
+} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {Text, View} from 'react-native';
@@ -101,29 +104,49 @@ const CoursesNavigator = () => (
   </CoursesStack.Navigator>
 );
 
+const getTabBarVisibility = (route: any) => {
+  const routeName = getFocusedRouteNameFromRoute(route);
+
+  const hiddenScreens = [
+    'ContentsScreen',
+    'CourseDetail',
+    'ContentsLyThuyetScreen',
+  ];
+
+  // Kiểm tra nếu routeName hợp lệ và nằm trong danh sách cần ẩn
+  return routeName ? !hiddenScreens.includes(routeName) : true;
+};
+
 // Main Tab Navigator
 const MainNavigator = () => (
   <MainTab.Navigator
-    screenOptions={{
-      headerShown: false,
-      tabBarShowLabel: true, // Giữ lại vì bạn muốn hiển thị label
-      tabBarActiveBackgroundColor: '#FFBF00', // Màu nền cho tab đang được chọn
-      tabBarActiveTintColor: COLORS.white,
-      tabBarInactiveTintColor: COLORS.white,
+    screenOptions={({route}) => {
+      const isTabBarVisible = getTabBarVisibility(route);
 
-      tabBarStyle: {
-        height: 65,
-        paddingVertical: 5,
-        backgroundColor: COLORS.primary, // Màu nền chung của thanh tab
-        paddingBottom: 0, // Điều chỉnh paddingBottom nếu cần
-      },
-      tabBarLabelStyle: {
-        fontSize: 16, // Điều chỉnh cho phù hợp với thiết kế
-        fontWeight: '500', // Điều chỉnh cho phù hợp
-        paddingVertical: 0,
-        paddingBottom: 0, // Loại bỏ paddingBottom nếu không cần
-        transform: [{translateY: -10}], // Dịch chuyển label lên
-      },
+      return {
+        headerShown: false,
+        tabBarShowLabel: true,
+        tabBarActiveBackgroundColor: '#FFBF00',
+        tabBarActiveTintColor: COLORS.white,
+        tabBarInactiveTintColor: COLORS.white,
+
+        tabBarStyle: isTabBarVisible
+          ? {
+              height: 65,
+              paddingVertical: 5,
+              backgroundColor: COLORS.primary,
+              paddingBottom: 0,
+            }
+          : {display: 'none'},
+
+        tabBarLabelStyle: {
+          fontSize: 16,
+          fontWeight: '500',
+          paddingVertical: 0,
+          paddingBottom: 0,
+          transform: [{translateY: -10}],
+        },
+      };
     }}>
     <MainTab.Screen
       name="Courses"
@@ -142,7 +165,6 @@ const MainNavigator = () => (
     />
   </MainTab.Navigator>
 );
-
 // Đièu hướng sau khi đăng nhập
 // Component màn hình chờ đơn giản
 const LoadingScreenComponent = () => (
