@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "103578990825",
+    "project_id": "sakuranihongo-200e5",
+    "storage_bucket": "sakuranihongo-200e5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:103578990825:android:ca4b226dd96ac4ec8c9878",
+        "android_client_info": {
+          "package_name": "com.sakuranihongo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8maRmPJC_sdWonbgpsDbWXEf-ZLBPt-Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
