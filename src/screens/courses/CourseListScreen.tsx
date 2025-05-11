@@ -33,7 +33,7 @@ export const mockCourses: Course[] = [
     quantityLesson: 5,
   },
   {
-    topic_code: '101',
+    topic_code: '102',
     title: 'Cơ bản 1',
     imageUrl: 'https://i.imgur.com/na3U2uk.png',
     levelCode: 'Cơ bản',

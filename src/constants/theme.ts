@@ -1,7 +1,7 @@
 // src/constants/theme.ts
 export const COLORS = {
   primary: '#8DCC63', // Xanh lá tươi (giống HeyJapan)
-
+  textSecondary: '#616161', // Màu chữ phụ (xám đậm) - Cập nhật đây là màu thứ cấp
   primaryDark: '#E05555', // Phiên bản đậm hơn của primary
   secondary: '#4ECDC4', // Màu phụ - Xanh ngọc
   accent: '#FFE66D', // Màu nhấn - Vàng nhạt
@@ -20,10 +20,29 @@ export const COLORS = {
   gray: '#808080',
   transparent: 'transparent',
   nenItem: 'rgba(241, 233, 217, 0.99)',
+  // Màu sắc mới bạn yêu cầu
+  lightGreen: '#a8e6cf', // Màu xanh lá nhạt
+  lightRed: '#f8d7da', // Màu đỏ nhạt
+  orange: '#f39c12', // Màu cam
+
+  lightGray: '#E0E0E0', // Màu xám nhạt
+  lightGray2: '#F5F5F5', // Màu xám nhạt hơn
+
+  darkGray: '#616161', // Màu xám đậm
+
+  blue: '#2196F3', // Màu xanh dương
+  green: '#4CAF50', // Màu xanh lá
+  red: '#F44336', // Màu đỏ
+  lightPrimary: '#C8E6C9', // Màu xanh lá nhạt
+  correctBg: '#D4EDDA', // Nền xanh lá khi đúng
+  darkGreen: '#155724', // Chữ xanh lá đậm khi đúng
+  incorrectBg: '#F8D7DA', // Nền đỏ khi sai
+  darkRed: '#721C24', // Chữ đỏ đậm khi sai
 };
 
 export const SIZES = {
   // Font sizes
+  radiusLG: 16, // Kích thước bo góc lớn
   xSmall: 10,
   small: 12,
   medium: 14,
@@ -33,6 +52,13 @@ export const SIZES = {
   xxxLarge: 24,
   font: 14,
   h2: 18,
+
+  // Kích thước chung
+  h1: 32, // Tiêu đề lớn
+  h3: 20, // Tiêu đề nhỏ
+  base: 12, // Khoảng cách cơ bản
+  marginTop: 20, // Margin top
+  marginBottom: 20, // Margin bottom
 
   // Spacing
   padding: 15,
@@ -48,6 +74,10 @@ export const FONTS = {
   regular: {
     fontFamily: 'Roboto-Regular',
     fontWeight: 'normal' as 'normal',
+  },
+  semiBold: {
+    fontFamily: 'System', // Phông chữ mặc định
+    fontWeight: '600', // Semi-bold weight (đậm vừa phải)
   },
   medium: {
     fontFamily: 'Roboto-Medium',

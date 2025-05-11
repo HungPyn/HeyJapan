@@ -77,6 +77,16 @@ const allLessonsData: Lesson[] = [
     lesson_type: 'hira',
   },
   {
+    lesson_code: 14,
+    lesson_name: 'Lý thuyết',
+    lesson_description: 'Học bảng chữ cái Hiragana...',
+    quantity_content: 5,
+    day_creation: '2025-05-10 08:10:00',
+    topic_code: 102,
+    status: 'completed',
+    lesson_type: 'hira',
+  },
+  {
     lesson_code: 3,
     lesson_name: 'カタカナ（基本）- Hàng KA',
     lesson_description: 'Làm quen với bảng chữ cái Katakana...',
@@ -240,8 +250,8 @@ const CourseDetailScreen: React.FC = () => {
       lesson.lesson_code,
     );
 
-    const lessonNameLower = lesson.lesson_name.toLowerCase();
-    const targetLessonCode = lesson.lesson_code.toString(); // lessonCode trong param là string
+    const lessonNameLower = (lesson.lesson_name || '').toLowerCase();
+    const targetLessonCode = lesson.lesson_code.toString();
     const targetLessonName = lesson.lesson_name;
 
     if (lessonNameLower.includes('lý thuyết')) {
@@ -253,14 +263,31 @@ const CourseDetailScreen: React.FC = () => {
         lessonName: targetLessonName,
       });
     } else {
-      console.log(
-        `Điều hướng đến ContentsScreen với lessonCode: ${targetLessonCode}, lessonName: ${targetLessonName}`,
+      // Hiển thị thông báo xác nhận trước khi điều hướng
+      Alert.alert(
+        'Xác nhận',
+        'Bạn có chắc chắn muốn học bài này không?',
+        [
+          {
+            text: 'Hủy',
+            style: 'cancel',
+          },
+          {
+            text: 'Đồng ý',
+            onPress: () => {
+              console.log(
+                `Điều hướng đến ContentsScreen với lessonCode: ${targetLessonCode}, lessonName: ${targetLessonName}`,
+              );
+              navigation.navigate('ContentsScreen', {
+                lessonCode: targetLessonCode,
+                lessonName: targetLessonName,
+                // contentType: lesson.lesson_type || 'unknown',
+              });
+            },
+          },
+        ],
+        {cancelable: true},
       );
-      navigation.navigate('ContentsScreen', {
-        lessonCode: targetLessonCode,
-        lessonName: targetLessonName,
-        // contentType: lesson.lesson_type || 'unknown', // Ví dụ nếu ContentsScreen cần biết loại nội dung
-      });
     }
   };
 
