@@ -3,6 +3,8 @@ package com.quafresh.web.heyjapan.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -14,16 +16,12 @@ import java.time.Instant;
 public class ExamResult {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "result_code", nullable = false)
+    @Column(name = "result_id", nullable = false)
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "exam_code")
-    private com.quafresh.web.heyjapan.entity.Exam examCode;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_code")
-    private com.quafresh.web.heyjapan.entity.User userCode;
+    @JoinColumn(name = "user_id")
+    private com.quafresh.web.heyjapan.entity.User user;
 
     @Column(name = "exam_time")
     private Integer examTime;
@@ -39,5 +37,10 @@ public class ExamResult {
 
     @Column(name = "end_datetime")
     private Instant endDatetime;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "topic_id")
+    private Topic topic;
 
 }

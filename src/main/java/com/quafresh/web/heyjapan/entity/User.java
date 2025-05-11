@@ -2,16 +2,13 @@ package com.quafresh.web.heyjapan.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 @Setter
 @Entity
@@ -19,23 +16,43 @@ import java.util.Set;
 public class User {
     @Id
     @Size(max = 36)
-    @Column(name = "user_code", nullable = false, length = 36)
-    private String userCode;
+    @Column(name = "user_id", nullable = false, length = 36)
+    private String id;
 
     @Size(max = 255)
-    @Column(name = "user_name")
-    private String userName;
+    @Column(name = "oauth_subject_id")
+    private String oauthSubjectId;
+
+    @Lob
+    @Column(name = "profile_picture_url")
+    private String profilePictureUrl;
+
+    @ColumnDefault("0")
+    @Column(name = "current_streak")
+    private Integer currentStreak;
+
+    @ColumnDefault("0")
+    @Column(name = "longest_streak")
+    private Integer longestStreak;
 
     @Size(max = 255)
-    @Column(name = "email", unique = true)
+    @Column(name = "username")
+    private String username;
+
+    @Size(max = 255)
+    @Column(name = "email")
     private String email;
 
     @Size(max = 255)
     @Column(name = "user_password")
-    private String userPassword;
+    private String password;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "level_id")
+    private Level level;
 
     @Column(name = "user_role")
-    private boolean userRole;
+    private Boolean role;
 
     // Thêm các trường cần thiết cho OAuth2
     @Size(max = 255)
@@ -53,18 +70,19 @@ public class User {
     @Column(name = "provider_id")
     private String providerId;
 
-    @OneToMany(mappedBy = "userCode")
+    @OneToMany(mappedBy = "id")
     private Set<ExamResult> examResults = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "userCode")
+    @OneToMany(mappedBy = "id")
     private Set<LessonResult> lessonResults = new LinkedHashSet<>();
 
     // Thêm các phương thức bổ sung để tương thích với OAuth2UserService
     public String getName() {
-        return this.userName;
+        return this.username;
     }
 
     public void setName(String name) {
-        this.userName = name;
+        this.username = name;
     }
+
 }

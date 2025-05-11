@@ -11,7 +11,7 @@ import lombok.*;
 @Setter
 public class SignUpRequest {
     @NotBlank
-    private String name;
+    private String username;
 
     @NotBlank
     @Email

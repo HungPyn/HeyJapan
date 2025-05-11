@@ -14,16 +14,16 @@ import java.time.Instant;
 public class LessonResult {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "result_code", nullable = false)
+    @Column(name = "result_id", nullable = false)
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_code")
-    private com.quafresh.web.heyjapan.entity.User userCode;
+    @JoinColumn(name = "user_id")
+    private com.quafresh.web.heyjapan.entity.User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lesson_code")
-    private com.quafresh.web.heyjapan.entity.Lesson lessonCode;
+    @JoinColumn(name = "lesson_id")
+    private com.quafresh.web.heyjapan.entity.Lesson lesson;
 
     @Column(name = "study_time")
     private Integer studyTime;

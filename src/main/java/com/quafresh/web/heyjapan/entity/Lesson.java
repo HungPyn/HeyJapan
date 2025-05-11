@@ -8,7 +8,6 @@ import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -19,37 +18,26 @@ import java.util.Set;
 public class Lesson {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "lesson_code", nullable = false)
+    @Column(name = "lesson_id", nullable = false)
     private Integer id;
 
     @Size(max = 255)
     @NotNull
     @Column(name = "lesson_name", nullable = false)
-    private String lessonName;
+    private String name;
 
-    @Lob
-    @Column(name = "lesson_description")
-    private String lessonDescription;
-
-    @Column(name = "quantity_content")
-    private Integer quantityContent;
-
+    @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "day_creation")
-    private LocalDateTime dayCreation;
-
-    @PrePersist
-    protected void onCreate() {
-        dayCreation = LocalDateTime.now();
-    }
+    private Instant dayCreation;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "topic_code")
-    private com.quafresh.web.heyjapan.entity.Topic topicCode;
+    @JoinColumn(name = "topic_id")
+    private com.quafresh.web.heyjapan.entity.Topic topic;
 
-    @OneToMany(mappedBy = "lessonCode")
-    private Set<Content> contents = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "lesson")
+    private Set<LessonQuestion> lessonQuestions = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "lessonCode")
+    @OneToMany(mappedBy = "lesson")
     private Set<LessonResult> lessonResults = new LinkedHashSet<>();
 
 }

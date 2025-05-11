@@ -1,19 +1,9 @@
 package com.quafresh.web.heyjapan.service.auth.impl;
 
 import com.quafresh.web.heyjapan.dto.user.auth.SignUpRequest;
-import com.quafresh.web.heyjapan.entity.User;
-import com.quafresh.web.heyjapan.exception.EmailAlreadyExistsException;
-import com.quafresh.web.heyjapan.exception.InvalidCredentialsException;
-import com.quafresh.web.heyjapan.repository.UserRepository;
-import com.quafresh.web.heyjapan.security.JwtTokenUtil;
 import com.quafresh.web.heyjapan.service.auth.AuthService;
-import com.quafresh.web.heyjapan.util.ErrorMessages;
-import com.quafresh.web.heyjapan.util.UserMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor

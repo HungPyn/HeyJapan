@@ -1,6 +1,5 @@
 package com.quafresh.web.heyjapan.security;
 
-import com.quafresh.web.heyjapan.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
