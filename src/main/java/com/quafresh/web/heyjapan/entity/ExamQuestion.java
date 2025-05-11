@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.entity;
 
+import com.quafresh.web.heyjapan.entity.enums.QuestionType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -26,7 +27,7 @@ public class ExamQuestion {
     @NotNull
     @Lob
     @Column(name = "question_type", nullable = false)
-    private String questionType;
+    private QuestionType questionType;
 
     @NotNull
     @Lob
