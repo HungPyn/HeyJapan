@@ -59,17 +59,17 @@ public class AuthController {
 
         // Tạo tài khoản người dùng
         User user = new User();
-        user.setUserCode(UUID.randomUUID().toString());
-        user.setName(signUpRequest.getName());
+        user.setId(UUID.randomUUID().toString());
+        user.setUsername(signUpRequest.getUsername());
         user.setEmail(signUpRequest.getEmail());
-        user.setUserPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+        user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
         user.setProvider(AuthProvider.LOCAL);
 
         User result = userRepository.save(user);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath().path("/user/me")
-                .buildAndExpand(result.getUserCode()).toUri();
+                .buildAndExpand(result.getId()).toUri();
 
         return ResponseEntity.created(location)
                 .body(new ApiResponse(true, "User registered successfully"));

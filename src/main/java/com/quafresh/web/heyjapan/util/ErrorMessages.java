@@ -8,7 +8,9 @@ public enum ErrorMessages {
     VALIDATION_FAILED("Lỗi xác thực dữ liệu"),
     INTERNAL_SERVER_ERROR("Lỗi không xác định"),
     INVALID_ACCOUNT("Tài khoản không tồn tại"),
-    INVALID_PASSWORD("Mật khẩu không chính xác");
+    INVALID_PASSWORD("Mật khẩu không chính xác"),
+    INVALID_TOPIC("Chủ đề không tồn tại"),
+    INVALID_LEVEL("Cấp độ không tồn tại");
     private final String message;
     ErrorMessages(String message) {
         this.message = message;

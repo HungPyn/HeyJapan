@@ -82,9 +82,10 @@ public class SecurityConfig {
                         .permitAll().requestMatchers("/api/public/*").permitAll()  // Đúng
                         .requestMatchers("/api/auth/*").permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers("/api/user/**").hasAuthority("ROLE_USER")
+                        .requestMatchers("/api/test/user").authenticated()
                         .anyRequest()
                         .authenticated()
-                        .requestMatchers("/api/test/user").authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization

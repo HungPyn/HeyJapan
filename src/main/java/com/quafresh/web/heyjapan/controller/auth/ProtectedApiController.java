@@ -52,8 +52,8 @@ public class ProtectedApiController {
         List<Map<String, Object>> response = users.stream()
                 .map(user -> {
                     Map<String, Object> userMap = new HashMap<>();
-                    userMap.put("id", user.getUserCode());
-                    userMap.put("name", user.getName());
+                    userMap.put("id", user.getId());
+                    userMap.put("name", user.getUsername());
                     userMap.put("email", user.getEmail());
                     return userMap;
                 })
