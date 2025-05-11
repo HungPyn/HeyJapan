@@ -17,5 +17,4 @@ public class ResponseTopicDTO {
 
         private Instant dayCreation;
 
-
 }
