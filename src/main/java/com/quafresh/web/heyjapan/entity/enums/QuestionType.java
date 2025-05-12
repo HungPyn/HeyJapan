@@ -19,17 +19,6 @@ public enum QuestionType {
          */
         AUDIO_CHOICE,
 
-        /**
-         * Câu hỏi điền vào chỗ trống trong câu.
-         * Ví dụ: "Tôi ___ học sinh." → Đáp án: "là"
-         */
-        FILL_IN_THE_BLANK,
-
-        /**
-         * Câu hỏi nối từ (matching) giữa hai cột (ví dụ tiếng Nhật và nghĩa tiếng Việt).
-         * Ví dụ: nối "水" với "nước", "火" với "lửa".
-         */
-        MATCHING,
 
         /**
          * Câu hỏi xếp từ thành câu đúng (word order).
