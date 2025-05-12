@@ -73,18 +73,18 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
   const login = async (email: string, password: string) => {
     setIsLoadingAuthState(true); // Bắt đầu quá trình xử lý, có thể hiển thị loading
     try {
-      const response = await axios.post('http://10.0.2.2:8080/api/auth/login', {
+      const response = await axios.post('http://10.0.2.2:8080/test/login', {
         email,
-        userPassword: password,
+        password: password,
       });
 
       console.log('API response:', response);
-      const token = response.data; // Hoặc response.data.token tùy theo API của bạn
+      const token = response.data.accessToken; // Hoặc response.data.token tùy theo API của bạn
 
       if (!token || typeof token !== 'string') {
         console.error(
           'Không có token hợp lệ trong phản hồi từ API',
-          response.data,
+          response.data.accessToken,
         );
         showMessage({
           message: 'Lỗi đăng nhập: Phản hồi không hợp lệ.',
@@ -99,7 +99,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
         decodedToken.role ||
         decodedToken.roles ||
         decodedToken.authorities ||
-        'USER'; // Mặc định là USER nếu không có
+        'ROLE_USER'; // Mặc định là USER nếu không có
 
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('role', String(roleFromToken));
