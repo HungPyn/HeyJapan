@@ -29,8 +29,11 @@ public class ExamResult {
     @Column(name = "score_percent", precision = 5, scale = 2)
     private BigDecimal scorePercent;
 
-    @Column(name = "exam_attempt")
-    private Integer examAttempt;
+    @Column(name = "total_questions")
+    private Integer totalQuestions;
+
+    @Column(name = "correct_answers")
+    private Integer correctAnswers;
 
     @Column(name = "start_datetime")
     private Instant startDatetime;

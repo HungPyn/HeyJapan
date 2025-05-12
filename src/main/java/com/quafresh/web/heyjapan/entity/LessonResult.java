@@ -31,8 +31,11 @@ public class LessonResult {
     @Column(name = "completion_percent", precision = 5, scale = 2)
     private BigDecimal completionPercent;
 
-    @Column(name = "study_attempt")
-    private Integer studyAttempt;
+    @Column(name = "total_questions")
+    private Integer totalQuestions;
+
+    @Column(name = "correct_answers")
+    private Integer correctAnswers;;
 
     @Column(name = "start_datetime")
     private Instant startDatetime;
