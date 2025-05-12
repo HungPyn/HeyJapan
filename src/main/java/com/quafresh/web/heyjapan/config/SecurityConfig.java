@@ -1,5 +1,9 @@
-package com.quafresh.web.heyjapan.security;
+package com.quafresh.web.heyjapan.config;
 
+import com.quafresh.web.heyjapan.security.CustomUserDetailsService;
+import com.quafresh.web.heyjapan.security.JwtAuthenticationEntryPoint;
+import com.quafresh.web.heyjapan.security.JwtTokenFilter;
+import com.quafresh.web.heyjapan.security.JwtUtils;
 import com.quafresh.web.heyjapan.security.oauth2.CookieAuthorizationRequestRepository;
 import com.quafresh.web.heyjapan.security.oauth2.CustomOAuth2UserService;
 import com.quafresh.web.heyjapan.security.oauth2.OAuth2AuthenticationFailureHandler;
@@ -10,11 +14,11 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -24,7 +28,7 @@ public class SecurityConfig {
     private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final JwtTokenUtil tokenProvider;
+    private final JwtUtils tokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
     private final CookieAuthorizationRequestRepository cookieAuthorizationRequestRepository;
 
@@ -34,7 +38,7 @@ public class SecurityConfig {
             OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler,
             OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler,
             JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
-            JwtTokenUtil tokenProvider,
+            JwtUtils tokenProvider,
             CustomUserDetailsService customUserDetailsService,
             CookieAuthorizationRequestRepository cookieAuthorizationRequestRepository) {
         this.customOAuth2UserService = customOAuth2UserService;
@@ -59,9 +63,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .csrf(csrf -> csrf.disable())
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
+                .csrf(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                 )
@@ -87,22 +91,10 @@ public class SecurityConfig {
                         .anyRequest()
                         .authenticated()
                 )
-                .oauth2Login(oauth2 -> oauth2
-                        .authorizationEndpoint(authorization -> authorization
-                                .baseUri("/oauth2/authorize")
-                                .authorizationRequestRepository(cookieAuthorizationRequestRepository)
-                        )
-                        .redirectionEndpoint(redirection -> redirection
-                                .baseUri("/oauth2/callback/*")
-                        )
-                        .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService)
-                        )
-                        .successHandler(oAuth2AuthenticationSuccessHandler)
-                        .failureHandler(oAuth2AuthenticationFailureHandler)
-                );
-        http.addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
-
+                .oauth2Login(oauth2Login ->
+                        {}
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         return http.build();
     }
 
