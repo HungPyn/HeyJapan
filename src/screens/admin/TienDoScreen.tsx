@@ -314,16 +314,7 @@ const TienDoScreen = () => {
             e.stopPropagation(); // Ngăn không cho TouchableOpacity cha bị trigger
             handleDeletePress(item.user_id, item.username);
           }}
-          disabled={deletingUserId === item.user_id}>
-          {deletingUserId === item.user_id ? (
-            <ActivityIndicator
-              size="small"
-              color={COLORS.primary || '#007bff'} // Giống TaiKhoanScreen
-            />
-          ) : (
-            <Image source={DELETE_ICON} style={styles.deleteIcon} /> // Style được cập nhật
-          )}
-        </TouchableOpacity>
+          disabled={deletingUserId === item.user_id}></TouchableOpacity>
       </TouchableOpacity>
     ),
     [navigation, deletingUserId, handleDeletePress], // Thêm navigation vào dependencies

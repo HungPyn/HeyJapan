@@ -92,11 +92,14 @@ const SignUpScreen: React.FC = () => {
     if (isValid) {
       try {
         // Gọi API để đăng ký
-        const response = await axios.post('http://10.0.2.2:8080/test/signup', {
-          username: fullName,
-          email,
-          password: password,
-        });
+        const response = await axios.post(
+          'http://10.0.2.2:8080/api/auth/signup',
+          {
+            username: fullName,
+            email,
+            password: password,
+          },
+        );
 
         if (response.status === 201) {
           console.log('Đăng ký thành công', response.data);
