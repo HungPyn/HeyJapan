@@ -289,7 +289,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
             if (decodedPayloadString?.payload.level) {
               await AsyncStorage.setItem(
                 'level',
-                decodedPayloadString?.payload.level,
+                `"${decodedPayloadString?.payload.level}"`,
               );
             }
 

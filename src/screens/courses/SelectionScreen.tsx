@@ -1,7 +1,7 @@
 // Đổi tên file này thành src/screens/courses/SelectionScreen.tsx (hoặc nơi bạn đã quyết định lưu)
 // Và cập nhật import trong navigation/index.tsx cho phù hợp.
-
-import React, {useState} from 'react'; // Thêm useState
+import axios from 'axios';
+import React, {useEffect, useState} from 'react'; // Thêm useState
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import {
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import CustomButton from '../../components/common/CustomButton';
 import {useAuth} from '../auth/AuthContext'; // Import useAuth để gọi markSelectionComplete
+import {showMessage} from 'react-native-flash-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Bỏ type WelcomeScreenNavigationProp vì chúng ta không dùng navigation kiểu cũ ở đây nữa
 // type WelcomeScreenNavigationProp = StackNavigationProp<
@@ -27,32 +29,75 @@ import {useAuth} from '../auth/AuthContext'; // Import useAuth để gọi markS
 // >;
 
 // Định nghĩa các lựa chọn trình độ
-const LEVELS = [
-  {id: 'beginner', title: 'Tiếng Nhật mới bắt đầu'},
-  {id: 'intermediate', title: 'Tiếng Nhật cơ bản'},
-  {id: 'advanced', title: 'Tiếng Nhật nâng cao'},
-];
 
+interface Level {
+  id: string;
+  name: string;
+  // Thêm các thuộc tính khác nếu API trả về, ví dụ: description, code, ...
+}
 const SelectionScreen: React.FC = () => {
-  // Đổi tên component
-  const {markSelectionComplete} = useAuth(); // Lấy hàm từ AuthContext
+  const {markSelectionComplete} = useAuth();
 
-  // State để lưu trữ lựa chọn hiện tại, mặc định là lựa chọn đầu tiên
-  const [selectedLevelId, setSelectedLevelId] = useState<string>(LEVELS[0].id);
+  const [levels, setLevels] = useState<Level[]>([]); // State cho danh sách levels
+  const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null); // Ban đầu chưa chọn level nào
+  const [isLoadingLevels, setIsLoadingLevels] = useState(true); // State cho trạng thái tải levels
 
-  // Hàm xử lý khi người dùng chọn một trình độ
+  // useEffect để fetch levels khi component được mount
+  useEffect(() => {
+    const fetchLevels = async () => {
+      setIsLoadingLevels(true);
+
+      try {
+        const authToken = await AsyncStorage.getItem('token');
+        const config = {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        };
+        // THAY THẾ URL NÀY bằng API endpoint đúng để lấy danh sách levels
+        const response = await axios.get<Level[]>(
+          'http://10.0.2.2:8080/api/user/level', // Endpoint của bạn
+          config, // Truyền config vào đây
+        );
+
+        if (
+          response.data &&
+          Array.isArray(response.data) &&
+          response.data.length > 0
+        ) {
+          setLevels(response.data);
+          // Tự động chọn level đầu tiên làm mặc định nếu muốn
+          // Hoặc để người dùng tự chọn hoàn toàn: setSelectedLevelId(null);
+          setSelectedLevelId(response.data[0].id);
+        } else {
+          setLevels([]); // Không có level nào hoặc dữ liệu không đúng định dạng
+          showMessage({
+            message: 'Không tìm thấy danh sách trình độ.',
+            type: 'warning',
+          });
+        }
+      } catch (error) {
+        console.error('Lỗi khi tải danh sách trình độ:', error);
+        showMessage({
+          message: 'Lỗi tải danh sách trình độ. Vui lòng thử lại!',
+          type: 'danger',
+        });
+        setLevels([]); // Đặt về mảng rỗng khi có lỗi
+      } finally {
+        setIsLoadingLevels(false);
+      }
+    };
+
+    fetchLevels();
+  }, []);
+
   const handleLevelSelect = (levelId: string) => {
     setSelectedLevelId(levelId);
   };
 
-  // Hàm xử lý khi người dùng nhấn nút "Tiếp tục"
   const handleContinue = async () => {
+    
     console.log('Trình độ đã được người dùng chọn:', selectedLevelId);
-    // TODO: Tại đây, bạn có thể thêm logic để gửi `selectedLevelId` lên backend nếu cần.
-    // Ví dụ: await api.saveUserLevelPreference(selectedLevelId);
-
-    // Sau khi xử lý (ví dụ: lưu lên backend), gọi markSelectionComplete.
-    // AuthContext sẽ cập nhật trạng thái, và RootNavigator sẽ tự động chuyển sang MainNavigator.
     await markSelectionComplete();
   };
 
@@ -82,10 +127,10 @@ const SelectionScreen: React.FC = () => {
           </View>
 
           <View style={styles.buttonContainer}>
-            {LEVELS.map(level => (
+            {levels.map(level => (
               <CustomButton
                 key={level.id}
-                title={level.title}
+                title={level.name}
                 onPress={() => handleLevelSelect(level.id)}
                 // 'primary' là nền xanh, 'outline' là nền mặc định (ví dụ: trắng viền)
                 type={selectedLevelId === level.id ? 'primary' : 'outline'}
