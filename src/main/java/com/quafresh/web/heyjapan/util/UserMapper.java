@@ -33,6 +33,7 @@ public interface UserMapper {
     ResponseLevelDTO toResponseLevelDTO(Level level);
 
     // Chuyển từ Topic -> ResponseTopicDTO
+    @Mapping(source = "level.id",target = "levelId")
     ResponseTopicDTO toResponseTopicDTO(Topic topic);
 
     // Chuyển từ Grammar -> ResponseGrammarDTO

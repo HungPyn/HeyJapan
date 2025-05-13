@@ -13,4 +13,11 @@ public interface TopicRepository extends JpaRepository<Topic, Integer> {
     List<Topic> findAllTopicsByLevelId(@Param("levelId") Integer levelId);
 
 
+    //admin
+    @Query("SELECT t FROM Topic t  ORDER BY t.dayCreation ASC")
+    List<Topic> getAll();
+
+    @Query("SELECT t FROM Topic t where t.name like %:keyword% ORDER BY t.dayCreation ASC")
+    List<Topic> searchAll(@Param("keyword") String keyword);
+
 }

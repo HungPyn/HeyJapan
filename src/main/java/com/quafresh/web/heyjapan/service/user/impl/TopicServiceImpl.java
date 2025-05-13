@@ -32,16 +32,17 @@ public class TopicServiceImpl implements TopicService {
     private final LevelRepository levelRepository;
     private final UserMapper userMapper;
     private final LessonRepository lessonRepository;
-    private final UserRepository  userRepository;
+    private final UserRepository userRepository;
     private final ExamResultRepository examResultRepository;
     private final GcsStorageService gcsStorageService;
+
     @Override
     public ResponseLevelDTO getLevelWithTopics(Integer levelID) {
         // Lấy danh sách Topics theo Level từ cũ tới mới
         List<Topic> topics = topicRepository.findAllTopicsByLevelId(levelID);
         // Lấy thông tin Level từ level id
         Level level = levelRepository.findById(levelID)
-                .orElseThrow(()->new RuntimeException(ErrorMessages.INVALID_LEVEL.getMessage()));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_LEVEL.getMessage()));
 
         ResponseLevelDTO responseLevelDTO = userMapper.toResponseLevelDTO(level);
         List<ResponseTopicDTO> responseTopicDTOS = topics.stream().map(userMapper::toResponseTopicDTO).collect(Collectors.toList());
@@ -53,25 +54,38 @@ public class TopicServiceImpl implements TopicService {
     @Override
     public ResponseTopicViewDTO getTopicWithTopics(Integer topicID, String idUser) {
         Topic topic = topicRepository.findById(topicID)
-                .orElseThrow(()->new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));
         ResponseTopicViewDTO responseTopicViewDTO = new ResponseTopicViewDTO();
         User user = userRepository.findById(idUser)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_ACCOUNT.getMessage()));
         responseTopicViewDTO.setId(topic.getId());
         responseTopicViewDTO.setName(topic.getName());
 
-        TheoryDTO theoryDTO = new TheoryDTO(topic.getId(),"Lý thuyết");
+        TheoryDTO theoryDTO = new TheoryDTO(topic.getId(), "Lý thuyết");
         responseTopicViewDTO.setTheoryDTO(theoryDTO);
 
-        List<ResponseLessonDTO> list = lessonRepository.findLessonsWithStatusByTopicIdAndUserId(topic.getId(),user.getId());
+        List<ResponseLessonDTO> list = lessonRepository.findLessonsWithStatusByTopicIdAndUserId(topic.getId(), user.getId());
         responseTopicViewDTO.setLessons(list);
-        ExamResponseDTO examResponseDTO = examResultRepository.getExamStatusForTopic(user.getId(),topic.getId());
+        ExamResponseDTO examResponseDTO = examResultRepository.getExamStatusForTopic(user.getId(), topic.getId());
         examResponseDTO.setName("Kiểm tra");
         responseTopicViewDTO.setExamResponseDTO(examResponseDTO);
         return responseTopicViewDTO;
     }
 
     //admin
+    @Override
+    public List<ResponseTopicDTO> getAllTopics() {
+        List<Topic> topics = topicRepository.getAll();
+        return topics.stream().map(userMapper::toResponseTopicDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ResponseTopicDTO> search(String keyword) {
+        List<Topic> listSearch = topicRepository.searchAll(keyword);
+        return listSearch.stream().map(userMapper::toResponseTopicDTO).collect(Collectors.toList());
+    }
+
+
     @Override
     public ResponseTopicDTO create(RequestTopicDTO requestTopicDTO) {
         Topic topic = new Topic();
@@ -82,7 +96,7 @@ public class TopicServiceImpl implements TopicService {
         if (originalFilename != null && originalFilename.contains(".")) {
             fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
-        String objectName = UUID.randomUUID().toString() + fileExtension;
+        String objectName = UUID.randomUUID() + fileExtension;
 
         try {
             gcsStorageService.uploadFileToPublicBucket(requestTopicDTO.getAvatar(), objectName);
@@ -92,21 +106,70 @@ public class TopicServiceImpl implements TopicService {
         String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
         topic.setAvatarUrl(publicUrl);
         topicRepository.save(topic);
-        return new ResponseTopicDTO(topic.getId(),topic.getName(),topic.getAvatarUrl(),topic.getDayCreation());
+        return new ResponseTopicDTO(topic.getId(), topic.getLevel().getId(), topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
     }
 
     @Override
     public ResponseTopicDTO update(RequestTopicDTO requestTopicDTO) {
-        return null;
+        Topic topic = topicRepository.findById(requestTopicDTO.getLevelId())
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_LEVEL.getMessage()));
+        String oldAvatarUrl = topic.getAvatarUrl();
+        topic.setName(requestTopicDTO.getName());
+        if (requestTopicDTO.getAvatar() != null && !requestTopicDTO.getAvatar().isEmpty()) {
+            if (oldAvatarUrl != null) {
+                String oldObjectName = topic.getAvatarUrl().substring(topic.getAvatarUrl().lastIndexOf("/") + 1);
+                try {
+                    gcsStorageService.deleteFile(oldObjectName);
+                } catch (Exception e) {
+                    throw new RuntimeException("Xóa ảnh cũ thất bại", e);
+                }
+            }
+            // Lấy tên file gốc và mở rộng (file extension)
+            String originalFilename = requestTopicDTO.getAvatar().getOriginalFilename();
+            String fileExtension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+
+            // Tạo tên đối tượng cho file tải lên (UUID)
+            String objectName = UUID.randomUUID() + fileExtension;
+
+            try {
+                // Tải ảnh mới lên Google Cloud Storage (Firebase)
+                gcsStorageService.uploadFileToPublicBucket(requestTopicDTO.getAvatar(), objectName);
+            } catch (IOException e) {
+                throw new RuntimeException("Cập nhật file thất bại", e);
+            }
+
+            String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
+            topic.setAvatarUrl(publicUrl);
+        }
+
+        topicRepository.save(topic);
+        return new ResponseTopicDTO(topic.getId(), topic.getLevel().getId(), topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
     }
 
     @Override
-    public RequestTopicDTO getById(Integer id) {
-        return null;
+    public ResponseTopicDTO getById(Integer id) {
+        Topic topic = topicRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));
+        return new ResponseTopicDTO(topic.getId(), topic.getLevel().getId(), topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
     }
 
     @Override
     public String delete(Integer topicID) {
-        return "";
+        Topic topic = topicRepository.findById(topicID)
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));
+        String oldAvatarUrl = topic.getAvatarUrl();
+        if (oldAvatarUrl != null) {
+            String oldObjectName = topic.getAvatarUrl().substring(topic.getAvatarUrl().lastIndexOf("/") + 1);
+            try {
+                gcsStorageService.deleteFile(oldObjectName);
+            } catch (Exception e) {
+                throw new RuntimeException("Xóa ảnh cũ thất bại", e);
+            }
+        }
+        topicRepository.delete(topic);
+        return "Xóa topic thành công";
     }
 }

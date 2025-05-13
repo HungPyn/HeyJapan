@@ -23,10 +23,6 @@ public class User {
     @Column(name = "oauth_subject_id")
     private String oauthSubjectId;
 
-    @Lob
-    @Column(name = "profile_picture_url")
-    private String profilePictureUrl;
-
     @ColumnDefault("0")
     @Column(name = "current_streak")
     private Integer currentStreak;

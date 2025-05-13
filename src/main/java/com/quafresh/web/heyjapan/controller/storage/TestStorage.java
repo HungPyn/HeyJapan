@@ -46,7 +46,7 @@ public class TestStorage {
             String objectName = UUID.randomUUID().toString() + fileExtension;
             gcsStorageService.uploadFileToPublicBucket(file, objectName);
             String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
-            user.setProfilePictureUrl(publicUrl);
+            user.setImageUrl(publicUrl);
             userRepository.save(user);
             return ResponseEntity.ok().body(Map.of(
                     "message", "File uploaded successfully",

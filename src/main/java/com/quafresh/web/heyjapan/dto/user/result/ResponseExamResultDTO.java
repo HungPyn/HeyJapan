@@ -21,7 +21,7 @@ public class ResponseExamResultDTO {
 
     private Integer topicId;
 
-    private Integer total_attempts;
+    private Long total_attempts;
 
     private Integer examTime;
 
@@ -32,9 +32,5 @@ public class ResponseExamResultDTO {
     private Integer totalQuestions;
 
     private Integer correctAnswers;
-
-    private Instant startDatetime;
-
-    private Instant endDatetime;
 
 }

@@ -19,7 +19,7 @@ public class ResponseLessonResultDTO {
 
     private String name;
 
-    private Integer total_attempts;
+    private Long total_attempts;
 
     private Integer studyTime;
 
@@ -29,7 +29,4 @@ public class ResponseLessonResultDTO {
 
     private Integer correctAnswers;
 
-    private Instant startDatetime;
-
-    private Instant endDatetime;
 }

@@ -12,9 +12,11 @@ public interface TopicService {
     ResponseTopicViewDTO getTopicWithTopics(Integer topicID,String idUser);
 
     //admin
+    List<ResponseTopicDTO> getAllTopics();
+    List<ResponseTopicDTO> search(String keyword);
     ResponseTopicDTO create(RequestTopicDTO requestTopicDTO);
     ResponseTopicDTO update(RequestTopicDTO requestTopicDTO);
-    RequestTopicDTO getById(Integer id);
+    ResponseTopicDTO getById(Integer id);
     String delete(Integer topicID);
 
 }

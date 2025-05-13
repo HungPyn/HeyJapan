@@ -11,10 +11,13 @@ import java.time.LocalDateTime;
 public class ResponseTopicDTO {
         private Integer id;
 
+        private Integer levelId;
+
         private String name;
 
         private String avatarUrl;
 
         private Instant dayCreation;
+
 
 }

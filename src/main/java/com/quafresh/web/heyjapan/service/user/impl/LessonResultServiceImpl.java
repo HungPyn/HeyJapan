@@ -59,7 +59,7 @@ public class LessonResultServiceImpl implements LessonResultService {
 
     @Override
     public ResponseLessonResultDTO getLessonResultByLessonId(String userId, Integer lessonId) {
-        return lessonResultRepository.getLessonResultByID(userId, lessonId)
+        return lessonResultRepository.getLessonResultById(userId, lessonId)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_ACCOUNT.getMessage()));
     }
 
