@@ -45,6 +45,19 @@ public class GcsStorageService {
         return blob.asBlobInfo(); // Trả về thông tin cơ bản
     }
 
+    public BlobInfo uploadFileToPublicBucket(MultipartFile multipartFile, String objectName) throws IOException {
+        BlobId blobId = BlobId.of(bucketName, objectName);
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                .setContentType(multipartFile.getContentType())
+                .build();
+
+        try (InputStream inputStream = multipartFile.getInputStream()) {
+            // Bỏ tùy chọn .predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ)
+            // File sẽ tự động public nếu bucket được cấu hình IAM cho allUsers là Storage Object Viewer
+            Blob blob = storage.create(blobInfo, inputStream);
+            return blob.asBlobInfo();
+        }
+    }
     /**
      * Upload file từ MultipartFile (thường dùng trong Controller)
      */
@@ -61,8 +74,7 @@ public class GcsStorageService {
      * @param objectName Tên file trên GCS
      * @return URL công khai (vd: https://storage.googleapis.com/bucket-name/object-name)
      */
-    public String getPublicUrl(String objectName) {
-        // Lưu ý: Chỉ hoạt động nếu bucket và object được cấu hình public
+    public String getPublicFileUrl(String objectName) {
         return String.format("https://storage.googleapis.com/%s/%s", bucketName, objectName);
     }
 
