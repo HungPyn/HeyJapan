@@ -21,6 +21,7 @@ export const COLORS = {
   lightGray: '#D3D3D3', // Xám nhạt
   transparent: 'transparent',
   nenItem: 'rgba(241, 233, 217, 0.99)',
+  nenItemDam: '#FFE7A1',
   // Màu sắc mới bạn yêu cầu
   lightGreen: '#a8e6cf', // Màu xanh lá nhạt
   lightRed: '#f8d7da', // Màu đỏ nhạt

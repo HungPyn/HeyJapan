@@ -20,7 +20,6 @@ import LessonScreen from '../screens/lessons/LessonScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import DictionaryScreen from '../screens/tools/DictionaryScreen';
 import TienDoScreen from '../screens/tools/TienDoScreen';
-import FlashcardsScreen from '../screens/tools/FlashcardsScreen'; // Mặc dù không thấy dùng trong MainTab nhưng giữ lại import
 import {COLORS} from '../constants/theme';
 import {AuthProvider, useAuth} from '../screens/auth/AuthContext';
 import SelectionScreen from '../screens/courses/SelectionScreen';
@@ -28,10 +27,9 @@ import {ActivityIndicator} from 'react-native-paper';
 import ContentsLyThuyetScreen from '../screens/courses/ContentsLyThuyetScreen';
 import ContentsScreen from '../screens/courses/ContentsScreen';
 import HomeAdminScreen from '../screens/admin/HomeAdminScreen';
-// Import màn hình admin (Giữ nguyên)
-import TaiKhoanScreen from '../screens/admin/TaiKhoanScreen';
-import HocTapScreen from '../screens/admin/HocTapScreen';
-import TienDoScreenAdmin from '../screens/admin/TienDoScreen';
+import LessonAdminScreen from '../screens/admin/LessonAdminScreen';
+import ContentAdminScreen from '../screens/admin/ContensAdminScreen';
+import TienDoDetailScreen from '../screens/admin/TienDoDetailScreen';
 
 // Định nghĩa các type cho navigation (Giữ nguyên)
 export type RootStackParamList = {
@@ -44,6 +42,9 @@ export type RootStackParamList = {
   DictionaryScreen: undefined;
   TienDoScreen: {topic_code: string; title: string}; // Type này có vẻ đang được định nghĩa cho User TienDoScreen
   HomeAdmin: undefined;
+  LessonAdmin: {topic_code: string; title: string}; //
+  ContentAdmin: {lesson_code: number; lesson_name: string}; // Dòng này quan trọng
+  TienDoDetail: {userId: string; username: string};
 };
 
 export type AuthStackParamList = {
@@ -243,7 +244,20 @@ const RootNavigator = () => {
       {!isAuthenticated ? (
         <RootStack.Screen name="Auth" component={AuthNavigator} />
       ) : role?.toUpperCase() === 'ROLE_ADMIN' ? (
-        <RootStack.Screen name="HomeAdmin" component={HomeAdminScreen} />
+        <>
+          <RootStack.Screen name="HomeAdmin" component={HomeAdminScreen} />
+          <RootStack.Screen name="LessonAdmin" component={LessonAdminScreen} />
+          <RootStack.Screen name="TienDoScreen" component={TienDoScreen} />
+
+          <RootStack.Screen
+            name="TienDoDetail"
+            component={TienDoDetailScreen}
+          />
+          <RootStack.Screen
+            name="ContentAdmin"
+            component={ContentAdminScreen}
+          />
+        </>
       ) : !selectionComplete ? (
         <RootStack.Screen name="Selection" component={SelectionScreen} />
       ) : (

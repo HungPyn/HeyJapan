@@ -17,7 +17,7 @@ import {
 // Giả sử bạn có file định nghĩa màu sắc
 import {COLORS} from '../../constants/theme';
 // --- IMPORT useAuth ---
-import {useAuth} from '../auth/AuthContext'; // << THÊM IMPORT NÀY (Đảm bảo đường dẫn đúng)
+import {useAuth} from '../auth/AuthContext'; // << Đảm bảo đường dẫn đúng
 
 // --- BEGIN: Dữ liệu và Type ---
 // Định nghĩa kiểu dữ liệu cho User
@@ -33,7 +33,6 @@ type User = {
 
 // Dữ liệu mẫu bạn cung cấp
 const initialUsersData: User[] = [
-  // ... (dữ liệu user giữ nguyên) ...
   {
     user_id: 'f23b8f14-6a2b-4c6e-8e3f-1d4823e8b001',
     oauth_subject_id: 'oauth_001',
@@ -133,11 +132,10 @@ const PROFILE_ICON = require('../../assets/images/IconUserHeader.png');
 const SEARCH_ICON = require('../../assets/images/IconTimKiem.png');
 const PERSON_ICON = require('../../assets/images/IconUser.png');
 const DELETE_ICON = require('../../assets/images/iconThungRac.png');
-const LOGOUT_ICON = require('../../assets/images/logout.png'); // << THÊM ICON ĐĂNG XUẤT (thay thế nếu cần)
+const LOGOUT_ICON = require('../../assets/images/logout.png');
 // --- END: Đường dẫn tới ảnh ---
 
 // --- BEGIN: Định nghĩa ConfirmDeleteModal và styles của nó ---
-// (Giữ nguyên như trước)
 interface ConfirmDeleteModalProps {
   visible: boolean;
   onClose: () => void;
@@ -199,7 +197,6 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   );
 };
 const modalStyles = StyleSheet.create({
-  /* ... styles modal giữ nguyên ... */
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
@@ -231,7 +228,7 @@ const modalStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     width: '100%',
-  }, // Thay đổi justifyContent thành center
+  },
   button: {
     borderRadius: 8,
     paddingVertical: 10,
@@ -255,10 +252,8 @@ const modalStyles = StyleSheet.create({
 
 // --- BEGIN: Component TaiKhoanScreen ---
 const TaiKhoanScreen = () => {
-  // --- LẤY HÀM LOGOUT TỪ CONTEXT ---
-  const {logout} = useAuth(); // << THÊM DÒNG NÀY
+  const {logout} = useAuth();
 
-  // --- State cũ giữ nguyên ---
   const [users, setUsers] = useState<User[]>(initialUsersData);
   const [filteredUsers, setFilteredUsers] = useState<User[]>(initialUsersData);
   const [searchQuery, setSearchQuery] = useState('');
@@ -268,13 +263,9 @@ const TaiKhoanScreen = () => {
     userId: string;
     username: string;
   } | null>(null);
+  const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
 
-  // --- THÊM STATE CHO PROFILE MENU ---
-  const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false); // << THÊM DÒNG NÀY
-
-  // --- Các hàm cũ giữ nguyên ---
   useEffect(() => {
-    /* ... lọc user ... */
     const lowerCaseQuery = searchQuery.toLowerCase().trim();
     if (lowerCaseQuery === '') {
       setFilteredUsers(users);
@@ -287,8 +278,8 @@ const TaiKhoanScreen = () => {
       setFilteredUsers(filtered);
     }
   }, [searchQuery, users]);
+
   const performDeleteUser = useCallback(async (userId: string) => {
-    /* ... xóa user ... */
     setDeletingUserId(userId);
     console.log('Bắt đầu xóa user:', userId);
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -296,31 +287,32 @@ const TaiKhoanScreen = () => {
     console.log('Đã xóa user (giả lập):', userId);
     setDeletingUserId(null);
   }, []);
+
   const handleModalClose = useCallback(() => {
-    /* ... đóng modal xóa ... */
     setIsModalVisible(false);
     setUserToDelete(null);
   }, []);
+
   const handleModalConfirm = useCallback(() => {
-    /* ... xác nhận xóa ... */
     if (userToDelete) {
       performDeleteUser(userToDelete.userId);
     }
     handleModalClose();
   }, [userToDelete, performDeleteUser, handleModalClose]);
+
   const handleDeletePress = useCallback((userId: string, username: string) => {
-    /* ... mở modal xóa ... */
     Keyboard.dismiss();
     setUserToDelete({userId, username});
     setIsModalVisible(true);
   }, []);
+
+  // --- SỬA Ở ĐÂY: Bỏ khoảng trắng thừa quanh item.username ---
   const renderUserItem = useCallback(
-    ({item}: {item: User} /* ... render item user ... */) => (
+    ({item}: {item: User}) => (
       <View style={styles.userItem}>
         <Image source={PERSON_ICON} style={styles.personIcon} />
         <Text style={styles.usernameText} numberOfLines={1}>
-          {' '}
-          {item.username}{' '}
+          {item.username} {/* << ĐÃ BỎ {' '} */}
         </Text>
         <TouchableOpacity
           style={styles.deleteButton}
@@ -339,10 +331,10 @@ const TaiKhoanScreen = () => {
     ),
     [handleDeletePress, deletingUserId],
   );
+  // --- KẾT THÚC SỬA ---
 
-  // --- THÊM HÀM XỬ LÝ ĐĂNG XUẤT ---
   const handleLogout = useCallback(async () => {
-    setIsProfileMenuVisible(false); // Đóng menu trước
+    setIsProfileMenuVisible(false);
     Alert.alert(
       'Xác nhận đăng xuất',
       'Bạn có chắc chắn muốn đăng xuất?',
@@ -357,18 +349,17 @@ const TaiKhoanScreen = () => {
           style: 'destructive',
           onPress: async () => {
             console.log('Bắt đầu đăng xuất...');
-            await logout(); // Gọi hàm logout từ context
+            await logout();
             console.log('Đã đăng xuất.');
           },
         },
       ],
       {cancelable: true},
     );
-  }, [logout]); // << Phụ thuộc vào hàm logout
+  }, [logout]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header: Thêm onPress cho nút Profile */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton}>
           <Image
@@ -378,11 +369,9 @@ const TaiKhoanScreen = () => {
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>JaVis</Text>
-        {/* --- THÊM onPress ĐỂ MỞ MENU --- */}
         <TouchableOpacity
           style={styles.headerButton}
-          onPress={() => setIsProfileMenuVisible(true)} // << MỞ MENU KHI NHẤN
-        >
+          onPress={() => setIsProfileMenuVisible(true)}>
           <Image
             source={PROFILE_ICON}
             style={styles.headerIcon}
@@ -391,9 +380,7 @@ const TaiKhoanScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Search Container: Giữ nguyên */}
       <View style={styles.searchContainer}>
-        {/* ... */}
         <Image
           source={SEARCH_ICON}
           style={styles.searchIcon}
@@ -401,18 +388,31 @@ const TaiKhoanScreen = () => {
         />
         <TextInput
           style={styles.searchInput}
-          placeholder="Tìm kiếm người dùng..." /* ... */
+          placeholder="Tìm kiếm người dùng..."
+          placeholderTextColor="#999"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          onBlur={() => Keyboard.dismiss()}
         />
       </View>
 
-      {/* FlatList: Giữ nguyên */}
       <FlatList
         data={filteredUsers}
         renderItem={renderUserItem}
-        // ...
+        keyExtractor={item => item.user_id}
+        style={styles.listContainer}
+        contentContainerStyle={styles.listContentContainer}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
+          <View style={styles.emptyListContainer}>
+            <Text style={styles.emptyListText}>
+              Không tìm thấy người dùng nào.
+            </Text>
+          </View>
+        }
       />
 
-      {/* Confirm Delete Modal: Giữ nguyên */}
       <ConfirmDeleteModal
         visible={isModalVisible}
         onClose={handleModalClose}
@@ -420,19 +420,15 @@ const TaiKhoanScreen = () => {
         username={userToDelete?.username ?? null}
       />
 
-      {/* --- THÊM PROFILE MENU MODAL --- */}
       <Modal
         animationType="fade"
         transparent={true}
         visible={isProfileMenuVisible}
         onRequestClose={() => setIsProfileMenuVisible(false)}>
-        {/* Backdrop để đóng menu khi chạm ra ngoài */}
         <Pressable
           style={profileMenuStyles.backdrop}
           onPress={() => setIsProfileMenuVisible(false)}>
-          {/* Container của Menu - Định vị tuyệt đối */}
           <View style={profileMenuStyles.menuContainer}>
-            {/* Ngăn chặn việc chạm vào menu cũng đóng nó */}
             <Pressable onPress={() => {}}>
               <TouchableOpacity
                 style={profileMenuStyles.menuItem}
@@ -444,19 +440,16 @@ const TaiKhoanScreen = () => {
                 />
                 <Text style={profileMenuStyles.menuText}>Đăng xuất</Text>
               </TouchableOpacity>
-              {/* Thêm các mục menu khác ở đây nếu cần */}
             </Pressable>
           </View>
         </Pressable>
       </Modal>
-      {/* --- KẾT THÚC PROFILE MENU MODAL --- */}
     </SafeAreaView>
   );
 };
 // --- END: Component TaiKhoanScreen ---
 
 // --- BEGIN: Styles chính của TaiKhoanScreen ---
-// (Giữ nguyên styles cũ)
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
   header: {
@@ -468,7 +461,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     height: 90,
   },
-  headerButton: {padding: 5}, // Giữ nguyên padding để dễ nhấn
+  headerButton: {padding: 5},
   headerIcon: {width: 30, height: 30},
   headerTitle: {fontSize: 20, fontWeight: 'bold', color: COLORS.white},
   searchContainer: {
@@ -488,7 +481,7 @@ const styles = StyleSheet.create({
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff9e6',
+    backgroundColor: COLORS.nenItem,
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderRadius: 12,
@@ -517,23 +510,21 @@ const styles = StyleSheet.create({
 const profileMenuStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'transparent', // Nền hoàn toàn trong suốt
+    backgroundColor: 'transparent',
   },
   menuContainer: {
     position: 'absolute',
-    top: 80, // Vị trí dưới header (header cao 90, paddingTop 30 => nội dung bắt đầu ~30, icon ở giữa ~60, đáy header 90) -> Đặt menu ở khoảng 80-85
-    right: 15, // Căn lề phải giống padding header
+    top: 80,
+    right: 15,
     backgroundColor: 'white',
     borderRadius: 8,
-    paddingVertical: 5, // Padding dọc cho các item bên trong
-    minWidth: 150, // Chiều rộng tối thiểu của menu
-    // --- Shadow ---
+    paddingVertical: 5,
+    minWidth: 150,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    // --- ---
   },
   menuItem: {
     flexDirection: 'row',
@@ -542,10 +533,10 @@ const profileMenuStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   menuIcon: {
-    width: 20, // Kích thước icon trong menu
+    width: 20,
     height: 20,
     marginRight: 10,
-    tintColor: '#555', // Màu icon (nếu là ảnh đơn sắc)
+    tintColor: '#555',
   },
   menuText: {
     fontSize: 16,
