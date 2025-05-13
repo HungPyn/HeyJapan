@@ -43,15 +43,15 @@ public class TestStorage {
             if (originalFilename != null && originalFilename.contains(".")) {
                 fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
             }
-            String objectName = "avatars/" + userId + "/" + UUID.randomUUID().toString() + fileExtension;
-            BlobInfo blobInfo = gcsStorageService.uploadFileFromMultipart(file, objectName);
-            URL signedUrl = gcsStorageService.generateSignedUrl(objectName, 15, TimeUnit.MINUTES);
-            user.setProfilePictureUrl(objectName);
+            String objectName = UUID.randomUUID().toString() + fileExtension;
+            gcsStorageService.uploadFileToPublicBucket(file, objectName);
+            String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
+            user.setProfilePictureUrl(publicUrl);
             userRepository.save(user);
             return ResponseEntity.ok().body(Map.of(
                     "message", "File uploaded successfully",
                     "objectName", objectName,
-                    "tempAccessUrl", signedUrl.toString()
+                    "tempAccessUrl", publicUrl.toString()
             ));
 
         } catch (IOException e) {
