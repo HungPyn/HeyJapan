@@ -17,9 +17,28 @@ import {showMessage} from 'react-native-flash-message';
 import {
   GoogleSignin,
   statusCodes,
+  SignInResponse,
+  SignInSilentlyResponse,
 } from '@react-native-google-signin/google-signin';
 import authService from '../../services/authService';
-
+interface ActualSuccessResponse {
+  type: 'success';
+  data: SuccessDataPayload;
+}
+interface SuccessDataPayload {
+  scopes: string[];
+  serverAuthCode: string | null; // serverAuthCode có thể là null
+  idToken: string | null; // idToken có thể là null (dù hiếm khi thành công)
+  user: LoggedInUser;
+}
+interface LoggedInUser {
+  photo: string;
+  givenName?: string; // Có thể có hoặc không
+  familyName?: string; // Có thể có hoặc không
+  email: string;
+  name: string;
+  id: string;
+}
 type AuthContextType = {
   isAuthenticated: boolean;
   selectionComplete: boolean;
@@ -40,6 +59,18 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
   const [isLoadingAuthState, setIsLoadingAuthState] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
   // const [userRole, setUserRole] = useState<string | null>(null); // Ví dụ nếu muốn lưu role
+  useEffect(() => {
+    const WEB_CLIENT_ID =
+      '103578990825-bhgslc4ps9g5pfksvbnk274vb2uce3ok.apps.googleusercontent.com';
+
+    GoogleSignin.configure({
+      webClientId: WEB_CLIENT_ID,
+      offlineAccess: false, // offlineAccess: true có thể yêu cầu serverAuthCode
+      // Nếu không cần serverAuthCode, bạn có thể đặt là false
+      // hoặc bỏ qua nếu không cần idToken cho backend và chỉ cần thông tin user cơ bản
+    });
+    checkCurrentUser();
+  }, []);
 
   useEffect(() => {
     const loadAuthStateFromStorage = async () => {
@@ -76,7 +107,45 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
 
     loadAuthStateFromStorage();
   }, []);
+  const checkCurrentUser = async () => {
+    if (isSigningIn) return; // Tránh chạy nếu đang có thao tác đăng nhập khác
+    setIsSigningIn(true); // Cho biết đang kiểm tra
+    try {
+      // Sử dụng kiểu SignInSilentlyResponse từ thư viện
+      const response: SignInSilentlyResponse =
+        await GoogleSignin.signInSilently();
 
+      console.log('===== PHẢN HỒI TỪ signInSilently (checkCurrentUser) =====');
+      console.log(JSON.stringify(response, null, 2));
+      console.log('=========================================================');
+
+      if (response.type === 'success') {
+        // Lúc này, TypeScript nên hiểu response là kiểu ActualSuccessResponse (hoặc tương đương từ thư viện)
+        handleSuccessfulSignIn(response as ActualSuccessResponse); // Ép kiểu nếu TS chưa tự hiểu
+      } else if (response.type === 'noSavedCredentialFound') {
+        console.log('Silent sign in: No saved credential found.');
+        // setUserInfo(null);
+      } else {
+        console.log(
+          'Silent sign in: Response type not handled or not success.',
+          response,
+        );
+        // setUserInfo(null);
+      }
+    } catch (err: any) {
+      // statusCodes.SIGN_IN_REQUIRED thường được ném ra khi signInSilently không tìm thấy user
+      if (err.code === statusCodes.SIGN_IN_REQUIRED) {
+        console.log(
+          'Silent sign in: User not signed in or session expired (SIGN_IN_REQUIRED).',
+        );
+      } else {
+        console.error('Error during silent sign in:', err);
+      }
+      // setUserInfo(null);
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
   const login = async (email: string, password: string) => {
     setIsLoadingAuthState(true); // Bắt đầu quá trình xử lý, có thể hiển thị loading
     try {
@@ -186,7 +255,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
           googleData.idToken,
         );
 
-        if (backendUser && backendUser.email) {
+        if (backendUser) {
           // Lưu thông tin người dùng và đặt trạng thái là đã xác thực
           setIsAuthenticated(true);
 
@@ -212,8 +281,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
           );
           Alert.alert(
             'Lỗi từ Server',
-            backendUser?.message ||
-              'Không nhận được thông tin người dùng hợp lệ.',
+            backendUser || 'Không nhận được thông tin người dùng hợp lệ.',
           );
         }
       } catch (backendError: any) {
