@@ -24,8 +24,7 @@ public class LessonQuestion {
     @JoinColumn(name = "lesson_id")
     private com.quafresh.web.heyjapan.entity.Lesson lesson;
 
-    @NotNull
-    @Lob
+    @Enumerated(EnumType.STRING)
     @Column(name = "question_type", nullable = false)
     private QuestionType questionType;
 

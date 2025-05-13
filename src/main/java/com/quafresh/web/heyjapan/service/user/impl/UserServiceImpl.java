@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+
     private final UserRepository userRepository;
     private final LevelRepository levelRepository;
     @Override
@@ -24,5 +25,13 @@ public class UserServiceImpl implements UserService {
         user.setLevel(level);
         userRepository.save(user);
         return "Cập nhập cấp độ thành công";
+    }
+
+    @Override
+    public String delete(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(()->new RuntimeException(ErrorMessages.INVALID_ACCOUNT.getMessage()));
+        userRepository.delete(user);
+        return ErrorMessages.DELETE_ACCOUNT.getMessage();
     }
 }
