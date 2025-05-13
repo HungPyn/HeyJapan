@@ -53,12 +53,11 @@ public class AuthController {
                         loginRequest.getPassword()
                 )
         );
-
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         String userId = userPrincipal.getId();
-        String token = tokenProvider.createToken(authentication);
+        User user = userRepository.findById(userPrincipal.getId()).get();
+        String token = tokenProvider.createToken(authentication,user);
         AuthResponse authResponse = new AuthResponse(token, userId);
         return ResponseEntity.ok(authResponse);
     }
@@ -99,7 +98,6 @@ public class AuthController {
                 logger.warn("Invalid ID token: Verification returned null payload.");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponse(false,"Error: Invalid ID Token."));
             }
-
             String email = payload.getEmail();
             logger.info("ID token verified successfully for email: {}", email);
             User user = userService.processOAuthUser(payload);

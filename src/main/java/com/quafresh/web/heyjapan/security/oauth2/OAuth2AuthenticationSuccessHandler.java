@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.security.oauth2;
 
+import com.quafresh.web.heyjapan.entity.User;
 import com.quafresh.web.heyjapan.security.JwtTokenUtil;
 
 import com.quafresh.web.heyjapan.security.exception.BadRequestException;
@@ -57,7 +58,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         // Check if it's a mobile app redirect URI (contains :/ pattern)
         boolean isMobileRedirect = targetUrl.contains(":/");
-        String token = tokenProvider.createToken(authentication);
+        String token = tokenProvider.createToken(authentication, new User());
 
         // Handle differently based on web or mobile
         if (isMobileRedirect) {
