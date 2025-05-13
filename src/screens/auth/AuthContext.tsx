@@ -47,8 +47,6 @@ type AuthContextType = {
   logout: () => void;
   markSelectionComplete: () => Promise<void>;
   handleLoginGoole: () => Promise<void>;
-  // Bạn có thể thêm user, role vào đây nếu muốn truy cập chúng từ context
-  // userRole: string | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,16 +56,13 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
   const [selectionComplete, setSelectionComplete] = useState(false);
   const [isLoadingAuthState, setIsLoadingAuthState] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  // const [userRole, setUserRole] = useState<string | null>(null); // Ví dụ nếu muốn lưu role
   useEffect(() => {
     const WEB_CLIENT_ID =
       '103578990825-bhgslc4ps9g5pfksvbnk274vb2uce3ok.apps.googleusercontent.com';
 
     GoogleSignin.configure({
       webClientId: WEB_CLIENT_ID,
-      offlineAccess: false, // offlineAccess: true có thể yêu cầu serverAuthCode
-      // Nếu không cần serverAuthCode, bạn có thể đặt là false
-      // hoặc bỏ qua nếu không cần idToken cho backend và chỉ cần thông tin user cơ bản
+      offlineAccess: false,
     });
     checkCurrentUser();
   }, []);
@@ -76,23 +71,14 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
     const loadAuthStateFromStorage = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
-        const storedRole = await AsyncStorage.getItem('role'); // Nếu bạn lưu role
+        const storedRole = await AsyncStorage.getItem('role');
+        const userId = await AsyncStorage.getItem('userId');
         const storedSelectionFlag = await AsyncStorage.getItem(
           'hasCompletedSelection',
         );
 
         if (token) {
-          // TODO: Thêm kiểm tra token hết hạn nếu API của bạn không tự xử lý khi token hết hạn
-          // Ví dụ: const decodedToken: any = jwtDecode(token);
-          // if (decodedToken.exp * 1000 < Date.now()) {
-          //   // Token hết hạn, xử lý logout
-          //   await AsyncStorage.multiRemove(['token', 'role', 'hasCompletedSelection']);
-          // } else {
-          //   setIsAuthenticated(true);
-          //   if (storedRole) setUserRole(storedRole);
-          // }
           setIsAuthenticated(true);
-          // if (storedRole) setUserRole(storedRole); // Nếu bạn muốn lưu role vào state
         }
 
         if (storedSelectionFlag === 'true') {
@@ -155,7 +141,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
       });
 
       console.log('API response:', response);
-      const token = response.data.accessToken; // Hoặc response.data.token tùy theo API của bạn
+      const token = response.data.accessToken;
 
       if (!token || typeof token !== 'string') {
         console.error(
@@ -175,10 +161,11 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
         decodedToken.role ||
         decodedToken.roles ||
         decodedToken.authorities ||
-        'ROLE_USER'; // Mặc định là USER nếu không có
+        'ROLE_USER';
 
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('role', String(roleFromToken));
+      console.log('Decode', decodedToken);
 
       console.log('Đã lưu token:', token);
       console.log('Đã lưu role:', roleFromToken);
@@ -239,6 +226,30 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
       return false;
     }
   };
+  function decodeJwtManually(tokenString: any) {
+    if (!tokenString) {
+      console.error('Token không được cung cấp.');
+      return null;
+    }
+
+    try {
+      const [headerBase64Url, payloadBase64Url] = tokenString.split('.');
+
+      const base64UrlDecode = (str: string) => {
+        let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        return atob(base64);
+      };
+
+      const decodedHeader = JSON.parse(base64UrlDecode(headerBase64Url));
+      const decodedPayload = JSON.parse(base64UrlDecode(payloadBase64Url));
+
+      return {header: decodedHeader, payload: decodedPayload};
+    } catch (error) {
+      console.error('Lỗi khi giải mã token thủ công:', error);
+      return null;
+    }
+  }
 
   const handleGoogleLoginData = async (googleData: any) => {
     if (googleData.idToken) {
@@ -258,20 +269,60 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
         if (backendUser) {
           // Lưu thông tin người dùng và đặt trạng thái là đã xác thực
           setIsAuthenticated(true);
-
+          console.log('logdsfasdfsadfasdfasdf', backendUser);
           // Lưu token vào AsyncStorage nếu có
-          if (backendUser.token) {
-            await AsyncStorage.setItem('token', backendUser.token);
+          if (backendUser.accessToken) {
+            await AsyncStorage.setItem('token', backendUser.accessToken);
+
+            const payloadBase64Url = backendUser.accessToken;
+            const decodedPayloadString = decodeJwtManually(payloadBase64Url);
+            console.log(decodedPayloadString);
 
             // Lưu role nếu có
-            if (backendUser.role) {
-              await AsyncStorage.setItem('role', backendUser.role);
+            if (decodedPayloadString?.payload.roles) {
+              await AsyncStorage.setItem(
+                'role',
+                decodedPayloadString?.payload.roles,
+              );
             }
+
+            if (decodedPayloadString?.payload.level) {
+              await AsyncStorage.setItem(
+                'level',
+                decodedPayloadString?.payload.level,
+              );
+            }
+
+            if (backendUser.userId) {
+              await AsyncStorage.setItem('userID', backendUser.userId);
+            }
+            // ---- BẮT ĐẦU PHẦN LOG ASYNCSTORAGE ----
+            console.log(
+              '\n--- Checking AsyncStorage Content Immediately After Google Login Set ---',
+            );
+            try {
+              const keys = await AsyncStorage.getAllKeys();
+              if (keys.length > 0) {
+                const items = await AsyncStorage.multiGet(keys);
+                items.forEach(([key, value]) => {
+                  console.log(`[AsyncStorage - Google] ${key}: ${value}`);
+                });
+              } else {
+                console.log('[AsyncStorage - Google] is empty.');
+              }
+            } catch (e) {
+              console.error(
+                'Error reading AsyncStorage for logging (Google):',
+                e,
+              );
+            }
+            console.log('--- End of AsyncStorage Check (Google) ---\n');
+            // ---- KẾT THÚC PHẦN LOG ASYNCSTORAGE ----
           }
 
           Alert.alert(
             'Xác thực thành công!',
-            `Xin chào ${backendUser.name || backendUser.email}`,
+            `Xin chào ${googleData.user.name}`,
           );
         } else {
           // Trường hợp backend không trả về dữ liệu user mong đợi
@@ -426,8 +477,6 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
         handleLoginGoole,
         logout,
         markSelectionComplete,
-
-        // userRole, // Nếu bạn muốn cung cấp userRole
       }}>
       {children}
     </AuthContext.Provider>

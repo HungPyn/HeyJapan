@@ -183,6 +183,7 @@ const LoadingScreenComponent = () => (
 const RootNavigator = () => {
   const {isAuthenticated, selectionComplete, isLoadingAuthState} = useAuth();
   const [role, setRole] = React.useState<string | null>(null);
+  const [level, setLevel] = React.useState<string | null>(null);
   // isCheckingRole sẽ được quản lý bên trong useEffect dựa trên isAuthenticated
   const [isCheckingRole, setIsCheckingRole] = React.useState(true);
 
@@ -195,10 +196,14 @@ const RootNavigator = () => {
           // Bắt đầu kiểm tra role cho trạng thái đã đăng nhập
           setIsCheckingRole(true);
           const storedRole = await AsyncStorage.getItem('role');
+          const storedLevel = await AsyncStorage.getItem('level');
           console.log(
             '(Index) DEBUG: Role lấy từ AsyncStorage (khi authenticated):',
             storedRole,
           ); // Giữ log debug
+          setLevel(storedLevel);
+          console.log('LEVELLLL', level);
+
           setRole(storedRole);
         } catch (error) {
           console.error('(Index) Lỗi khi lấy role từ AsyncStorage:', error);
@@ -231,10 +236,6 @@ const RootNavigator = () => {
     );
   }
 
-  // Log trạng thái trước khi render (Giữ lại để debug nếu cần)
-  // console.log("(Index) DEBUG: Render RootNavigator với: ", { isAuthenticated, role, selectionComplete });
-
-  // Khi đã tải xong
   return (
     <RootStack.Navigator
       screenOptions={{
@@ -258,13 +259,11 @@ const RootNavigator = () => {
             component={ContentAdminScreen}
           />
         </>
-      ) : !selectionComplete ? (
+      ) : level === null ? (
         <RootStack.Screen name="Selection" component={SelectionScreen} />
       ) : (
         <>
           <RootStack.Screen name="Main" component={MainNavigator} />
-          {/* Dòng dưới có thể không cần nếu TienDoScreen được gọi từ MainNavigator */}
-          {/* Hoặc nếu nó là màn hình riêng biệt có thể gọi từ bất kỳ đâu trong User flow */}
           <RootStack.Screen name="TienDoScreen" component={TienDoScreen} />
         </>
       )}
