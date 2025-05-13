@@ -202,7 +202,7 @@ const RootNavigator = () => {
             storedRole,
           ); // Giữ log debug
           setLevel(storedLevel);
-          console.log('LEVELLLL', level);
+          console.log('LevelIndex', level);
 
           setRole(storedRole);
         } catch (error) {

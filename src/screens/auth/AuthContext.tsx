@@ -277,7 +277,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
             const payloadBase64Url = backendUser.accessToken;
             const decodedPayloadString = decodeJwtManually(payloadBase64Url);
             console.log(decodedPayloadString);
-
+            const levelFromPayload = decodedPayloadString?.payload?.level;
             // Lưu role nếu có
             if (decodedPayloadString?.payload.roles) {
               await AsyncStorage.setItem(
@@ -286,11 +286,15 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
               );
             }
 
-            if (decodedPayloadString?.payload.level) {
-              await AsyncStorage.setItem(
-                'level',
-                `"${decodedPayloadString?.payload.level}"`,
+            if (levelFromPayload !== null && levelFromPayload !== undefined) {
+              const levelString = String(levelFromPayload);
+              await AsyncStorage.setItem('level', levelString);
+              console.log(`Đã lưu level '${levelString}' vào AsyncStorage.`);
+            } else {
+              console.log(
+                "Giá trị 'level' không tồn tại trong token payload hoặc là null/undefined.",
               );
+              await AsyncStorage.removeItem('level');
             }
 
             if (backendUser.userId) {
