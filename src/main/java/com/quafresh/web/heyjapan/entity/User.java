@@ -56,8 +56,11 @@ public class User {
 
     // Thêm các trường cần thiết cho OAuth2
     @Size(max = 255)
-    @Column(name = "image_url")
+    @Column(name = "profile_picture_url")
     private String imageUrl;
+
+    @Column(name = "day_creation")
+    private Long dayCreation;
 
     @Column(name = "email_verified")
     private Boolean emailVerified = false;

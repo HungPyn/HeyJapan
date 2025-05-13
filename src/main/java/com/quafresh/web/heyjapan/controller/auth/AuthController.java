@@ -75,6 +75,8 @@ public class AuthController {
         user.setUsername(signUpRequest.getUsername());
         user.setEmail(signUpRequest.getEmail());
         user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+        Long dayCreation =System.currentTimeMillis();
+        user.setDayCreation(dayCreation);
         user.setRole(false);
         user.setProvider(AuthProvider.LOCAL);
         user.setRole(false);
