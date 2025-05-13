@@ -18,7 +18,7 @@ spring:
     gcp:
       project-id: sakuranihongo-200e5
       credentials:
-        location: file:/home/hoangphuc/Documents/test/sakuranihongo-200e5-fd43217e81bb.json
+        location: classpath:sakuranihongo-200e5-fd43217e81bb.json
 
   security:
     oauth2:
