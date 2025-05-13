@@ -56,10 +56,8 @@ public class JwtTokenUtil {
     }
     public String createTokenForUser(User user) {
         String roles = "ROLE_USER";
-
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInSeconds * 1000);
-
         return Jwts.builder()
                 .setSubject(user.getId())
                 .claim("roles", roles)

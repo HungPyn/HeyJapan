@@ -14,6 +14,12 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
 
+  cloud:
+    gcp:
+      project-id: sakuranihongo-200e5
+      credentials:
+        location: file:/home/hoangphuc/Documents/test/sakuranihongo-200e5-fd43217e81bb.json
+
   security:
     oauth2:
       client:
@@ -24,20 +30,20 @@ spring:
             scope:
               - email
               - profile
-#          facebook:
-#            client-id: test-facebook-client-id
-#            client-secret: test-facebook-client-secret
-#            redirect-uri: "{baseUrl}/oauth2/callback/{registrationId}"
-#            scope:
-#              - email
-#              - public_profile
-#          github:
-#            client-id: test-github-client-id
-#            client-secret: test-github-client-secret
-#            redirect-uri: "{baseUrl}/oauth2/callback/{registrationId}"
-#            scope:
-#              - user:email
-#              - read:user
+  #          facebook:
+  #            client-id: test-facebook-client-id
+  #            client-secret: test-facebook-client-secret
+  #            redirect-uri: "{baseUrl}/oauth2/callback/{registrationId}"
+  #            scope:
+  #              - email
+  #              - public_profile
+  #          github:
+  #            client-id: test-github-client-id
+  #            client-secret: test-github-client-secret
+  #            redirect-uri: "{baseUrl}/oauth2/callback/{registrationId}"
+  #            scope:
+  #              - user:email
+  #              - read:user
 
   main:
     allow-circular-references: true
@@ -48,10 +54,12 @@ logging:
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
     com.quafresh.web.heyjapan: DEBUG
-    org.springframework.boot.autoconfigure: DEBUG
-
+    org.springframework.boot.autoconfigure: INFO
 app:
   auth:
     jwt:
       secret: 04ca023b39512e46d0c2cf4b48d5aac61d34302994c87ed4eff225dcf3b0a218739f3897051a057f9b846a69ea2927a587044164b7bae5e1306219d50b588cb1
       token-validity-in-seconds: 86400
+gcp:
+  storage:
+    bucket-name: sakuranihongo-200e5.firebasestorage.app

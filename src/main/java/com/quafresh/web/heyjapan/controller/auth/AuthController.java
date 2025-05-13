@@ -6,6 +6,7 @@ import com.quafresh.web.heyjapan.entity.AuthProvider;
 import com.quafresh.web.heyjapan.entity.User;
 import com.quafresh.web.heyjapan.repository.UserRepository;
 import com.quafresh.web.heyjapan.security.JwtTokenUtil;
+import com.quafresh.web.heyjapan.security.UserPrincipal;
 import com.quafresh.web.heyjapan.service.auth.GoogleTokenVerifierService;
 import com.quafresh.web.heyjapan.service.auth.UserService;
 import lombok.RequiredArgsConstructor;
@@ -54,8 +55,12 @@ public class AuthController {
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        String userId = userPrincipal.getId();
         String token = tokenProvider.createToken(authentication);
-        return ResponseEntity.ok(new AuthResponse(token));
+        AuthResponse authResponse = new AuthResponse(token, userId);
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping("/signup")

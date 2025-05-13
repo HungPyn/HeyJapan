@@ -14,7 +14,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/user/level")
-@PreAuthorize("hasRole('USER')")
+@PreAuthorize("hasRole('ROLE_USER')")
 public class LevelController {
 
     private final LevelService levelService;
