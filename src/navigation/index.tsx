@@ -6,9 +6,10 @@ import {
 } from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {Text, View} from 'react-native';
+import {Text, View} from 'react-native'; // Giữ lại Text, View nếu bạn có dùng ở đâu đó khác mà tôi không thấy
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Import screens
+// Import screens (Giữ nguyên)
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
@@ -19,24 +20,30 @@ import LessonScreen from '../screens/lessons/LessonScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import DictionaryScreen from '../screens/tools/DictionaryScreen';
 import TienDoScreen from '../screens/tools/TienDoScreen';
-import FlashcardsScreen from '../screens/tools/FlashcardsScreen';
+import FlashcardsScreen from '../screens/tools/FlashcardsScreen'; // Mặc dù không thấy dùng trong MainTab nhưng giữ lại import
 import {COLORS} from '../constants/theme';
 import {AuthProvider, useAuth} from '../screens/auth/AuthContext';
 import SelectionScreen from '../screens/courses/SelectionScreen';
 import {ActivityIndicator} from 'react-native-paper';
 import ContentsLyThuyetScreen from '../screens/courses/ContentsLyThuyetScreen';
 import ContentsScreen from '../screens/courses/ContentsScreen';
+import HomeAdminScreen from '../screens/admin/HomeAdminScreen';
+// Import màn hình admin (Giữ nguyên)
+import TaiKhoanScreen from '../screens/admin/TaiKhoanScreen';
+import HocTapScreen from '../screens/admin/HocTapScreen';
+import TienDoScreenAdmin from '../screens/admin/TienDoScreen';
 
-// Định nghĩa các type cho navigation
+// Định nghĩa các type cho navigation (Giữ nguyên)
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
-  Selection: undefined; // Màn hình lựa chọn sau khi đăng nhập
-  Loading: undefined; // << THÊM DÒNG NÀY VÀO ĐÂY
+  Selection: undefined;
+  Loading: undefined;
   CourseDetail: {courseId: string};
   Lesson: {lessonId: string; courseId: string};
-  DictionaryScreen: undefined; // Hoặc FollowScreen nếu bạn dùng tên đó
-  TienDoScreen: {topic_code: string; title: string}; // Thêm dòng này
+  DictionaryScreen: undefined;
+  TienDoScreen: {topic_code: string; title: string}; // Type này có vẻ đang được định nghĩa cho User TienDoScreen
+  HomeAdmin: undefined;
 };
 
 export type AuthStackParamList = {
@@ -49,35 +56,29 @@ export type AuthStackParamList = {
 export type MainTabParamList = {
   Courses: undefined;
   Dictionary: undefined;
-  Flashcards: undefined;
+  Flashcards: undefined; // Giữ lại type dù không thấy dùng trong MainNavigator
   Profile: undefined;
 };
 
 export type CoursesStackParamList = {
   CourseList: undefined;
-  CourseDetail: {courseId: string; title: string}; // Thêm title vào đây
+  CourseDetail: {courseId: string; title: string};
   Lesson: {lessonId: string; courseId: string};
-  // Màn hình mới cho nội dung lý thuyết (từ vựng/ngữ pháp)
   ContentsLyThuyetScreen: {lessonCode: string; lessonName?: string};
-  // Màn hình cho các loại nội dung bài học khác
-  ContentsScreen: {
-    lessonCode: string;
-    lessonName?: string;
-  };
+  ContentsScreen: {lessonCode: string; lessonName?: string};
 };
 
-// Tạo các navigator
+// Tạo các navigator (Giữ nguyên)
 const RootStack = createStackNavigator<RootStackParamList>();
 const AuthStack = createStackNavigator<AuthStackParamList>();
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const CoursesStack = createStackNavigator<CoursesStackParamList>();
 
-// Auth Navigator
+// Auth Navigator (Giữ nguyên)
 const AuthNavigator = () => (
   <AuthStack.Navigator
     screenOptions={{
       headerShown: false,
-
       cardStyle: {backgroundColor: COLORS.background},
     }}>
     <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
@@ -87,7 +88,7 @@ const AuthNavigator = () => (
   </AuthStack.Navigator>
 );
 
-// Courses Stack Navigator
+// Courses Stack Navigator (Giữ nguyên)
 const CoursesNavigator = () => (
   <CoursesStack.Navigator
     screenOptions={{
@@ -97,8 +98,6 @@ const CoursesNavigator = () => (
     <CoursesStack.Screen name="CourseList" component={CourseListScreen} />
     <CoursesStack.Screen name="CourseDetail" component={CourseDetailScreen} />
     <CoursesStack.Screen name="Lesson" component={LessonScreen} />
-
-    {/* THÊM CÁC MÀN HÌNH MỚI VÀO ĐÂY */}
     <CoursesStack.Screen
       name="ContentsLyThuyetScreen"
       component={ContentsLyThuyetScreen}
@@ -107,32 +106,28 @@ const CoursesNavigator = () => (
   </CoursesStack.Navigator>
 );
 
+// getTabBarVisibility (Giữ nguyên)
 const getTabBarVisibility = (route: any) => {
   const routeName = getFocusedRouteNameFromRoute(route);
-
   const hiddenScreens = [
     'ContentsScreen',
     'CourseDetail',
     'ContentsLyThuyetScreen',
   ];
-
-  // Kiểm tra nếu routeName hợp lệ và nằm trong danh sách cần ẩn
   return routeName ? !hiddenScreens.includes(routeName) : true;
 };
 
-// Main Tab Navigator
+// Main Tab Navigator (Giữ nguyên)
 const MainNavigator = () => (
   <MainTab.Navigator
     screenOptions={({route}) => {
       const isTabBarVisible = getTabBarVisibility(route);
-
       return {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarActiveBackgroundColor: '#FFBF00',
         tabBarActiveTintColor: COLORS.white,
         tabBarInactiveTintColor: COLORS.white,
-
         tabBarStyle: isTabBarVisible
           ? {
               height: 65,
@@ -141,7 +136,6 @@ const MainNavigator = () => (
               paddingBottom: 0,
             }
           : {display: 'none'},
-
         tabBarLabelStyle: {
           fontSize: 16,
           fontWeight: '500',
@@ -161,6 +155,7 @@ const MainNavigator = () => (
       component={DictionaryScreen}
       options={{tabBarLabel: 'Theo dõi', tabBarIcon: () => null}}
     />
+    {/* Flashcards không được thêm vào đây, nếu cần bạn phải thêm một MainTab.Screen */}
     <MainTab.Screen
       name="Profile"
       component={ProfileScreen}
@@ -168,8 +163,8 @@ const MainNavigator = () => (
     />
   </MainTab.Navigator>
 );
-// Đièu hướng sau khi đăng nhập
-// Component màn hình chờ đơn giản
+
+// Component màn hình chờ đơn giản (Giữ nguyên)
 const LoadingScreenComponent = () => (
   <View
     style={{
@@ -182,15 +177,48 @@ const LoadingScreenComponent = () => (
   </View>
 );
 
+// --- BEGIN: SỬA ĐỔI RootNavigator ---
 // Đièu hướng sau khi đăng nhập
 const RootNavigator = () => {
-  // Sử dụng useAuth để lấy tất cả các trạng thái đăng nhập
   const {isAuthenticated, selectionComplete, isLoadingAuthState} = useAuth();
+  const [role, setRole] = React.useState<string | null>(null);
+  // isCheckingRole sẽ được quản lý bên trong useEffect dựa trên isAuthenticated
+  const [isCheckingRole, setIsCheckingRole] = React.useState(true);
 
-  // << THÊM MỚI: Xử lý trạng thái đang tải >>
-  if (isLoadingAuthState) {
-    // Khi đang tải, hiển thị một Navigator chỉ chứa màn hình Loading
-    // Điều này đảm bảo RootNavigator luôn trả về một cấu trúc Navigator hợp lệ.
+  // --- SỬA useEffect NÀY ---
+  React.useEffect(() => {
+    const fetchRole = async () => {
+      // Chỉ thực hiện đọc role nếu đã đăng nhập
+      if (isAuthenticated) {
+        try {
+          // Bắt đầu kiểm tra role cho trạng thái đã đăng nhập
+          setIsCheckingRole(true);
+          const storedRole = await AsyncStorage.getItem('role');
+          console.log(
+            '(Index) DEBUG: Role lấy từ AsyncStorage (khi authenticated):',
+            storedRole,
+          ); // Giữ log debug
+          setRole(storedRole);
+        } catch (error) {
+          console.error('(Index) Lỗi khi lấy role từ AsyncStorage:', error);
+          setRole(null); // Đặt về null nếu có lỗi
+        } finally {
+          setIsCheckingRole(false); // Kết thúc kiểm tra cho trạng thái này
+        }
+      } else {
+        // Nếu không đăng nhập, xóa role state và kết thúc kiểm tra
+        setRole(null);
+        setIsCheckingRole(false);
+      }
+    };
+
+    fetchRole();
+    // }, []); // Bỏ dependency rỗng
+  }, [isAuthenticated]); // <-- THAY ĐỔI Dependency Array
+  // --- KẾT THÚC SỬA useEffect ---
+
+  // Xử lý trạng thái đang tải (Kiểm tra cả isLoadingAuthState VÀ isCheckingRole)
+  if (isLoadingAuthState || isCheckingRole) {
     return (
       <RootStack.Navigator
         screenOptions={{
@@ -202,8 +230,10 @@ const RootNavigator = () => {
     );
   }
 
-  // Khi đã tải xong (isLoadingAuthState là false)
+  // Log trạng thái trước khi render (Giữ lại để debug nếu cần)
+  // console.log("(Index) DEBUG: Render RootNavigator với: ", { isAuthenticated, role, selectionComplete });
 
+  // Khi đã tải xong
   return (
     <RootStack.Navigator
       screenOptions={{
@@ -212,22 +242,24 @@ const RootNavigator = () => {
       }}>
       {!isAuthenticated ? (
         <RootStack.Screen name="Auth" component={AuthNavigator} />
+      ) : role?.toUpperCase() === 'ROLE_ADMIN' ? (
+        <RootStack.Screen name="HomeAdmin" component={HomeAdminScreen} />
       ) : !selectionComplete ? (
         <RootStack.Screen name="Selection" component={SelectionScreen} />
       ) : (
-        // Đã đăng nhập và hoàn thành lựa chọn
         <>
-          {' '}
-          {/* <--- ĐÃ SỬA: Bọc bằng React Fragment */}
           <RootStack.Screen name="Main" component={MainNavigator} />
+          {/* Dòng dưới có thể không cần nếu TienDoScreen được gọi từ MainNavigator */}
+          {/* Hoặc nếu nó là màn hình riêng biệt có thể gọi từ bất kỳ đâu trong User flow */}
           <RootStack.Screen name="TienDoScreen" component={TienDoScreen} />
         </>
       )}
     </RootStack.Navigator>
   );
 };
+// --- KẾT THÚC SỬA ĐỔI RootNavigator ---
 
-// Bọc NavigationContainer với AuthProvider (giữ nguyên)
+// Bọc NavigationContainer với AuthProvider (Giữ nguyên)
 const AppNavigator = () => {
   return (
     <AuthProvider>
@@ -238,4 +270,4 @@ const AppNavigator = () => {
   );
 };
 
-export default AppNavigator;
+export default AppNavigator; // Giữ nguyên export

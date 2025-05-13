@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
   const login = async (email: string, password: string) => {
     setIsLoadingAuthState(true); // Bắt đầu quá trình xử lý, có thể hiển thị loading
     try {
-      const response = await axios.post('http://10.0.2.2:8080/test/login', {
+      const response = await axios.post('http://10.0.2.2:8080/api/auth/login', {
         email,
         password: password,
       });
@@ -358,6 +358,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
         handleLoginGoole,
         logout,
         markSelectionComplete,
+
         // userRole, // Nếu bạn muốn cung cấp userRole
       }}>
       {children}
