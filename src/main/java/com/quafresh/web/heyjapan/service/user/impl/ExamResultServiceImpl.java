@@ -1,6 +1,7 @@
 package com.quafresh.web.heyjapan.service.user.impl;
 
 import com.quafresh.web.heyjapan.dto.user.result.RequestExamResultDTO;
+import com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO;
 import com.quafresh.web.heyjapan.entity.ExamResult;
 import com.quafresh.web.heyjapan.entity.Topic;
 import com.quafresh.web.heyjapan.entity.User;
@@ -8,6 +9,7 @@ import com.quafresh.web.heyjapan.repository.ExamResultRepository;
 import com.quafresh.web.heyjapan.repository.TopicRepository;
 import com.quafresh.web.heyjapan.repository.UserRepository;
 import com.quafresh.web.heyjapan.service.user.ExamResultService;
+import com.quafresh.web.heyjapan.util.ErrorMessages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +17,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -44,5 +48,27 @@ public class ExamResultServiceImpl implements ExamResultService {
         examResult.setEndDatetime(endTime);
         examResultRepository.save(examResult);
         return "Kết quả kiểm tra thêm thành công";
+    }
+
+    //admin
+    @Override
+    public List<ResponseExamResultDTO> getAllById(String userId) {
+        List<ResponseExamResultDTO> list = examResultRepository.getAllExamResultByUserId(userId);
+        if (list.isEmpty()) {
+            throw new RuntimeException(ErrorMessages.INVALID_ACCOUNT.getMessage());
+        }
+        return list;
+    }
+
+    @Override
+    public ResponseExamResultDTO getById(String useId, Integer idTopic) {
+        ResponseExamResultDTO dto = examResultRepository.getExamResultByTopicId(useId,idTopic)
+                .orElseThrow(()->new RuntimeException(ErrorMessages.INVALID_ACCOUNT.getMessage()));
+        return dto;
+    }
+
+    @Override
+    public List<ResponseExamResultDTO> search(String userId, String keyword) {
+        return List.of();
     }
 }

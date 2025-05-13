@@ -23,10 +23,6 @@ public class User {
     @Column(name = "oauth_subject_id")
     private String oauthSubjectId;
 
-    @Lob
-    @Column(name = "profile_picture_url")
-    private String profilePictureUrl;
-
     @ColumnDefault("0")
     @Column(name = "current_streak")
     private Integer currentStreak;
@@ -56,8 +52,11 @@ public class User {
 
     // Thêm các trường cần thiết cho OAuth2
     @Size(max = 255)
-    @Column(name = "image_url")
+    @Column(name = "profile_picture_url")
     private String imageUrl;
+
+    @Column(name = "day_creation")
+    private Long dayCreation;
 
     @Column(name = "email_verified")
     private Boolean emailVerified = false;

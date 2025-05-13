@@ -30,7 +30,7 @@ public class UserServiceimpl implements UserService {
             user = userOptional.get();
             user.setEmail(email);
             user.setName(name);
-            user.setProfilePictureUrl(pictureUrl);
+            user.setImageUrl(pictureUrl);
         } else {
             if (userRepository.existsByEmail(email)) {
             }
@@ -40,7 +40,7 @@ public class UserServiceimpl implements UserService {
             user.setEmail(email);
             user.setName(name);
             user.setRole(false);
-            user.setProfilePictureUrl(pictureUrl);
+            user.setImageUrl(pictureUrl);
 
         }
         return userRepository.save(user);

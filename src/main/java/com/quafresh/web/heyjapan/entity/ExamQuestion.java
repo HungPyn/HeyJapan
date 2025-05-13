@@ -24,8 +24,7 @@ public class ExamQuestion {
     @JoinColumn(name = "topic_id")
     private com.quafresh.web.heyjapan.entity.Topic topic;
 
-    @NotNull
-    @Lob
+    @Enumerated(EnumType.STRING)
     @Column(name = "question_type", nullable = false)
     private QuestionType questionType;
 
