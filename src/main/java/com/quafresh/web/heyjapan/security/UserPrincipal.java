@@ -24,7 +24,6 @@ public class UserPrincipal implements OAuth2User, UserDetails {
 
     public static UserPrincipal create(User user) {
         List<GrantedAuthority> authorities = new ArrayList<>();
-        // Thêm ROLE_ADMIN hoặc ROLE_USER dựa vào trường userRole
         if (user.getRole()) {
             authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
         } else {

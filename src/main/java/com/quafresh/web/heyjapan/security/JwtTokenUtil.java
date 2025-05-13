@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.security;
 
+import com.quafresh.web.heyjapan.entity.User; // <-- Thêm import này
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
@@ -28,30 +29,45 @@ public class JwtTokenUtil {
     private String jwtSecret;
 
     @Value("${app.auth.jwt.token-validity-in-seconds}")
-    private int jwtExpirationInMs;
+    private long jwtExpirationInSeconds;
 
     private SecretKey getSigningKey() {
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
+    // Phương thức tạo token từ Authentication (cho login thường)
     public String createToken(Authentication authentication) {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-        // Lấy thông tin quyền và chuyển thành chuỗi
         String roles = userPrincipal.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
+                .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs * 1000);
+        Date expiryDate = new Date(now.getTime() + jwtExpirationInSeconds * 1000);
 
         return Jwts.builder()
-                .setSubject(userPrincipal.getId().toString())
-                .claim("roles", roles)  // Thêm thông tin quyền vào token
-                .setIssuedAt(new Date())
+                .setSubject(userPrincipal.getId())
+                .claim("roles", roles)
+                .claim("email", userPrincipal.getEmail())
+                .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
     }
+    public String createTokenForUser(User user) {
+        String roles = "ROLE_USER";
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationInSeconds * 1000);
+        return Jwts.builder()
+                .setSubject(user.getId())
+                .claim("roles", roles)
+                .claim("email", user.getEmail())
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
 
     public String getUserIdFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
@@ -62,8 +78,16 @@ public class JwtTokenUtil {
 
         return claims.getSubject();
     }
+    public String getEmailFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("email", String.class);
+    }
 
-    // Thêm phương thức để đọc thông tin quyền từ token
+
     public List<GrantedAuthority> getAuthoritiesFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
@@ -75,7 +99,6 @@ public class JwtTokenUtil {
         if (roles == null || roles.isEmpty()) {
             return Collections.emptyList();
         }
-
         return Arrays.stream(roles.split(","))
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());

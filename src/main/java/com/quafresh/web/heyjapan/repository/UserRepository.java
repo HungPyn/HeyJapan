@@ -9,6 +9,6 @@ public interface UserRepository  extends JpaRepository<User, String> {
 
     // Kiểm tra email đã tồn tại chưa
     boolean existsByEmail(String email);
-
+    Optional<User> findByOauthSubjectId(String googleId);
     Optional<User> findByEmail(String email);
 }

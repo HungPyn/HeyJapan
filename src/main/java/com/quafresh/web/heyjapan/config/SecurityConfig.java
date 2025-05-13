@@ -1,15 +1,23 @@
-package com.quafresh.web.heyjapan.security;
+package com.quafresh.web.heyjapan.config; // Giữ nguyên package của File 2
 
+// Đảm bảo import đủ các lớp cần thiết
+import com.quafresh.web.heyjapan.security.CustomUserDetailsService;
+import com.quafresh.web.heyjapan.security.JwtAuthenticationEntryPoint;
+import com.quafresh.web.heyjapan.security.JwtTokenFilter;
+// Giả sử JwtTokenUtil là lớp đúng cần dùng, thay vì JwtUtils
+import com.quafresh.web.heyjapan.security.JwtTokenUtil;
 import com.quafresh.web.heyjapan.security.oauth2.CookieAuthorizationRequestRepository;
 import com.quafresh.web.heyjapan.security.oauth2.CustomOAuth2UserService;
 import com.quafresh.web.heyjapan.security.oauth2.OAuth2AuthenticationFailureHandler;
 import com.quafresh.web.heyjapan.security.oauth2.OAuth2AuthenticationSuccessHandler;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,8 +35,6 @@ public class SecurityConfig {
     private final JwtTokenUtil tokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
     private final CookieAuthorizationRequestRepository cookieAuthorizationRequestRepository;
-
-    // Constructor injection - không thay đổi
     public SecurityConfig(
             CustomOAuth2UserService customOAuth2UserService,
             OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler,
@@ -46,7 +52,7 @@ public class SecurityConfig {
         this.cookieAuthorizationRequestRepository = cookieAuthorizationRequestRepository;
     }
 
-    // Thêm bean AuthenticationManager
+    // AuthenticationManager Bean - Giữ nguyên
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
@@ -59,9 +65,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .csrf(csrf -> csrf.disable())
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
+                .csrf(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                 )
@@ -77,35 +83,22 @@ public class SecurityConfig {
                                 "/*/*.html",
                                 "/*/*.css",
                                 "/*/*.js",
-                                "/auth/*",
-                                "/oauth2/*")
-                        .permitAll().requestMatchers("/api/public/*").permitAll()  // Đúng
-                        .requestMatchers("/api/auth/*").permitAll()
+                                "/oauth2/**")
+                        .permitAll()
+                        .requestMatchers("/api/public/**").permitAll()
+                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/api/user/**").hasAuthority("ROLE_USER")
                         .requestMatchers("/api/test/user").authenticated()
                         .anyRequest()
                         .authenticated()
                 )
-                .oauth2Login(oauth2 -> oauth2
-                        .authorizationEndpoint(authorization -> authorization
-                                .baseUri("/oauth2/authorize")
-                                .authorizationRequestRepository(cookieAuthorizationRequestRepository)
-                        )
-                        .redirectionEndpoint(redirection -> redirection
-                                .baseUri("/oauth2/callback/*")
-                        )
-                        .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService)
-                        )
-                        .successHandler(oAuth2AuthenticationSuccessHandler)
-                        .failureHandler(oAuth2AuthenticationFailureHandler)
-                );
+                .oauth2Login(oauth2 -> {});
         http.addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 
+    // PasswordEncoder Bean - Giữ nguyên
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
