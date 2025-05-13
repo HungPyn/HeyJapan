@@ -100,9 +100,11 @@ public class AuthController {
             String email = payload.getEmail();
             logger.info("ID token verified successfully for email: {}", email);
             User user = userService.processOAuthUser(payload);
+            String userId = user.getId();
             String appToken = tokenProvider.createTokenForUser(user);
             logger.info("Generated application JWT for user: {}", email);
-            return ResponseEntity.ok(new AuthResponse(appToken));
+            AuthResponse responsePayload = new AuthResponse(appToken, userId);
+            return ResponseEntity.ok(responsePayload);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid ID token processing: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponse(false,"Error: Invalid ID Token. " + e.getMessage()));
