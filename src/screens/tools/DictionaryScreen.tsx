@@ -1,4 +1,4 @@
-// src/screens/theo_doi/FollowScreen.tsx (Hoặc đường dẫn bạn chọn)
+// src/screens/tool/DictionaryScreen.tsx
 import React from 'react';
 import {
   View,
@@ -101,9 +101,10 @@ const CourseItemImage = ({imageUrl}: {imageUrl: string}) => (
 
 const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
   const handleItemPress = (course: Course) => {
-    console.log(`Đã chọn khóa học: ${course.title}, ID: ${course.topic_code}`);
-    // Ví dụ điều hướng:
-    // navigation.navigate('CourseDetailScreen', { courseId: course.topic_code });
+    navigation.navigate('TienDoScreen', {
+      topic_code: course.topic_code,
+      title: course.title,
+    });
   };
 
   const handleMenuPress = () => {

@@ -7,14 +7,13 @@ const LOCAL_API_URL = 'http://localhost:8080/api/auth'; // Dùng cho iOS simulat
 
 // Kiểu dữ liệu cho phản hồi từ backend mà chúng ta mong đợi
 // (Khớp với AuthResponse.java trong Spring Boot)
-export interface BackendUserResponse {
+type BackendUserResponse = {
+  token: string;
   email: string;
-  name: string;
-  message: string;
-  // Nếu backend trả về token riêng của hệ thống bạn, có thể thêm vào đây
-  // appToken?: string;
-}
-
+  role?: string;
+  name?: string;
+  message?: string;
+};
 const verifyGoogleToken = async (
   idToken: string,
 ): Promise<BackendUserResponse> => {

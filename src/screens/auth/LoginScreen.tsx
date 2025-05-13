@@ -31,15 +31,7 @@ const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({email: '', password: ''});
-  const {login} = useAuth();
-
-  //dang ky
-  const handleLoginGoole = () => {
-    showMessage({
-      message: 'Đăng nhập bằng Google',
-      type: 'danger',
-    });
-  };
+  const {login, handleLoginGoole} = useAuth();
 
   //dăng nhapnhap
 

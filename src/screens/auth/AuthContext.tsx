@@ -14,6 +14,11 @@ import {
   Alert, // Alert có thể không cần thiết ở đây nếu bạn dùng showMessage
 } from 'react-native';
 import {showMessage} from 'react-native-flash-message';
+import {
+  GoogleSignin,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
+import authService from '../../services/authService';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -22,6 +27,7 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   markSelectionComplete: () => Promise<void>;
+  handleLoginGoole: () => Promise<void>;
   // Bạn có thể thêm user, role vào đây nếu muốn truy cập chúng từ context
   // userRole: string | null;
 };
@@ -32,6 +38,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectionComplete, setSelectionComplete] = useState(false);
   const [isLoadingAuthState, setIsLoadingAuthState] = useState(true);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   // const [userRole, setUserRole] = useState<string | null>(null); // Ví dụ nếu muốn lưu role
 
   useEffect(() => {
@@ -164,6 +171,157 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
     }
   };
 
+  const handleGoogleLoginData = async (googleData: any) => {
+    if (googleData.idToken) {
+      setIsSigningIn(true); // Bắt đầu quá trình gọi backend
+      try {
+        console.log(
+          '[AuthContext] Lấy được idToken từ Google:',
+          googleData.idToken,
+        );
+        Alert.alert('Đang xác thực với server...', 'Vui lòng chờ');
+
+        // Gọi backend để xác thực token và lấy thông tin người dùng của hệ thống
+        const backendUser = await authService.verifyGoogleToken(
+          googleData.idToken,
+        );
+
+        if (backendUser && backendUser.email) {
+          // Lưu thông tin người dùng và đặt trạng thái là đã xác thực
+          setIsAuthenticated(true);
+
+          // Lưu token vào AsyncStorage nếu có
+          if (backendUser.token) {
+            await AsyncStorage.setItem('token', backendUser.token);
+
+            // Lưu role nếu có
+            if (backendUser.role) {
+              await AsyncStorage.setItem('role', backendUser.role);
+            }
+          }
+
+          Alert.alert(
+            'Xác thực thành công!',
+            `Xin chào ${backendUser.name || backendUser.email}`,
+          );
+        } else {
+          // Trường hợp backend không trả về dữ liệu user mong đợi
+          console.error(
+            '[AuthContext] Phản hồi từ backend không hợp lệ:',
+            backendUser,
+          );
+          Alert.alert(
+            'Lỗi từ Server',
+            backendUser?.message ||
+              'Không nhận được thông tin người dùng hợp lệ.',
+          );
+        }
+      } catch (backendError: any) {
+        console.error(
+          '[AuthContext] Lỗi khi xác thực với backend:',
+          backendError,
+        );
+        Alert.alert(
+          'Lỗi xác thực Backend',
+          backendError.message || 'Không thể xác thực với server.',
+        );
+      } finally {
+        setIsSigningIn(false); // Kết thúc quá trình gọi backend
+      }
+    } else {
+      Alert.alert('Lỗi Google Sign-In', 'Không nhận được idToken từ Google.');
+      console.log(
+        '[AuthContext] Không có idToken trong dữ liệu Google:',
+        googleData,
+      );
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleSuccessfulSignIn = (successResponse: any) => {
+    console.log(
+      '===== DỮ LIỆU ĐĂNG NHẬP GOOGLE THÀNH CÔNG ĐẦY ĐỦ (handleSuccessfulSignIn) =====',
+    );
+    console.log(JSON.stringify(successResponse, null, 2));
+    console.log(
+      '===================================================================',
+    );
+
+    if (successResponse.data && successResponse.data.user) {
+      // Gọi hàm mới để xử lý việc gửi token lên backend
+      handleGoogleLoginData(successResponse.data);
+    } else {
+      console.error(
+        'Dữ liệu user không tìm thấy trong phản hồi thành công:',
+        successResponse,
+      );
+      Alert.alert(
+        'Lỗi dữ liệu Google',
+        'Không nhận được thông tin người dùng đầy đủ từ Google.',
+      );
+    }
+  };
+
+  const handleLoginGoole = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+
+    try {
+      await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog: true});
+      const response = await GoogleSignin.signIn();
+
+      console.log(
+        '===== PHẢN HỒI TỪ GoogleSignin.signIn() (handleLoginGoole) =====',
+      );
+      console.log(JSON.stringify(response, null, 2));
+      console.log(
+        '==============================================================',
+      );
+
+      if (response.type === 'success') {
+        handleSuccessfulSignIn(response);
+      } else if (response.type === 'cancelled') {
+        Alert.alert('Đã hủy', 'Bạn đã hủy quá trình đăng nhập.');
+      } else {
+        console.warn(
+          'Phản hồi đăng nhập không như mong đợi hoặc không thành công:',
+          response,
+        );
+        Alert.alert(
+          'Lỗi đăng nhập',
+          'Phản hồi không được xử lý. Kiểm tra console.',
+        );
+      }
+    } catch (err: any) {
+      console.error(
+        'Google Sign-In Error (trong catch):',
+        err,
+        'Code:',
+        err.code,
+      );
+      // Các mã lỗi khác từ statusCodes
+      if (err.code === statusCodes.IN_PROGRESS) {
+        Alert.alert(
+          'Đang xử lý',
+          'Đang có một quá trình đăng nhập khác diễn ra.',
+        );
+      } else if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert(
+          'Lỗi dịch vụ',
+          'Google Play Services không khả dụng. Vui lòng cập nhật.',
+        );
+      } else if (err.code !== statusCodes.SIGN_IN_CANCELLED) {
+        // SIGN_IN_CANCELLED đã được xử lý bởi response.type
+        Alert.alert(
+          'Lỗi đăng nhập',
+          `Lỗi không xác định. (Code: ${err.code || 'N/A'})`,
+        );
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   const logout = async () => {
     setIsLoadingAuthState(true);
     setIsAuthenticated(false);
@@ -197,6 +355,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
         selectionComplete,
         isLoadingAuthState,
         login,
+        handleLoginGoole,
         logout,
         markSelectionComplete,
         // userRole, // Nếu bạn muốn cung cấp userRole

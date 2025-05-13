@@ -18,6 +18,7 @@ export const COLORS = {
   white: '#FFFFFF',
   black: '#000000',
   gray: '#808080',
+  lightGray: '#D3D3D3', // Xám nhạt
   transparent: 'transparent',
   nenItem: 'rgba(241, 233, 217, 0.99)',
   // Màu sắc mới bạn yêu cầu
@@ -25,7 +26,6 @@ export const COLORS = {
   lightRed: '#f8d7da', // Màu đỏ nhạt
   orange: '#f39c12', // Màu cam
 
-  lightGray: '#E0E0E0', // Màu xám nhạt
   lightGray2: '#F5F5F5', // Màu xám nhạt hơn
 
   darkGray: '#616161', // Màu xám đậm

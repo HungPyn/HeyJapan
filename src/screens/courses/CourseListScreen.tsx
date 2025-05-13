@@ -35,7 +35,8 @@ export const mockCourses: Course[] = [
   {
     topic_code: '102',
     title: 'Cơ bản 1',
-    imageUrl: 'https://i.imgur.com/na3U2uk.png',
+    imageUrl:
+      'https://res.cloudinary.com/de6p22cld/image/upload/v1747068056/5ce8756659087c1d807ce97d74d56ca6_p0lg88.jpg',
     levelCode: 'Cơ bản',
     quantityLesson: 10,
   },

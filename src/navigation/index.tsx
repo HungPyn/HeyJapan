@@ -18,6 +18,7 @@ import CourseDetailScreen from '../screens/courses/CourseDetailScreen';
 import LessonScreen from '../screens/lessons/LessonScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import DictionaryScreen from '../screens/tools/DictionaryScreen';
+import TienDoScreen from '../screens/tools/TienDoScreen';
 import FlashcardsScreen from '../screens/tools/FlashcardsScreen';
 import {COLORS} from '../constants/theme';
 import {AuthProvider, useAuth} from '../screens/auth/AuthContext';
@@ -34,6 +35,8 @@ export type RootStackParamList = {
   Loading: undefined; // << THÊM DÒNG NÀY VÀO ĐÂY
   CourseDetail: {courseId: string};
   Lesson: {lessonId: string; courseId: string};
+  DictionaryScreen: undefined; // Hoặc FollowScreen nếu bạn dùng tên đó
+  TienDoScreen: {topic_code: string; title: string}; // Thêm dòng này
 };
 
 export type AuthStackParamList = {
@@ -200,6 +203,7 @@ const RootNavigator = () => {
   }
 
   // Khi đã tải xong (isLoadingAuthState là false)
+
   return (
     <RootStack.Navigator
       screenOptions={{
@@ -211,7 +215,13 @@ const RootNavigator = () => {
       ) : !selectionComplete ? (
         <RootStack.Screen name="Selection" component={SelectionScreen} />
       ) : (
-        <RootStack.Screen name="Main" component={MainNavigator} />
+        // Đã đăng nhập và hoàn thành lựa chọn
+        <>
+          {' '}
+          {/* <--- ĐÃ SỬA: Bọc bằng React Fragment */}
+          <RootStack.Screen name="Main" component={MainNavigator} />
+          <RootStack.Screen name="TienDoScreen" component={TienDoScreen} />
+        </>
       )}
     </RootStack.Navigator>
   );

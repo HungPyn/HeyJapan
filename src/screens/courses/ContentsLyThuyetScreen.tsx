@@ -413,11 +413,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    // justifyContent: 'space-between', // Bỏ cái này để headerTitleContainer có thể flex và đẩy segment ra xa
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.padding * 0.5,
     marginTop: StatusBar.currentHeight || 20,
     backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
     borderBottomColor: COLORS.gray,
   },
   backButton: {

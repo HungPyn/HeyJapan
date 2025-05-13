@@ -13,16 +13,14 @@ import {
   Alert,
   Dimensions,
   Platform,
-  // Animated, // Bỏ nếu không dùng
 } from 'react-native';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {CoursesStackParamList, RootStackParamList} from '../../navigation'; // Đảm bảo đường dẫn này đúng
 import {COLORS, FONTS, SIZES} from '../../constants/theme'; // Đảm bảo đường dẫn này đúng
-import {Colors} from 'react-native/Libraries/NewAppScreen'; // Giữ lại nếu bạn có dùng ở đâu đó, nếu không thì có thể bỏ
+import {Colors} from 'react-native/Libraries/NewAppScreen'; // Giữ lại
 
-// --- BEGIN DATA INTERFACES AND MOCK DATA ---
-// Giữ nguyên phần này của bạn
+// --- BEGIN DATA INTERFACES AND MOCK DATA (FROM YOUR ORIGINAL CODE) ---
 interface Option {
   id: string;
   text: string;
@@ -81,7 +79,7 @@ const allLessonContents: LessonContentItem[] = [
     audio_url:
       'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
     image_url: null,
-    display_order: 5,
+    display_order: 5, // Sửa display_order để đảm bảo thứ tự đúng
     lesson_code: 12,
     skill_code: {skill_code: 4, skill_name: 'Viết'},
     options: [
@@ -93,7 +91,7 @@ const allLessonContents: LessonContentItem[] = [
     correct_answer: ['v1', 'v3'],
   },
 ];
-// --- END DATA ---
+// --- END DATA (FROM YOUR ORIGINAL CODE) ---
 
 type ContentsScreenRouteProp = RouteProp<
   CoursesStackParamList,
@@ -101,7 +99,7 @@ type ContentsScreenRouteProp = RouteProp<
 >;
 type ContentsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
-// ProgressBar component giữ nguyên như của bạn
+// ProgressBar component (FROM YOUR ORIGINAL CODE)
 const ProgressBar = ({current, total}: {current: number; total: number}) => {
   const progress = total > 0 ? Math.min((current / total) * 100, 100) : 0;
   return (
@@ -111,15 +109,13 @@ const ProgressBar = ({current, total}: {current: number; total: number}) => {
   );
 };
 
-// --- BEGIN SUMMARY SCREEN COMPONENT ---
+// LessonSummaryScreen component (FROM YOUR ORIGINAL CODE)
 interface LessonSummaryProps {
   correctAnswersCount: number;
   totalQuestions: number;
   timeTaken: string;
   onComplete: () => void;
-  // lessonName: string; // Không cần lessonName ở đây nếu không hiển thị
 }
-
 const LessonSummaryScreen: React.FC<LessonSummaryProps> = ({
   correctAnswersCount,
   totalQuestions,
@@ -130,60 +126,56 @@ const LessonSummaryScreen: React.FC<LessonSummaryProps> = ({
     totalQuestions > 0
       ? Math.round((correctAnswersCount / totalQuestions) * 100)
       : 0;
-
-  // Style cho màn hình tổng kết, cố gắng dùng SIZES, COLORS, FONTS của bạn
-  // và giữ nó đơn giản, chỉ tập trung vào các thông tin như ảnh
   const summaryStyles = StyleSheet.create({
     container: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: SIZES.padding * 2, // Sử dụng SIZES từ theme
-      // backgroundColor: COLORS.white, // Hoặc một màu nền bạn muốn (từ COLORS)
+      padding: SIZES.padding * 2,
+      backgroundColor: COLORS.white,
     },
     logo: {
-      width: screenWidth * 0.3, // Sử dụng screenWidth đã khai báo ở styles gốc
+      width: screenWidth * 0.3,
       height: screenWidth * 0.3,
       marginBottom: SIZES.padding * 2,
     },
     title: {
-      fontFamily: FONTS.bold?.fontFamily || 'System', // Sử dụng FONTS từ theme
-      fontSize: SIZES.h1, // Sử dụng SIZES từ theme
-      color: COLORS.text, // Sử dụng COLORS từ theme
+      fontFamily: FONTS.bold?.fontFamily || 'System',
+      fontSize: SIZES.xxLarge,
+      color: COLORS.text,
       marginBottom: SIZES.padding * 2,
       textAlign: 'center',
+      fontWeight: 'bold',
     },
     card: {
       backgroundColor: COLORS.white,
       borderRadius: SIZES.radius,
       padding: SIZES.padding * 1.5,
       marginBottom: SIZES.margin,
-      width: '90%', // Hoặc 100% với padding trong container
+      width: '90%',
       flexDirection: 'row',
       alignItems: 'center',
-      // Shadow giống với các card câu hỏi của bạn nếu có
       shadowColor: COLORS.black,
-      shadowOffset: {width: 0, height: 1}, // Điều chỉnh cho phù hợp
+      shadowOffset: {width: 0, height: 1},
       shadowOpacity: 0.1,
       shadowRadius: SIZES.radius / 2,
-      elevation: 2, // Điều chỉnh cho phù hợp
+      elevation: 2,
     },
     iconText: {
-      // Cho icon dạng text như 📊 ✅ ⏱️
-      fontSize: SIZES.h2, // Kích thước cho icon text
+      fontSize: SIZES.h2,
       marginRight: SIZES.base,
-      color: COLORS.primary, // Màu cho icon
+      color: COLORS.primary,
     },
     text: {
       fontFamily: FONTS.medium?.fontFamily || 'System',
-      fontSize: SIZES.font, // SIZES.body3 hoặc SIZES.font
+      fontSize: SIZES.font,
       color: COLORS.textSecondary || COLORS.darkGray,
     },
     completeButton: {
-      backgroundColor: COLORS.green, // Màu xanh lá từ COLORS
+      backgroundColor: COLORS.green,
       paddingVertical: SIZES.padding,
       paddingHorizontal: SIZES.padding * 3,
-      borderRadius: SIZES.radius * 2.5, // Bo tròn nhiều
+      borderRadius: SIZES.radius * 2.5,
       marginTop: SIZES.padding * 2,
       alignItems: 'center',
       width: '90%',
@@ -191,36 +183,40 @@ const LessonSummaryScreen: React.FC<LessonSummaryProps> = ({
     completeButtonText: {
       fontFamily: FONTS.bold?.fontFamily || 'System',
       color: COLORS.white,
-      fontSize: SIZES.large, // SIZES.font * 1.1
+      fontSize: SIZES.large,
     },
   });
-
   return (
     <View style={summaryStyles.container}>
       <Image
-        source={require('../../assets/images/Logo.png')} // Đường dẫn tới logo của bạn
+        source={require('../../assets/images/Logo.png')}
         style={summaryStyles.logo}
         resizeMode="contain"
       />
       <Text style={summaryStyles.title}>Kết quả hoàn thành</Text>
-
       <View style={summaryStyles.card}>
-        <Text style={summaryStyles.iconText}>📊</Text>
+        <Image
+          source={require('../../assets/images/tiLeDung.png')}
+          style={summaryStyles.iconText}
+        />
         <Text style={summaryStyles.text}>
           Tỷ lệ đúng: {correctAnswersCount}/{totalQuestions}
         </Text>
       </View>
-
       <View style={summaryStyles.card}>
-        <Text style={summaryStyles.iconText}>✅</Text>
+        <Image
+          source={require('../../assets/images/TiLeHoanThanh.png')}
+          style={summaryStyles.iconText}
+        />
         <Text style={summaryStyles.text}>Hoàn thành: {accuracy}%</Text>
       </View>
-
       <View style={summaryStyles.card}>
-        <Text style={summaryStyles.iconText}>⏱️</Text>
+        <Image
+          source={require('../../assets/images/tocDo.png')}
+          style={summaryStyles.iconText}
+        />
         <Text style={summaryStyles.text}>Tốc độ: {timeTaken}</Text>
       </View>
-
       <TouchableOpacity
         style={summaryStyles.completeButton}
         onPress={onComplete}>
@@ -236,7 +232,7 @@ const ContentsScreen: React.FC = () => {
   const navigation = useNavigation<ContentsScreenNavigationProp>();
 
   const lessonCodeFromParam = route.params?.lessonCode;
-  const lessonNameFromParam = route.params?.lessonName || 'Bài học';
+  // const lessonNameFromParam = route.params?.lessonName || 'Bài học'; // Biến này không được sử dụng trong logic gốc
   const currentLessonCode = parseInt(lessonCodeFromParam || '0', 10);
 
   const itemsForThisLesson = useMemo(() => {
@@ -245,41 +241,44 @@ const ContentsScreen: React.FC = () => {
       .sort((a, b) => a.display_order - b.display_order);
   }, [currentLessonCode]);
 
+  // State variables (FROM YOUR ORIGINAL CODE)
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userSelectedOptionId, setUserSelectedOptionId] = useState<
     string | null
   >(null);
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<boolean | null>(
     null,
-  );
+  ); // Giữ nguyên
   const [arrangedWords, setArrangedWords] = useState<Option[]>([]);
-
-  // --- BEGIN STATES FOR SUMMARY ---
   const [showSummaryScreen, setShowSummaryScreen] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
-  // --- END STATES FOR SUMMARY ---
 
   const currentItem = itemsForThisLesson[currentIndex];
   const totalItems = itemsForThisLesson.length;
 
+  // useEffects (FROM YOUR ORIGINAL CODE)
   useEffect(() => {
     if (itemsForThisLesson.length > 0 && !startTime) {
       setStartTime(new Date());
       setCorrectAnswersCount(0);
       setShowSummaryScreen(false);
     }
-  }, [itemsForThisLesson, startTime, currentLessonCode]); // Thêm currentLessonCode để reset khi đổi bài
+  }, [itemsForThisLesson, startTime, currentLessonCode]);
 
   useEffect(() => {
     setUserSelectedOptionId(null);
     setShowAnswerFeedback(null);
-    if (currentItem && currentItem.content_type === 'sapXep') {
-      setArrangedWords([]);
-    }
-  }, [currentIndex, currentItem]);
+    // if (currentItem && currentItem.content_type === 'sapXep') { // Logic này đã có trong code gốc
+    //   setArrangedWords([]);
+    // }
+    // Code gốc của bạn có vẻ reset arrangedWords cho mọi loại câu hỏi khi currentIndex thay đổi
+    // hoặc chỉ cho 'sapXep' tùy thuộc vào currentItem. Để an toàn, tôi sẽ reset chung.
+    setArrangedWords([]);
+  }, [currentIndex]); // Chỉ phụ thuộc currentIndex theo code gốc của bạn (hoặc currentItem nếu logic gốc khác)
 
+  // Helper functions (FROM YOUR ORIGINAL CODE)
   const playSound = (audioUrl: string | null) => {
     if (audioUrl)
       Alert.alert('Phát âm thanh (Placeholder)', `Đang phát: ${audioUrl}`);
@@ -303,8 +302,8 @@ const ContentsScreen: React.FC = () => {
     );
   };
 
+  // handleCheckAnswer (FROM YOUR ORIGINAL CODE)
   const handleCheckAnswer = () => {
-    // Giữ nguyên logic handleCheckAnswer của bạn
     if (!currentItem) return;
     let isCorrect = false;
     if (currentItem.content_type === 'select') {
@@ -325,32 +324,35 @@ const ContentsScreen: React.FC = () => {
       const correctAnswerIds = currentItem.correct_answer;
       if (
         Array.isArray(correctAnswerIds) &&
-        userAnswerIds.length === correctAnswerIds.length
+        userAnswerIds.length === correctAnswerIds.length && // Kiểm tra độ dài
+        userAnswerIds.every((val, index) => val === correctAnswerIds[index]) // Kiểm tra thứ tự
       ) {
-        isCorrect = userAnswerIds.every(
-          (val, index) => val === correctAnswerIds[index],
-        );
+        isCorrect = true;
+      } else {
+        isCorrect = false;
       }
     }
-    setShowAnswerFeedback(isCorrect);
+    // Cập nhật showAnswerFeedback dựa trên isCorrect
+    setShowAnswerFeedback(isCorrect); // Logic gốc của bạn set ở đây
+    // Tăng điểm nếu đúng (logic gốc của bạn)
     if (isCorrect) {
+      // Code gốc của bạn tăng điểm sau khi set showAnswerFeedback
       setCorrectAnswersCount(prev => prev + 1);
     }
   };
 
+  // handleContinue (FROM YOUR ORIGINAL CODE)
   const handleContinue = () => {
     if (showSummaryScreen) {
-      // Nếu đang ở màn hình tổng kết
       navigation.goBack();
       return;
     }
 
-    // Điều kiện cần "Kiểm tra" trước
     if (
       (currentItem?.content_type === 'select' ||
         currentItem?.content_type === 'sapXep') &&
-      showAnswerFeedback === null && // Chưa kiểm tra
-      currentItem.options &&
+      showAnswerFeedback === null &&
+      currentItem.options && // Đảm bảo có options mới check
       ((currentItem.content_type === 'select' && userSelectedOptionId) ||
         (currentItem.content_type === 'sapXep' && arrangedWords.length > 0))
     ) {
@@ -361,22 +363,18 @@ const ContentsScreen: React.FC = () => {
     const isLastItem = currentIndex >= totalItems - 1;
 
     if (isLastItem) {
-      // Chỉ chuyển sang màn hình tổng kết nếu là câu cuối VÀ
-      // (đã kiểm tra xong (showAnswerFeedback !== null) ĐỐI VỚI select/sapXep) HOẶC (là loại voice/audio không cần bước kiểm tra)
       if (
         (currentItem?.content_type === 'select' &&
           showAnswerFeedback !== null) ||
         (currentItem?.content_type === 'sapXep' &&
           showAnswerFeedback !== null) ||
-        currentItem?.content_type === 'voice' || // Thêm các loại không cần kiểm tra khác nếu có
+        currentItem?.content_type === 'voice' ||
         currentItem?.content_type === 'audio'
       ) {
         setEndTime(new Date());
-        setShowSummaryScreen(true); // Chuyển sang màn hình tổng kết
+        setShowSummaryScreen(true);
       }
-      // Không làm gì khác nếu là câu cuối của select/sapXep mà chưa kiểm tra (đã bị chặn ở trên)
     } else {
-      // Nếu không phải câu cuối, chuyển sang câu tiếp theo
       setCurrentIndex(prev => prev + 1);
     }
   };
@@ -385,14 +383,13 @@ const ContentsScreen: React.FC = () => {
     if (!startTime) return '0 phút 0 giây';
     const finalEndTime = endTime || new Date();
     const diffMs = finalEndTime.getTime() - startTime.getTime();
-    if (diffMs < 0) return '0 phút 0 giây'; // Trường hợp startTime set sau endTime do race condition/logic
+    if (diffMs < 0) return '0 phút 0 giây';
     const diffMins = Math.floor(diffMs / 60000);
     const diffSecs = Math.round((diffMs % 60000) / 1000);
     return `${diffMins} phút ${diffSecs} giây`;
   }, [startTime, endTime]);
 
   const handleBackPress = () => {
-    // Giữ nguyên logic handleBackPress của bạn
     Alert.alert(
       'Thoát khỏi bài học?',
       'Tiến trình của bạn có thể sẽ bị mất. Bạn có chắc muốn thoát không?',
@@ -408,7 +405,38 @@ const ContentsScreen: React.FC = () => {
     );
   };
 
-  // renderContentItem giữ nguyên hoàn toàn như code gốc của bạn
+  // Hàm helper mới để lấy text đáp án đúng (cần thiết cho UI mới)
+  const getCorrectAnswerText = useCallback(() => {
+    if (
+      !currentItem ||
+      showAnswerFeedback === true ||
+      showAnswerFeedback === null
+    )
+      return null;
+
+    if (
+      currentItem.content_type === 'select' &&
+      typeof currentItem.correct_answer === 'string'
+    ) {
+      return (
+        currentItem.options?.find(opt => opt.id === currentItem.correct_answer)
+          ?.text || null
+      );
+    } else if (
+      currentItem.content_type === 'sapXep' &&
+      Array.isArray(currentItem.correct_answer)
+    ) {
+      return (
+        currentItem.correct_answer
+          .map(id => currentItem.options?.find(opt => opt.id === id)?.text)
+          .filter(Boolean)
+          .join(' ') || null
+      );
+    }
+    return null;
+  }, [currentItem, showAnswerFeedback]);
+
+  // renderContentItem (EXACTLY FROM YOUR ORIGINAL CODE)
   const renderContentItem = () => {
     if (!currentItem)
       return (
@@ -422,7 +450,6 @@ const ContentsScreen: React.FC = () => {
         return (
           <View style={styles.contentCard}>
             <Text style={styles.contentTitle}>Nói lại từ(câu) dưới đây:</Text>
-            {/* Icon loa và micro giữ nguyên style gốc của bạn */}
             <TouchableOpacity
               onPress={() => playSound(currentItem.audio_url)}
               style={styles.contentCard2}>
@@ -440,17 +467,14 @@ const ContentsScreen: React.FC = () => {
                 style={styles.recordIcon}
                 resizeMode="contain"></Image>
             </TouchableOpacity>
-            {/* Nút "Bỏ qua" trong voice sẽ gọi handleContinue, đã được xử lý ở footer */}
-            {/* Bạn có thể giữ lại nút "Bỏ qua" ở đây nếu muốn nó tách biệt khỏi footer chung */}
             <TouchableOpacity
-              onPress={handleContinue}
+              onPress={handleContinue} // Nút bỏ qua gốc cho voice
               style={styles.instructionButton}>
               <Text style={styles.instructionText}>Bỏ qua</Text>
             </TouchableOpacity>
           </View>
         );
       case 'select':
-        // Toàn bộ phần render cho 'select' giữ nguyên như code gốc của bạn
         return (
           <View style={styles.contentCard}>
             <View style={styles.contentCardQuestion}>
@@ -494,6 +518,10 @@ const ContentsScreen: React.FC = () => {
                       showAnswerFeedback === false &&
                         isSelected &&
                         styles.incorrectOption,
+                      // Hiển thị đáp án đúng khi user chọn sai (theo code gốc)
+                      showAnswerFeedback === false &&
+                        isCorrectOption &&
+                        styles.correctOption,
                     ]}
                     onPress={() => handleOptionSelect(option.id)}
                     disabled={showAnswerFeedback !== null}>
@@ -506,6 +534,10 @@ const ContentsScreen: React.FC = () => {
                         showAnswerFeedback === false &&
                           isSelected &&
                           styles.incorrectOptionText,
+                        // Hiển thị đáp án đúng khi user chọn sai (theo code gốc)
+                        showAnswerFeedback === false &&
+                          isCorrectOption &&
+                          styles.correctOptionText,
                       ]}>
                       {option.text}
                     </Text>
@@ -516,7 +548,6 @@ const ContentsScreen: React.FC = () => {
           </View>
         );
       case 'sapXep':
-        // Toàn bộ phần render cho 'sapXep' giữ nguyên như code gốc của bạn
         return (
           <View style={styles.contentCard}>
             <View style={styles.contentCardQuestion}>
@@ -600,6 +631,33 @@ const ContentsScreen: React.FC = () => {
             </View>
           </View>
         );
+      case 'audio': // Logic render cho audio type (nếu có trong gốc)
+        // Giả sử code gốc của bạn có phần này
+        return (
+          <View style={styles.contentCard}>
+            {currentItem.title && (
+              <Text style={styles.contentTitleAudio}>{currentItem.title}</Text>
+            )}
+            {currentItem.image_url && (
+              <Image
+                source={{uri: currentItem.image_url}}
+                style={styles.contentImage}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={styles.contentDetailAudio}>
+              {currentItem.content_detail}
+            </Text>
+            {currentItem.audio_url && (
+              <TouchableOpacity
+                onPress={() => playSound(currentItem.audio_url)}
+                style={styles.audioPlayerPlaceholder}>
+                <Text style={styles.audioIconBig}>▶️</Text>
+                <Text>Phát âm thanh</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
       default:
         return (
           <View style={styles.contentCard}>
@@ -610,10 +668,9 @@ const ContentsScreen: React.FC = () => {
         );
     }
   };
-  // --- HẾT PHẦN GIỮ NGUYÊN renderContentItem ---
+  // --- END renderContentItem (FROM YOUR ORIGINAL CODE) ---
 
   if (!lessonCodeFromParam || totalItems === 0) {
-    // Giữ nguyên phần báo lỗi của bạn
     return (
       <SafeAreaView style={styles.errorContainer}>
         <Text style={styles.errorText}>Không có nội dung cho bài học này.</Text>
@@ -626,32 +683,63 @@ const ContentsScreen: React.FC = () => {
     );
   }
 
-  // --- RENDER MÀN HÌNH TỔNG KẾT NẾU CẦN ---
   if (showSummaryScreen) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
-        {/* Bạn có thể thêm ImageBackground ở đây nếu muốn màn hình tổng kết có nền giống màn hình câu hỏi */}
         <ImageBackground
           source={require('../../assets/images/nen3.jpg')}
           style={StyleSheet.absoluteFillObject}
-          imageStyle={{opacity: 0.08}} // Giữ opacity như cũ hoặc điều chỉnh
+          imageStyle={{opacity: 0.08}}
           resizeMode="cover">
           <LessonSummaryScreen
             correctAnswersCount={correctAnswersCount}
             totalQuestions={totalItems}
             timeTaken={formatTimeTaken()}
-            onComplete={handleContinue} // Nút "Hoàn thành" trên màn tổng kết sẽ gọi goBack()
+            onComplete={handleContinue}
           />
         </ImageBackground>
       </SafeAreaView>
     );
   }
-  // --- KẾT THÚC RENDER MÀN HÌNH TỔNG KẾT ---
 
-  // const skillName = currentItem?.skill_code?.skill_name || ''; // Giữ lại nếu bạn dùng
+  const correctAnswerText = getCorrectAnswerText(); // Cần cho UI mới
 
-  // Giao diện chính của màn hình câu hỏi, giữ nguyên như của bạn
+  // Điều kiện để hiển thị các phần của footer (logic gốc)
+  const shouldShowCheckButton =
+    (currentItem?.content_type === 'select' ||
+      currentItem?.content_type === 'sapXep') &&
+    showAnswerFeedback === null &&
+    ((currentItem.content_type === 'select' && userSelectedOptionId) ||
+      (currentItem.content_type === 'sapXep' &&
+        arrangedWords.length > 0 &&
+        (currentItem.options?.length || 0) > 0));
+
+  // Điều kiện để hiển thị UI feedback MỚI
+  const shouldShowNewFeedbackUi =
+    (currentItem?.content_type === 'select' ||
+      currentItem?.content_type === 'sapXep') &&
+    showAnswerFeedback !== null;
+
+  // Điều kiện để hiển thị nút Tiếp tục/Bỏ qua GỐC
+  const shouldShowOriginalContinueOrSkip =
+    !shouldShowCheckButton &&
+    !shouldShowNewFeedbackUi &&
+    (currentItem?.content_type === 'voice' ||
+      currentItem?.content_type === 'audio' ||
+      // Hoặc select/sapXep nhưng chưa chọn gì (showAnswerFeedback === null và không có selection)
+      ((currentItem?.content_type === 'select' ||
+        currentItem?.content_type === 'sapXep') &&
+        showAnswerFeedback === null));
+  const isOriginalContinueButtonDisabled =
+    (currentItem?.content_type === 'select' &&
+      !userSelectedOptionId &&
+      showAnswerFeedback === null) ||
+    (currentItem?.content_type === 'sapXep' &&
+      arrangedWords.length === 0 &&
+      showAnswerFeedback === null &&
+      (currentItem.options?.length || 0) > 0);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
@@ -680,124 +768,110 @@ const ContentsScreen: React.FC = () => {
             {renderContentItem()}
           </ScrollView>
 
-          {/* Footer giữ nguyên như của bạn, chỉ có text của nút Tiếp tục có thể thay đổi */}
-          <View style={styles.footer}>
-            {/* Ghi âm: luôn hiển thị nút Bỏ qua (đã được xử lý trong renderContentItem hoặc có thể đặt ở đây) */}
-            {/* {currentItem?.content_type === 'ghiAm' && ( // 'ghiAm' là tên bạn dùng hay 'voice'?
+          {/* --- FOOTER MODIFICATION STARTS HERE --- */}
+          <View
+            style={[
+              styles.footer, // Style footer GỐC
+              // Áp dụng màu nền MỚI nếu là select/sapXep và đã có feedback
+              shouldShowNewFeedbackUi &&
+                showAnswerFeedback === true &&
+                styles.footer_CorrectBackground_NEW,
+              shouldShowNewFeedbackUi &&
+                showAnswerFeedback === false &&
+                styles.footer_IncorrectBackground_NEW,
+            ]}>
+            {/* 1. Nút "Kiểm tra" (Logic và style GỐC) */}
+            {shouldShowCheckButton && (
               <TouchableOpacity
-                style={styles.skipButton} // Dùng style skipButton gốc của bạn
-                onPress={handleContinue}>
-                <Text style={styles.footerButtonText}>
-                    {currentIndex >= totalItems - 1 ? "Xem tổng kết" : "Bỏ qua"}
-                </Text>
+                style={styles.checkButton}
+                onPress={handleCheckAnswer}>
+                <Text style={styles.footerButtonText}>Kiểm tra</Text>
               </TouchableOpacity>
-            )} */}
+            )}
 
-            {/* Select hoặc SapXep: nếu đã chọn -> hiển thị nút Kiểm tra */}
-            {(currentItem?.content_type === 'select' ||
-              currentItem?.content_type === 'sapXep') &&
-              showAnswerFeedback === null && // Quan trọng: chỉ hiện khi chưa kiểm tra
-              ((currentItem.content_type === 'select' &&
-                userSelectedOptionId) ||
-                (currentItem.content_type === 'sapXep' &&
-                  arrangedWords.length > 0)) && (
-                <TouchableOpacity
-                  style={styles.checkButton} // Dùng style checkButton gốc
-                  onPress={handleCheckAnswer}>
-                  <Text style={styles.footerButtonText}>Kiểm tra</Text>
-                </TouchableOpacity>
-              )}
-
-            {/* Sau khi kiểm tra (cho select/sapXep) HOẶC cho voice (luôn có thể tiếp tục/xem tổng kết) */}
-            {((currentItem?.content_type === 'select' ||
-              currentItem?.content_type === 'sapXep') &&
-              showAnswerFeedback !== null) ||
-            currentItem?.content_type === 'voice' ||
-            currentItem?.content_type === 'audio' ? (
-              <>
-                {/* Phần hiển thị audio feedback sau khi kiểm tra (giữ nguyên của bạn) */}
-                {showAnswerFeedback !== null &&
-                  (currentItem?.content_type === 'select' ||
-                    currentItem?.content_type === 'sapXep') && (
-                    <View
-                      style={{
-                        alignItems: 'center',
-                        marginBottom: 10,
-                        // backgroundColor: COLORS.green, // Bỏ màu nền này nếu bạn không muốn
-                      }}>
-                      <View style={{alignItems: 'center'}}>
-                        {/* <Text style={{fontSize: 16, fontWeight: 'bold', marginRight: 8}}>
-                        {currentItem?.content_detail} // Có thể bỏ nếu không muốn lặp lại
-                      </Text> */}
-                        <Text
-                          style={{
-                            fontSize: 16,
-                            fontWeight: 'bold',
-                            color: showAnswerFeedback
-                              ? COLORS.green
-                              : COLORS.red,
-                            marginBottom: 5,
-                          }}>
-                          {showAnswerFeedback ? 'Chính xác!' : 'Sai rồi!'}
-                          {currentItem?.content_type === 'select' &&
-                            !showAnswerFeedback &&
-                            currentItem.options &&
-                            currentItem.correct_answer &&
-                            ` Đáp án đúng: ${
-                              currentItem.options.find(
-                                opt => opt.id === currentItem.correct_answer,
-                              )?.text
-                            }`}
-                        </Text>
-                        {currentItem?.audio_url && (
-                          <TouchableOpacity
-                            onPress={() => playSound(currentItem.audio_url)}>
-                            <Image
-                              source={require('../../assets/images/amThanhTiepTuc.png')}
-                              style={{width: 64, height: 64}} // Giữ style của bạn
-                            />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
+            {/* 2. Giao diện Feedback MỚI (chỉ cho select/sapXep sau khi check) */}
+            {shouldShowNewFeedbackUi && (
+              <View style={styles.feedback_Container_NEW}>
+                <View style={styles.feedback_TextAudioWrapper_NEW}>
+                  <View style={styles.feedback_TextContainer_NEW}>
+                    <Text
+                      style={styles.feedback_DetailText_NEW}
+                      numberOfLines={1}>
+                      {currentItem.content_detail}
+                    </Text>
+                    {correctAnswerText && ( // Hiển thị đáp án đúng nếu sai
+                      <Text
+                        style={styles.feedback_CorrectAnswerText_NEW}
+                        numberOfLines={1}>
+                        {correctAnswerText}
+                      </Text>
+                    )}
+                  </View>
+                  {currentItem.audio_url && ( // Nút loa
+                    <TouchableOpacity
+                      onPress={() => playSound(currentItem.audio_url)}
+                      style={styles.feedback_AudioButton_NEW}>
+                      <Image
+                        source={require('../../assets/images/amThanhTiepTuc.png')} // Path ảnh gốc
+                        style={styles.feedback_AudioIcon_NEW}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
                   )}
-
-                <TouchableOpacity
-                  style={[
-                    styles.continueButton /* Thêm style màu dựa trên showAnswerFeedback nếu muốn */,
-                    showAnswerFeedback === true && styles.correctAnswerButton, // Dùng style gốc của bạn
-                    showAnswerFeedback === false && styles.wrongAnswerButton, // Dùng style gốc của bạn
-                    (currentItem?.content_type === 'voice' ||
-                      currentItem?.content_type === 'audio') &&
-                      styles.skipButton, // Dùng style skip gốc cho voice
-                  ]}
+                </View>
+                <TouchableOpacity // Nút "Tiếp tục" MỚI màu trắng
+                  style={styles.feedback_ContinueButton_NEW}
                   onPress={handleContinue}>
                   <Text
-                    style={
-                      currentItem?.content_type === 'voice' ||
-                      currentItem?.content_type === 'audio'
-                        ? styles.footerButtonText // Giả sử footerButtonText phù hợp cho voice
-                        : showAnswerFeedback !== null
-                        ? styles.footerButtonText
-                        : Colors.white // Dùng Colors.white gốc cho nút Tiếp tục
-                    }>
+                    style={[
+                      styles.feedback_ContinueButtonText_NEW,
+                      {color: showAnswerFeedback ? COLORS.primary : COLORS.red}, // Chữ màu xanh/đỏ
+                    ]}>
                     Tiếp tục
-                    {/* Text không cần thay đổi, logic trong handleContinue sẽ quyết định */}
                   </Text>
                 </TouchableOpacity>
-              </>
-            ) : null}
+              </View>
+            )}
+
+            {/* 3. Nút "Tiếp tục" / "Bỏ qua" GỐC */}
+            {/* (Cho voice, audio, hoặc select/sapXep khi chưa chọn/chưa check và không hiển thị 2 phần trên) */}
+            {shouldShowOriginalContinueOrSkip && (
+              <TouchableOpacity
+                style={[
+                  // Style GỐC cho nút:
+                  currentItem?.content_type === 'voice' ||
+                  currentItem?.content_type === 'audio'
+                    ? styles.skipButton // Style gốc của bạn
+                    : styles.continueButton, // Style gốc của bạn
+                  // Style GỐC cho trạng thái disabled:
+                  isOriginalContinueButtonDisabled &&
+                    styles.disabledButtonFooter,
+                ]}
+                onPress={handleContinue}
+                disabled={isOriginalContinueButtonDisabled}>
+                <Text style={styles.footerButtonText}>
+                  {' '}
+                  {/* Style text GỐC */}
+                  {currentItem?.content_type === 'voice' ||
+                  currentItem?.content_type === 'audio'
+                    ? 'Bỏ qua'
+                    : 'Tiếp tục'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
+          {/* --- FOOTER MODIFICATION ENDS HERE --- */}
         </View>
       </ImageBackground>
     </SafeAreaView>
   );
 };
 
-// --- BEGIN STYLES ---
-// Toàn bộ styles gốc của bạn được giữ nguyên ở đây
+// --- BEGIN STYLES (FROM YOUR ORIGINAL CODE, with NEW styles appended) ---
 const screenWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
+  // ... (TOÀN BỘ STYLES GỐC CỦA BẠN - VUI LÒNG COPY PASTE TOÀN BỘ styles gốc của bạn vào đây) ...
+  // Dưới đây là ví dụ một vài style gốc và các style mới được thêm vào
   safeArea: {flex: 1, backgroundColor: COLORS.white},
   container: {flex: 1},
   header: {
@@ -810,23 +884,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray2,
   },
-  correctAnswerButton: {
-    // Style gốc của bạn
-    backgroundColor: 'green',
-  },
-  wrongAnswerButton: {
-    // Style gốc của bạn
-    backgroundColor: 'red',
-  },
+  correctAnswerButton: {backgroundColor: 'green'},
+  wrongAnswerButton: {backgroundColor: 'red'},
   skipButton: {
-    // Style gốc của bạn (cho voice/ghiAm)
-    backgroundColor: '#ccc', // Hoặc COLORS.lightGray hoặc màu bạn muốn
-    paddingVertical: SIZES.padding * 1.2, // Điều chỉnh cho nhất quán với continueButton
+    backgroundColor: '#ccc',
+    paddingVertical: SIZES.padding * 1.2,
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
-    flex: 1, // Nếu muốn nó chiếm hết footer
-    // padding: 10, // Gốc
-    // borderRadius: 8, // Gốc
+    flex: 1,
   },
   backButton: {paddingHorizontal: SIZES.padding * 0.5},
   backButtonText: {
@@ -834,19 +899,6 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray,
     fontWeight: '600',
     marginBottom: 10,
-  },
-  questionAudioButtonIconOnly: {
-    marginRight: SIZES.base,
-    paddingVertical: SIZES.base / 2,
-  },
-  questionAudioButtonSelect: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginRight: 20,
-    borderRadius: SIZES.radius,
-    marginLeft: 10,
-    marginBottom: 30,
   },
   progressWrapper: {flex: 1, marginHorizontal: SIZES.base},
   progressBarContainer: {
@@ -866,32 +918,6 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     position: 'absolute',
   },
-  progressText: {
-    alignSelf: 'center',
-    fontFamily: FONTS.semiBold?.fontFamily || 'System',
-    fontSize: SIZES.small * 0.9,
-    color: COLORS.white,
-    fontWeight: 'bold',
-    zIndex: 1,
-  },
-  questionSelectContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  skillTag: {
-    backgroundColor: COLORS.lightGray,
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.padding * 0.4,
-    borderRadius: SIZES.radius * 1.5,
-    marginLeft: SIZES.base,
-  },
-  skillTagText: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.small,
-    color: COLORS.darkGray,
-    fontWeight: '600',
-  },
   contentScrollArea: {flex: 1},
   contentScrollContainer: {
     flexGrow: 1,
@@ -902,7 +928,6 @@ const styles = StyleSheet.create({
     marginTop: SIZES.padding,
     padding: SIZES.padding,
     borderRadius: SIZES.radius,
-    // backgroundColor: COLORS.white, // Nếu bạn muốn card có nền trắng riêng biệt
   },
   contentCard2: {
     alignItems: 'center',
@@ -913,15 +938,8 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     paddingTop: 90,
   },
-  contentCardVoice: {
-    // Giữ style này nếu bạn dùng riêng cho voice
-    marginHorizontal: SIZES.padding,
-    marginTop: SIZES.padding,
-    padding: SIZES.padding,
-    borderRadius: SIZES.radius,
-  },
   contentCardQuestion: {
-    backgroundColor: COLORS.nenItem, // Giữ màu gốc của bạn
+    backgroundColor: COLORS.nenItem,
     borderRadius: 10,
     borderBottomWidth: 2,
     borderBottomColor: COLORS.primary,
@@ -938,14 +956,41 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '900',
   },
-  contentTitleAudio: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.h3 * 1.1,
-    color: COLORS.text,
-    marginBottom: SIZES.base,
-    textAlign: 'left',
-    fontWeight: '600',
+  AudioIcon: {width: 150, height: 150},
+  recordIcon: {width: 60, height: 60},
+  instructionButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'transparent',
+    alignSelf: 'center',
+    borderRadius: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  instructionText: {
+    fontFamily: FONTS.regular?.fontFamily || 'System',
+    fontSize: SIZES.xLarge,
+    color: COLORS.black,
+    textAlign: 'center',
+    marginTop: 20,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  questionSelectContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 0,
+  },
+  questionAudioButtonSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginRight: 0,
+    borderRadius: SIZES.radius,
+    marginLeft: 10,
+    marginBottom: 30,
+  },
+  audioIconSmall: {marginRight: 10, width: 35, height: 35}, // STYLE GỐC CHO contentImage (nếu có)
   contentImage: {
     width: '100%',
     height: undefined,
@@ -953,101 +998,6 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     marginVertical: SIZES.margin,
     alignSelf: 'center',
-  },
-  contentDetailText: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font * 1.1,
-    color: COLORS.text,
-    lineHeight: SIZES.font * 1.7,
-    textAlign: 'left',
-    marginBottom: SIZES.padding,
-  },
-  contentDetailAudio: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font * 1.05,
-    color: COLORS.textSecondary || COLORS.darkGray,
-    lineHeight: SIZES.font * 1.6,
-    marginBottom: SIZES.padding * 1.5,
-  },
-  audioPlayerPlaceholder: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.lightGray2,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.padding * 0.8,
-    marginTop: SIZES.margin,
-  },
-  audioIconBig: {
-    fontSize: SIZES.h1,
-    color: COLORS.primary,
-    marginRight: SIZES.padding,
-  },
-  audioIconSmall: {
-    marginRight: 10,
-    width: 35,
-    height: 35,
-  },
-  audioSeekBarPlaceholder: {
-    flex: 1,
-    height: 8,
-    backgroundColor: COLORS.gray,
-    borderRadius: 4,
-  },
-  questionAudioButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingVertical: SIZES.base,
-    marginBottom: SIZES.margin,
-  },
-  voiceButtonContainer: {
-    alignItems: 'center',
-    marginVertical: SIZES.padding * 2,
-  },
-  recordButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recordIcon: {
-    width: 60,
-    height: 60,
-  },
-  AudioIcon: {
-    width: 150,
-    height: 150,
-  },
-  instructionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: 'transparent',
-    alignSelf: 'center', // để nút không chiếm toàn bộ chiều ngang
-    borderRadius: 5,
-    justifyContent: 'center', // căn giữa theo chiều dọc
-    alignItems: 'center', // căn giữa theo chiều ngang
-  },
-  instructionText: {
-    // Style cho nút "Bỏ qua" trong voice
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.xLarge, // Giữ style gốc
-    color: COLORS.black, // Giữ style gốc
-    textAlign: 'center',
-    marginTop: 20,
-    fontWeight: '600',
-
-    textDecorationLine: 'underline', // Giữ style gốc
-  },
-  contentTitleSelect: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.xLarge,
-    color: COLORS.black,
-    marginBottom: 0,
-    textAlign: 'left',
-    fontWeight: '900',
-    marginLeft: 15,
   },
   contentDetailSelect: {
     fontFamily: FONTS.regular?.fontFamily || 'System',
@@ -1058,7 +1008,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '900',
     paddingBottom: 20,
-  },
+    flex: 1,
+  }, // Added flex:1
   optionsContainer: {marginTop: SIZES.padding},
   optionButton: {
     backgroundColor: COLORS.white,
@@ -1080,18 +1031,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.lightGreen || 'rgba(40,167,69,0.15)',
     borderColor: COLORS.green || '#28A745',
   },
-  correctOptionText: {
-    color: COLORS.darkGreen || '#155724',
-    fontWeight: 'bold',
-  },
+  correctOptionText: {color: COLORS.darkGreen || '#155724', fontWeight: 'bold'},
   incorrectOption: {
     backgroundColor: COLORS.lightRed || 'rgba(220,53,69,0.1)',
     borderColor: COLORS.red || '#DC3545',
   },
-  incorrectOptionText: {
-    color: COLORS.darkRed || '#721C24',
-    fontWeight: 'bold',
-  },
+  incorrectOptionText: {color: COLORS.darkRed || '#721C24', fontWeight: 'bold'},
   optionText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
     fontSize: SIZES.font,
@@ -1099,12 +1044,28 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     paddingTop: 5,
   },
+  contentTitleSelect: {
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontSize: SIZES.xLarge,
+    color: COLORS.black,
+    marginBottom: 0,
+    textAlign: 'left',
+    fontWeight: '900',
+    marginLeft: 15,
+  },
   originalSentenceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SIZES.padding,
     paddingVertical: SIZES.padding * 0.5,
     paddingHorizontal: SIZES.padding,
+  },
+  questionAudioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: SIZES.base,
+    marginBottom: SIZES.margin,
   },
   contentDetailXapXep: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
@@ -1167,18 +1128,13 @@ const styles = StyleSheet.create({
     fontSize: SIZES.font,
     color: COLORS.text,
   },
-  arrangedWordText: {
-    color: COLORS.white,
-    fontWeight: '500',
-  },
+  arrangedWordText: {color: COLORS.white, fontWeight: '500'},
   wordBankItemSelectedAndUsed: {
     backgroundColor: COLORS.lightGray,
     borderColor: COLORS.gray,
     opacity: 0.3,
   },
-  disabledWordBankItem: {
-    opacity: 0.3,
-  },
+  disabledWordBankItem: {opacity: 0.3},
   correctWordBackground: {
     backgroundColor: COLORS.green,
     borderColor: COLORS.darkGreen,
@@ -1187,46 +1143,48 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.red,
     borderColor: COLORS.darkRed,
   },
-  footer: {
-    // Style footer gốc của bạn
-    paddingVertical: SIZES.padding * 0.75,
-    paddingHorizontal: SIZES.padding,
-    paddingBottom:
-      Platform.OS === 'ios' ? SIZES.padding * 1.5 + 10 : SIZES.padding * 1.2,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray2,
-    backgroundColor: COLORS.white,
-    flexDirection: 'row', // Giữ lại nếu bạn muốn các nút trên cùng một hàng
-    alignItems: 'center', // Giữ lại
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  // Style gốc cho sapXep nếu có
+  correctWordBackgroundSapXep: {
+    backgroundColor: COLORS.green,
+    borderColor: COLORS.darkGreen,
+    borderWidth: 1.5,
   },
-  checkButton: {
-    // Style checkButton gốc của bạn
-    backgroundColor: COLORS.orange || '#FFA500',
-    paddingVertical: SIZES.padding * 1.2,
-    borderRadius: SIZES.radius * 2.5,
-    alignItems: 'center',
-    flex: 1,
-    marginRight: SIZES.base, // Giữ lại nếu có nút Tiếp tục bên cạnh
+  correctWordTextSapXep: {color: COLORS.darkGreen, fontWeight: 'bold'},
+  incorrectWordBackgroundSapXep: {
+    backgroundColor: COLORS.lightRed,
+    borderColor: COLORS.red,
+    borderWidth: 1.5,
+    opacity: 0.8,
   },
-  continueButton: {
-    // Style continueButton gốc của bạn
-    backgroundColor: COLORS.green || '#4CAF50', // Màu mặc định khi chưa có feedback
-    paddingVertical: SIZES.padding * 1.2, // Sửa lại cho giống checkButton nếu muốn
-    borderRadius: SIZES.radius * 2.5,
-    alignItems: 'center',
-    flex: 1,
-  },
-  disabledButtonFooter: {backgroundColor: COLORS.lightGray}, // Giữ lại nếu dùng
-  footerButtonText: {
-    // Style footerButtonText gốc của bạn
+  incorrectWordTextSapXep: {color: COLORS.darkRed},
+  contentTitleAudio: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
-    color: COLORS.white,
-    fontSize: SIZES.font * 1.1,
-    fontWeight: 'bold',
+    fontSize: SIZES.h3 * 1.1,
+    color: COLORS.text,
+    marginBottom: SIZES.base,
+    textAlign: 'left',
+    fontWeight: '600',
+  },
+  contentDetailAudio: {
+    fontFamily: FONTS.regular?.fontFamily || 'System',
+    fontSize: SIZES.font * 1.05,
+    color: COLORS.textSecondary || COLORS.darkGray,
+    lineHeight: SIZES.font * 1.6,
+    marginBottom: SIZES.padding * 1.5,
+  },
+  audioPlayerPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray2,
+    borderRadius: SIZES.radius,
+    paddingHorizontal: SIZES.padding,
+    paddingVertical: SIZES.padding * 0.8,
+    marginTop: SIZES.margin,
+  },
+  audioIconBig: {
+    fontSize: SIZES.h1,
+    color: COLORS.primary,
+    marginRight: SIZES.padding,
   },
   emptyContentContainer: {
     flex: 1,
@@ -1245,7 +1203,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: SIZES.padding,
-    backgroundColor: COLORS.background, // Giữ lại
+    backgroundColor: COLORS.background,
   },
   errorText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
@@ -1264,6 +1222,136 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold?.fontFamily || 'System',
     color: COLORS.white,
     fontSize: SIZES.medium,
+  },
+
+  // === FOOTER STYLES GỐC CỦA BẠN ===
+  footer: {
+    paddingVertical: SIZES.padding * 0.75,
+    paddingHorizontal: SIZES.padding,
+    paddingBottom:
+      Platform.OS === 'ios' ? SIZES.padding * 1.5 + 10 : SIZES.padding * 1.2,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.lightGray2,
+    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    // minHeight: 70, // Chiều cao tối thiểu để chứa các nút (tùy chỉnh nếu cần)
+    justifyContent: 'center', // Căn giữa nếu chỉ có 1 nút
+  },
+  checkButton: {
+    backgroundColor: COLORS.orange || '#FFA500',
+    paddingVertical: SIZES.padding * 1.2,
+    borderRadius: SIZES.radius * 2.5,
+    alignItems: 'center',
+    flex: 1,
+    // marginRight: SIZES.base, // Giữ lại nếu ban đầu có nút khác cùng hàng
+  },
+  continueButton: {
+    backgroundColor: COLORS.green || '#4CAF50',
+    paddingVertical: SIZES.padding * 1.2,
+    borderRadius: SIZES.radius * 2.5,
+    alignItems: 'center',
+    flex: 1,
+  },
+  disabledButtonFooter: {backgroundColor: COLORS.lightGray},
+  footerButtonText: {
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    color: COLORS.white,
+    fontSize: SIZES.font * 1.1,
+    fontWeight: 'bold',
+  },
+  // === END FOOTER STYLES GỐC ===
+
+  // --- CÁC STYLE MỚI CHỈ DÀNH CHO PHẦN FEEDBACK FOOTER ĐƯỢC THÊM VÀO ---
+  footer_CorrectBackground_NEW: {
+    backgroundColor: COLORS.green,
+    // Không override các thuộc tính khác của styles.footer gốc
+  },
+  footer_IncorrectBackground_NEW: {
+    backgroundColor: COLORS.red,
+  },
+  feedback_Container_NEW: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'space-around', // Quan trọng để các item con được bố trí
+    width: '100%',
+    flex: 1, // Để chiếm toàn bộ không gian của View footer cha
+    paddingVertical: SIZES.padding * 0.25, // Padding nhỏ bên trong feedback
+    paddingHorizontal: SIZES.padding * 0.5,
+    height: 160, // Chiều cao cố định cho feedback
+    borderTopLeftRadius: 20, // Bo góc trên bên trái
+    borderTopRightRadius: 20, // Bo góc trên bên phải
+  },
+  feedback_TextAudioWrapper_NEW: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: SIZES.base * 0.5, // Khoảng cách nhỏ hơn
+  },
+  feedback_TextContainer_NEW: {
+    flex: 1,
+    marginRight: SIZES.base,
+  },
+  feedback_ResultText_NEW: {
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontSize: SIZES.font * 1.1, // Chữ nhỏ hơn
+    color: COLORS.white,
+    fontWeight: 'bold',
+  },
+  feedback_DetailText_NEW: {
+    textAlign: 'center',
+    fontFamily: FONTS.regular?.fontFamily || 'System',
+    fontSize: SIZES.xLarge, // Chữ nhỏ hơn
+    color: COLORS.white,
+    opacity: 0.9,
+  },
+  feedback_CorrectAnswerText_NEW: {
+    marginTop: SIZES.base * 1.5,
+    textAlign: 'center',
+    fontFamily: FONTS.medium?.fontFamily || 'System',
+    fontSize: SIZES.medium, // Chữ nhỏ hơn
+    color: COLORS.white,
+    opacity: 0.9,
+    fontWeight: '500',
+    paddingLeft: SIZES.base * 0.5,
+  },
+  feedback_AudioButton_NEW: {
+    padding: SIZES.base * 0.25,
+  },
+  feedback_AudioIcon_NEW: {
+    width: 28, // Icon nhỏ hơn
+    height: 28,
+    tintColor: COLORS.white,
+  },
+  feedback_ContinueButton_NEW: {
+    backgroundColor: COLORS.white,
+    paddingVertical: SIZES.padding * 0.6, // Nút nhỏ hơn
+    paddingHorizontal: SIZES.padding * 2,
+    borderRadius: SIZES.radius * 1.8, // Bo tròn ít hơn
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '80%', // Không chiếm 100%
+    alignSelf: 'center',
+    marginTop: SIZES.base * 0.5,
+    minHeight: 38, // Nút nhỏ hơn
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  feedback_ContinueButtonText_NEW: {
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    textAlign: 'center',
+    // Màu chữ sẽ được đặt động trong JSX
+    fontSize: SIZES.font, // Chữ nhỏ hơn
+    fontWeight: 'bold',
+    width: '100%',
   },
 });
 // --- END STYLES ---

@@ -409,7 +409,6 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.padding * 0.5,
     marginTop: StatusBar.currentHeight || 20,
     backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
     borderBottomColor: COLORS.gray,
   },
   backButton: {
@@ -421,11 +420,11 @@ const styles = StyleSheet.create({
     fontSize: SIZES.xLarge * 2.5,
     color: COLORS.darkGray,
     fontWeight: '600',
-    marginBottom: 10,
+    marginBottom: SIZES.padding * 0.5,
   },
   headerTitleContainer: {
     flex: 1, // Cho phép tiêu đề chiếm không gian còn lại ở giữa
-    alignItems: 'center', // Căn giữa tiêu đề
+    alignItems: 'flex-start', // Căn giữa tiêu đề
     marginHorizontal: SIZES.medium, // Khoảng cách nhỏ với nút back và segment
   },
   headerTitle: {
