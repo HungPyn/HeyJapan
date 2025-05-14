@@ -1,3 +1,24 @@
 {
-  "extends": "@react-native/typescript-config/tsconfig.json"
+  "extends": "@react-native/typescript-config/tsconfig.json",
+  "compilerOptions": {
+    // (Tùy chọn) Thêm "baseUrl" và "paths" nếu bạn muốn dùng alias import
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"] // Điều chỉnh "src/*" cho phù hợp với cấu trúc dự án
+    }
+    // (Tùy chọn) Thêm "typeRoots" nếu bạn có file .d.ts tùy chỉnh
+    // "typeRoots": ["./node_modules/@types", "./src/types"]
+  },
+  "include": [
+    "src", // Hoặc tên thư mục chứa mã nguồn chính của bạn
+    "App.tsx", // Hoặc tên file gốc của ứng dụng
+    "index.js" // File entry point gốc
+    // Đảm bảo bao gồm tất cả các file .ts, .tsx, .js, .jsx bạn muốn TypeScript kiểm tra
+  ],
+  "exclude": [
+    "node_modules",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js"
+  ]
 }

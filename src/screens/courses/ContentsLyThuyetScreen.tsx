@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
+import {Audio} from 'expo-av';
+import Sound from 'react-native-sound';
 
 // Giả sử màn hình này được gọi từ CourseDetailScreen, và cả hai thuộc CoursesStackParamList
 // Hoặc bạn có thể tạo một LessonStackParamList riêng
@@ -29,7 +31,7 @@ interface LessonContentItem {
   content_type: 'Từ vựng' | 'Ngữ pháp';
   title: string | null;
   content_detail: string;
-  audio_url: string | null;
+  audio_url: number | null; // Hoặc any nếu bạn muốn linh hoạt hơn
   image_url: string | null;
   display_order: number;
   lesson_code: number;
@@ -43,8 +45,7 @@ const allLessonContents: LessonContentItem[] = [
     content_type: 'Từ vựng',
     title: 'こんにちは',
     content_detail: 'Xin chào (Konnichiwa)',
-    audio_url:
-      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+    audio_url: require('./sounds/chaoanhtrai.mp3'),
     image_url: 'https://example.com/images/konnichiwa.png',
     display_order: 1,
     lesson_code: 2,
@@ -55,8 +56,7 @@ const allLessonContents: LessonContentItem[] = [
     content_type: 'Từ vựng',
     title: 'さようなら',
     content_detail: 'Tạm biệt (Sayounara)',
-    audio_url:
-      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+    audio_url: require('./sounds/chaoanhtrai.mp3'),
     image_url: 'https://example.com/images/sayounara.png',
     display_order: 2,
     lesson_code: 2,
@@ -68,7 +68,7 @@ const allLessonContents: LessonContentItem[] = [
     title: 'Cách dùng こんにちは',
     content_detail:
       'こんにちは dùng để chào hỏi vào buổi chiều hoặc ban ngày.\nNó thể hiện sự lịch sự cơ bản và có thể dùng trong nhiều tình huống khác nhau.\nKhông nên dùng với người rất thân thiết vào buổi sáng sớm (khi đó dùng Ohayou).',
-    audio_url: null,
+    audio_url: require('./sounds/chaoanhtrai.mp3'),
     image_url: null,
     display_order: 3,
     lesson_code: 2,
@@ -80,7 +80,7 @@ const allLessonContents: LessonContentItem[] = [
     title: 'Mẫu câu ～です',
     content_detail:
       "～です (desu) dùng để kết thúc câu một cách lịch sự, khẳng định một điều gì đó. Tương đương với 'là' trong tiếng Việt.\nVí dụ: わたしは学生です。(Watashi wa gakusei desu) - Tôi là học sinh.\nこれは本です。(Kore wa hon desu) - Đây là quyển sách.",
-    audio_url: null,
+    audio_url: require('./sounds/chaoanhtrai.mp3'),
     image_url: null,
     display_order: 4,
     lesson_code: 2,
@@ -91,8 +91,7 @@ const allLessonContents: LessonContentItem[] = [
     content_type: 'Từ vựng',
     title: 'ありがとう',
     content_detail: 'Cảm ơn (Arigatou)',
-    audio_url:
-      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+    audio_url: require('./sounds/chaoanhtrai.mp3'),
     image_url: 'https://example.com/images/arigatou.png',
     display_order: 5,
     lesson_code: 2,
@@ -128,7 +127,7 @@ const allLessonContents: LessonContentItem[] = [
     title: 'さようなら',
     content_detail: 'Tạm biệt (Sayounara)',
     audio_url:
-      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+      'https://dl.dropboxusercontent.com/scl/fi/f885u2twoe44vs2i9txxb/chucNn.mp3',
     image_url: 'https://example.com/images/sayounara.png',
     display_order: 8,
     lesson_code: 14,
@@ -152,7 +151,7 @@ const allLessonContents: LessonContentItem[] = [
     title: 'Mẫu câu ～です',
     content_detail:
       "～です (desu) dùng để kết thúc câu một cách lịch sự, khẳng định một điều gì đó. Tương đương với 'là' trong tiếng Việt.\nVí dụ: わたしは学生です。(Watashi wa gakusei desu) - Tôi là học sinh.\nこれは本です。(Kore wa hon desu) - Đây là quyển sách.",
-    audio_url: null,
+    audio_url: require('./sounds/chaoanhtrai.mp3'),
     image_url: null,
     display_order: 4,
     lesson_code: 14,
@@ -163,8 +162,7 @@ const allLessonContents: LessonContentItem[] = [
     content_type: 'Từ vựng',
     title: 'ありがとう',
     content_detail: 'Cảm ơn (Arigatou)',
-    audio_url:
-      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+    audio_url: require('./sounds/chaoanhtrai.mp3'),
     image_url: 'https://example.com/images/arigatou.png',
     display_order: 5,
     lesson_code: 14,
@@ -241,34 +239,36 @@ const ContentsLyThuyetScreen: React.FC = () => {
       .join('\n\n'); // Gộp các đoạn content_detail, phân cách bằng đường kẻ
   }, [lessonContents]);
 
-  const playSound = (audioUrl: string | null) => {
-    if (audioUrl) {
-      console.log('Playing sound:', audioUrl);
-      // Tạm thời dùng Alert, bạn sẽ thay bằng thư viện phát âm thanh
-      // Alert.alert('Phát âm thanh', audioUrl);
-      // Ví dụ với react-native-sound (cần cài đặt và link)
-      // try {
-      //   const sound = new SoundPlayer.Sound(audioUrl, SoundPlayer.Sound.MAIN_BUNDLE, (error) => {
-      //     if (error) {
-      //       console.log('failed to load the sound', error);
-      //       Alert.alert('Lỗi', 'Không thể phát âm thanh.');
-      //       return;
-      //     }
-      //     sound.play((success) => {
-      //       if (success) {
-      //         console.log('successfully finished playing');
-      //       } else {
-      //         console.log('playback failed due to audio decoding errors');
-      //       }
-      //       sound.release();
-      //     });
-      //   });
-      // } catch (e) {
-      //    console.log('cannot play sound', e)
-      // }
-      Alert.alert(`Đang phát: ${audioUrl}`); // Placeholder
-    } else {
-      Alert.alert('Không có âm thanh cho mục này.');
+  const playSound = async (audioSource: string | number | null) => {
+    if (!audioSource) {
+      Alert.alert('Lỗi', 'Không có âm thanh cho mục này.');
+      return;
+    }
+
+    try {
+      let soundObject = new Audio.Sound();
+
+      if (typeof audioSource === 'string') {
+        // Trường hợp là URL
+        console.log('Playing sound from URL:', audioSource);
+        await soundObject.loadAsync({uri: audioSource});
+      } else {
+        // Trường hợp là local require(...)
+        console.log('Playing local sound');
+        await soundObject.loadAsync(audioSource);
+      }
+
+      await soundObject.playAsync();
+
+      // Optional: Unload sound sau khi phát xong
+      soundObject.setOnPlaybackStatusUpdate(status => {
+        if (status.isLoaded && status.didJustFinish) {
+          soundObject.unloadAsync();
+        }
+      });
+    } catch (error) {
+      console.error('Error playing sound:', error);
+      Alert.alert('Lỗi phát âm thanh', 'Không thể phát âm thanh.');
     }
   };
 

@@ -259,7 +259,7 @@ const RootNavigator = () => {
             component={ContentAdminScreen}
           />
         </>
-      ) : level === null ? (
+      ) : level !== null ? (
         <RootStack.Screen name="Selection" component={SelectionScreen} />
       ) : (
         <>

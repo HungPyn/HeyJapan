@@ -41,17 +41,17 @@ interface LessonContentItem {
 }
 
 const allLessonContents: LessonContentItem[] = [
-  {
-    content_code: 3,
-    content_type: 'voice',
-    title: 'Luyện phát âm: あ, い, う',
-    content_detail: 'Ghi âm và luyện phát âm...',
-    audio_url: null,
-    image_url: 'https://i.imgur.com/R8WeIEv.jpeg',
-    display_order: 1,
-    lesson_code: 12,
-    skill_code: {skill_code: 2, skill_name: 'Nói'},
-  },
+  // {
+  //   content_code: 3,
+  //   content_type: 'voice',
+  //   title: 'Luyện phát âm: あ, い, う',
+  //   content_detail: 'Ghi âm và luyện phát âm...',
+  //   audio_url: null,
+  //   image_url: 'https://i.imgur.com/R8WeIEv.jpeg',
+  //   display_order: 1,
+  //   lesson_code: 12,
+  //   skill_code: {skill_code: 2, skill_name: 'Nói'},
+  // },
   {
     content_code: 5,
     content_type: 'select',
@@ -89,6 +89,82 @@ const allLessonContents: LessonContentItem[] = [
       {id: 'v4', text: 'mẹ'},
     ],
     correct_answer: ['v1', 'v3'],
+  },
+  {
+    content_code: 6,
+    content_type: 'select',
+    title: 'おはようございます',
+    content_detail: 'おはようございます (Ohayou gozaimasu)',
+    audio_url:
+      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+    image_url: null,
+    display_order: 1,
+    lesson_code: 12,
+    skill_code: {skill_code: 2, skill_name: 'Nghe'},
+    options: [
+      {id: 'a', text: 'Chúc ngủ ngon'},
+      {id: 'b', text: 'Xin chào (buổi sáng)'},
+      {id: 'c', text: 'Cảm ơn'},
+      {id: 'd', text: 'Xin lỗi'},
+    ],
+    correct_answer: 'b',
+  },
+  {
+    content_code: 2,
+    content_type: 'sapXep',
+    title: 'Sắp xếp từ thành nghĩa của câu dưới đây: ',
+    content_detail: 'お元気ですか？',
+    audio_url:
+      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+    image_url: null,
+    display_order: 3,
+    lesson_code: 12,
+    skill_code: {skill_code: 1, skill_name: 'Đọc'},
+    options: [
+      {id: 'v1', text: 'Tôi khỏe'},
+      {id: 'v2', text: 'Cảm ơn'},
+      {id: 'v3', text: 'Bạn khỏe không?'},
+      {id: 'v4', text: 'Xin chào'},
+    ],
+    correct_answer: ['v3', 'v1'],
+  },
+  {
+    content_code: 7,
+    content_type: 'select',
+    title: 'こんばんは',
+    content_detail: 'こんばんは (Konbanwa)',
+    audio_url:
+      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+    image_url: null,
+    display_order: 4,
+    lesson_code: 12,
+    skill_code: {skill_code: 3, skill_name: 'Đọc'},
+    options: [
+      {id: 'a', text: 'Chào buổi sáng'},
+      {id: 'b', text: 'Chào buổi tối'},
+      {id: 'c', text: 'Chúc ngủ ngon'},
+      {id: 'd', text: 'Cảm ơn'},
+    ],
+    correct_answer: 'b',
+  },
+  {
+    content_code: 3,
+    content_type: 'sapXep',
+    title: 'Sắp xếp từ thành nghĩa của câu dưới đây: ',
+    content_detail: 'おやすみなさい',
+    audio_url:
+      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+    image_url: null,
+    display_order: 6,
+    lesson_code: 12,
+    skill_code: {skill_code: 4, skill_name: 'Viết'},
+    options: [
+      {id: 'v1', text: 'Chúc ngủ ngon'},
+      {id: 'v2', text: 'Xin chào'},
+      {id: 'v3', text: 'Cảm ơn'},
+      {id: 'v4', text: 'Tạm biệt'},
+    ],
+    correct_answer: ['v1'],
   },
 ];
 // --- END DATA (FROM YOUR ORIGINAL CODE) ---

@@ -1,4 +1,7 @@
 {
   "name": "Sakuranihongo",
-  "displayName": "Sakuranihongo"
+  "displayName": "Sakuranihongo",
+  "plugins": [
+    "expo-font"
+  ]
 }
