@@ -2,6 +2,7 @@ package com.quafresh.web.heyjapan.controller.admin;
 
 import com.quafresh.web.heyjapan.dto.user.topic.RequestTopicDTO;
 import com.quafresh.web.heyjapan.service.user.TopicService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,11 +24,11 @@ public class TopicAdminController {
     return ResponseEntity.ok(topicService.search(keyword));}
 
     @PostMapping("/create")
-    public ResponseEntity<?> create(@RequestBody RequestTopicDTO requestTopicDTO) {
+    public ResponseEntity<?> create(@Valid @RequestBody RequestTopicDTO requestTopicDTO) {
         return ResponseEntity.ok(topicService.create(requestTopicDTO));
     }
     @PutMapping("/update")
-    public ResponseEntity<?> update(@RequestBody RequestTopicDTO requestTopicDTO) {
+    public ResponseEntity<?> update(@Valid @RequestBody RequestTopicDTO requestTopicDTO) {
         return ResponseEntity.ok(topicService.update(requestTopicDTO));
     }
 

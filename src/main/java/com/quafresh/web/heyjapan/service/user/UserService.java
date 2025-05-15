@@ -2,7 +2,6 @@ package com.quafresh.web.heyjapan.service.user;
 
 import com.quafresh.web.heyjapan.dto.user.account.RequestUserDTO;
 import com.quafresh.web.heyjapan.dto.user.account.ResponseUserDTO;
-import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
