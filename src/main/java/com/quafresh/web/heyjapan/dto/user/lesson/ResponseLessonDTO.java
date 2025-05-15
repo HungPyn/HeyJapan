@@ -11,4 +11,9 @@ public class ResponseLessonDTO {
     private Integer id;
     private String name;
     private Boolean isComplete;
+
+    public ResponseLessonDTO(Integer id, String name) {
+        this.id = id;
+        this.name = name;
+    }
 }

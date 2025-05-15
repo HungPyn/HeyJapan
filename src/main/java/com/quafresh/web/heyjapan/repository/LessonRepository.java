@@ -2,6 +2,7 @@ package com.quafresh.web.heyjapan.repository;
 
 import com.quafresh.web.heyjapan.dto.user.lesson.ResponseLessonDTO;
 import com.quafresh.web.heyjapan.entity.Lesson;
+import com.quafresh.web.heyjapan.entity.LessonQuestion;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,4 +30,9 @@ public interface LessonRepository extends JpaRepository<Lesson, Integer> {
     List<ResponseLessonDTO> findLessonsWithStatusByTopicIdAndUserId(
             @Param("topicId") Integer topicId,
             @Param("userId") String userId);
+
+
+    @Query("select l from Lesson l where l.topic.id = :topicId order by l.dayCreation DESC ")
+    List<Lesson> getAllLessonsByTopicId(@Param("topicId") Integer topicId);
+
 }

@@ -11,7 +11,8 @@ public enum ErrorMessages {
     INVALID_PASSWORD("Mật khẩu không chính xác"),
     INVALID_TOPIC("Chủ đề không tồn tại"),
     INVALID_LEVEL("Cấp độ không tồn tại"),
-    DELETE_ACCOUNT("Tài khoán đã được xóa");
+    DELETE_ACCOUNT("Tài khoán đã được xóa"),
+    INVALID_LESSON("Bài học không tồn tại");
     private final String message;
     ErrorMessages(String message) {
         this.message = message;
