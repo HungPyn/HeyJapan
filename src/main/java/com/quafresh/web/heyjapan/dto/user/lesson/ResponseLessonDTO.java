@@ -5,12 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class ResponseLessonDTO {
     private Integer id;
     private String name;
-    private Boolean isComplete;
+    private Boolean  isComplete;
 
     public ResponseLessonDTO(Integer id, String name) {
         this.id = id;
