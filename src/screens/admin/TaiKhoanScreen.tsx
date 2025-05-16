@@ -7,135 +7,48 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
-  Alert, // << THÊM Alert để xác nhận đăng xuất
+  Alert,
   SafeAreaView,
   ActivityIndicator,
   Keyboard,
   Modal,
   Pressable,
 } from 'react-native';
-// Giả sử bạn có file định nghĩa màu sắc
+import axios from 'axios'; // << THÊM Axios
+import AsyncStorage from '@react-native-async-storage/async-storage'; // << THÊM AsyncStorage
 import {COLORS} from '../../constants/theme';
-// --- IMPORT useAuth ---
-import {useAuth} from '../auth/AuthContext'; // << Đảm bảo đường dẫn đúng
+import {useAuth} from '../auth/AuthContext';
 
 // --- BEGIN: Dữ liệu và Type ---
-// Định nghĩa kiểu dữ liệu cho User
-type User = {
-  user_id: string;
-  oauth_subject_id: string;
-  profile_picture_url: string;
-  username: string;
-  email: string;
-  user_password?: string;
-  level_id?: number;
+// Kiểu dữ liệu người dùng từ API
+type ApiUser = {
+  userId: string;
+  userName: string;
+  role: boolean;
 };
 
-// Dữ liệu mẫu bạn cung cấp
-const initialUsersData: User[] = [
-  {
-    user_id: 'f23b8f14-6a2b-4c6e-8e3f-1d4823e8b001',
-    oauth_subject_id: 'oauth_001',
-    profile_picture_url: 'https://example.com/images/user1.jpg',
-    username: 'alice',
-    email: 'alice@example.com',
-    user_password: 'hashed_password_1',
-    level_id: 1,
-  },
-  {
-    user_id: 'a8cc7b9f-9024-4e70-b199-e390847c8201',
-    oauth_subject_id: 'oauth_002',
-    profile_picture_url: 'https://example.com/images/user2.jpg',
-    username: 'bob',
-    email: 'bob@example.com',
-    user_password: 'hashed_password_2',
-    level_id: 2,
-  },
-  {
-    user_id: 'bda57a61-f03e-46db-8122-11fa7eab9d03',
-    oauth_subject_id: 'oauth_003',
-    profile_picture_url: 'https://example.com/images/user3.jpg',
-    username: 'charlie',
-    email: 'charlie@example.com',
-    user_password: 'hashed_password_3',
-    level_id: 1,
-  },
-  {
-    user_id: '1b56ee5e-2789-4a78-9df5-5b3a10f09e04',
-    oauth_subject_id: 'oauth_004',
-    profile_picture_url: 'https://example.com/images/user4.jpg',
-    username: 'diana',
-    email: 'diana@example.com',
-    user_password: 'hashed_password_4',
-    level_id: 3,
-  },
-  {
-    user_id: '682ee790-058b-46d3-8715-e6466cf303e5',
-    oauth_subject_id: 'oauth_005',
-    profile_picture_url: 'https://example.com/images/user5.jpg',
-    username: 'edward',
-    email: 'edward@example.com',
-    user_password: 'hashed_password_5',
-    level_id: 1,
-  },
-  {
-    user_id: 'd12a0795-5c20-47f3-bbb4-28156fc37f06',
-    oauth_subject_id: 'oauth_006',
-    profile_picture_url: 'https://example.com/images/user6.jpg',
-    username: 'frank',
-    email: 'frank@example.com',
-    user_password: 'hashed_password_6',
-    level_id: 2,
-  },
-  {
-    user_id: 'decc82b2-efb6-4f30-986b-bb070ca2d607',
-    oauth_subject_id: 'oauth_007',
-    profile_picture_url: 'https://example.com/images/user7.jpg',
-    username: 'grace',
-    email: 'grace@example.com',
-    user_password: 'hashed_password_7',
-    level_id: 3,
-  },
-  {
-    user_id: '6c73dbb5-ec58-4c37-8f52-824c4eb1c708',
-    oauth_subject_id: 'oauth_008',
-    profile_picture_url: 'https://example.com/images/user8.jpg',
-    username: 'henry',
-    email: 'henry@example.com',
-    user_password: 'hashed_password_8',
-    level_id: 2,
-  },
-  {
-    user_id: '9df7ed29-31e1-4bcb-b537-65b5cfcfa209',
-    oauth_subject_id: 'oauth_009',
-    profile_picture_url: 'https://example.com/images/user9.jpg',
-    username: 'irene',
-    email: 'irene@example.com',
-    user_password: 'hashed_password_9',
-    level_id: 1,
-  },
-  {
-    user_id: 'b1323eb3-1738-46ea-bab7-90850f2d800a',
-    oauth_subject_id: 'oauth_010',
-    profile_picture_url: 'https://example.com/images/user10.jpg',
-    username: 'jack',
-    email: 'jack@example.com',
-    user_password: 'hashed_password_10',
-    level_id: 2,
-  },
-];
+// Kiểu dữ liệu User sử dụng trong component (điều chỉnh cho phù hợp với API)
+type User = {
+  user_id: string; // Map từ userId
+  username: string; // Map từ userName
+  role: boolean; // Map từ role
+  // Các trường cũ có thể giữ lại là optional nếu cần, hoặc bỏ đi nếu không dùng
+  profile_picture_url?: string; // API không có, sẽ để trống hoặc mặc định
+  email?: string; // API không có, sẽ để trống
+};
+
 // --- END: Dữ liệu và Type ---
 
 // --- BEGIN: Đường dẫn tới ảnh ---
 const LOGO_ICON = require('../../assets/images/Logo.png');
 const PROFILE_ICON = require('../../assets/images/IconUserHeader.png');
 const SEARCH_ICON = require('../../assets/images/IconTimKiem.png');
-const PERSON_ICON = require('../../assets/images/IconUser.png');
+const PERSON_ICON = require('../../assets/images/IconUser.png'); // Giữ lại icon này
 const DELETE_ICON = require('../../assets/images/iconThungRac.png');
 const LOGOUT_ICON = require('../../assets/images/logout.png');
 // --- END: Đường dẫn tới ảnh ---
 
-// --- BEGIN: Định nghĩa ConfirmDeleteModal và styles của nó ---
+// --- BEGIN: Định nghĩa ConfirmDeleteModal và styles của nó (GIỮ NGUYÊN) ---
 interface ConfirmDeleteModalProps {
   visible: boolean;
   onClose: () => void;
@@ -161,7 +74,7 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
       visible={visible}
       onRequestClose={onClose}>
       <Pressable style={modalStyles.backdrop} onPress={onClose}>
-        <Pressable onPress={() => {}}>
+        <Pressable onPress={() => {}} style={modalStyles.modalViewWrapper}>
           <View style={modalStyles.modalContainer}>
             <Text style={modalStyles.messageText}>{confirmationMessage}</Text>
             <View style={modalStyles.buttonContainer}>
@@ -203,9 +116,12 @@ const modalStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContainer: {
+  modalViewWrapper: {
+    // Để Pressable con không bị đóng khi chạm vào modal content
     width: '85%',
     maxWidth: 350,
+  },
+  modalContainer: {
     backgroundColor: 'white',
     borderRadius: 12,
     paddingVertical: 25,
@@ -243,21 +159,27 @@ const modalStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#cccccc',
   },
-  confirmButton: {backgroundColor: '#fff9e6'},
+  confirmButton: {
+    backgroundColor: '#fff9e6',
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+  }, // Giữ màu vàng nhạt cho confirm
   buttonText: {fontSize: 16, fontWeight: '500'},
   cancelButtonText: {color: '#555555'},
-  confirmButtonText: {color: '#333333'},
+  confirmButtonText: {color: COLORS.primaryDark || '#333333'},
 });
 // --- END: Định nghĩa ConfirmDeleteModal và styles của nó ---
+
+const API_BASE_URL = 'http://10.0.2.2:8080/api/admin/account';
 
 // --- BEGIN: Component TaiKhoanScreen ---
 const TaiKhoanScreen = () => {
   const {logout} = useAuth();
 
-  const [users, setUsers] = useState<User[]>(initialUsersData);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>(initialUsersData);
+  const [users, setUsers] = useState<User[]>([]); // Sẽ lấy từ API
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]); // Sẽ lấy từ API hoặc kết quả search
   const [searchQuery, setSearchQuery] = useState('');
-  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null); // User ID đang trong quá trình xóa (API)
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{
     userId: string;
@@ -265,28 +187,129 @@ const TaiKhoanScreen = () => {
   } | null>(null);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
 
-  useEffect(() => {
-    const lowerCaseQuery = searchQuery.toLowerCase().trim();
-    if (lowerCaseQuery === '') {
-      setFilteredUsers(users);
-    } else {
-      const filtered = users.filter(
-        user =>
-          user.username.toLowerCase().includes(lowerCaseQuery) ||
-          user.email.toLowerCase().includes(lowerCaseQuery),
-      );
-      setFilteredUsers(filtered);
-    }
-  }, [searchQuery, users]);
+  const [isLoading, setIsLoading] = useState(false); // State cho loading
+  const [error, setError] = useState<string | null>(null); // State cho lỗi API
 
-  const performDeleteUser = useCallback(async (userId: string) => {
-    setDeletingUserId(userId);
-    console.log('Bắt đầu xóa user:', userId);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setUsers(prevUsers => prevUsers.filter(user => user.user_id !== userId));
-    console.log('Đã xóa user (giả lập):', userId);
-    setDeletingUserId(null);
-  }, []);
+  // Hàm lấy token
+  const getToken = async () => {
+    const token = await AsyncStorage.getItem('token'); // Giả sử token được lưu với key 'userToken'
+    if (!token) {
+      Alert.alert(
+        'Lỗi',
+        'Không tìm thấy token xác thực. Vui lòng đăng nhập lại.',
+      );
+      // Có thể gọi logout() ở đây hoặc điều hướng về màn hình login
+      logout(); // Ví dụ: gọi logout nếu không có token
+      throw new Error('Token not found');
+    }
+    return token;
+  };
+
+  // Hàm map ApiUser sang User
+  const mapApiUserToUser = (apiUser: ApiUser): User => ({
+    user_id: apiUser.userId,
+    username: apiUser.userName,
+    role: apiUser.role,
+    profile_picture_url: '', // API không cung cấp, để trống hoặc ảnh mặc định
+    email: '', // API không cung cấp
+  });
+
+  // Hàm lấy danh sách người dùng từ API
+  const fetchUsers = useCallback(
+    async (keyword?: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const token = await getToken();
+        const url = keyword
+          ? `${API_BASE_URL}/search?keyword=${encodeURIComponent(keyword)}`
+          : API_BASE_URL;
+        console.log(`Workspaceing users from: ${url}`);
+        const response = await axios.get<ApiUser[]>(url, {
+          headers: {Authorization: `Bearer ${token}`},
+        });
+
+        const fetchedApiUsers = response.data || [];
+        const mappedUsers = fetchedApiUsers.map(mapApiUserToUser);
+
+        if (!keyword) {
+          // Nếu không tìm kiếm, cập nhật cả users và filteredUsers
+          setUsers(mappedUsers);
+        }
+        setFilteredUsers(mappedUsers); // Luôn cập nhật filteredUsers
+      } catch (apiError: any) {
+        console.error(
+          'Lỗi khi lấy danh sách người dùng:',
+          apiError.response?.data || apiError.message,
+        );
+        setError(
+          apiError.response?.data?.message ||
+            'Không thể tải danh sách người dùng. Vui lòng thử lại.',
+        );
+        setUsers([]); // Xóa danh sách hiện tại nếu có lỗi
+        setFilteredUsers([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [logout],
+  ); // Thêm logout vào dependencies của useCallback nếu nó được dùng trong getToken
+
+  // useEffect để lấy danh sách người dùng khi màn hình được mount
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // useEffect để xử lý tìm kiếm khi searchQuery thay đổi
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      if (searchQuery.trim() === '') {
+        // Nếu ô tìm kiếm trống, hiển thị lại toàn bộ danh sách gốc đã fetch
+        // Hoặc fetch lại toàn bộ nếu bạn muốn luôn lấy dữ liệu mới nhất
+        // setFilteredUsers(users); // Cách 1: Dùng state users đã fetch
+        fetchUsers(); // Cách 2: Fetch lại toàn bộ (đảm bảo dữ liệu mới nhất)
+      } else {
+        fetchUsers(searchQuery.trim()); // Gọi API tìm kiếm
+      }
+    }, 500); // Debounce để tránh gọi API liên tục khi gõ
+
+    return () => clearTimeout(timerId); // Cleanup timer
+  }, [searchQuery, fetchUsers]); // Thêm fetchUsers vào dependencies
+
+  const performDeleteUser = useCallback(
+    async (userId: string) => {
+      setDeletingUserId(userId); // Báo hiệu đang xóa user này (cho UI)
+      setError(null);
+      try {
+        const token = await getToken();
+        console.log('Bắt đầu xóa user với API:', userId);
+        await axios.delete(`${API_BASE_URL}/delete?userId=${userId}`, {
+          headers: {Authorization: `Bearer ${token}`},
+        });
+        console.log('Đã xóa user thành công từ API:', userId);
+        Alert.alert('Thành công', 'Đã xóa người dùng thành công.');
+        // Sau khi xóa thành công, fetch lại danh sách người dùng
+        // Điều này đảm bảo dữ liệu trên UI được đồng bộ với server
+        fetchUsers(searchQuery.trim() || undefined); // Fetch lại dựa trên query hiện tại
+      } catch (apiError: any) {
+        console.error(
+          'Lỗi khi xóa người dùng:',
+          apiError.response?.data || apiError.message,
+        );
+        Alert.alert(
+          'Lỗi',
+          apiError.response?.data?.message ||
+            'Không thể xóa người dùng. Vui lòng thử lại.',
+        );
+        setError(apiError.response?.data?.message || 'Lỗi khi xóa người dùng.');
+      } finally {
+        setDeletingUserId(null); // Kết thúc trạng thái đang xóa
+        setIsModalVisible(false); // Đóng modal xác nhận
+        setUserToDelete(null);
+      }
+    },
+    [fetchUsers, searchQuery, logout],
+  ); // Thêm logout
 
   const handleModalClose = useCallback(() => {
     setIsModalVisible(false);
@@ -297,8 +320,8 @@ const TaiKhoanScreen = () => {
     if (userToDelete) {
       performDeleteUser(userToDelete.userId);
     }
-    handleModalClose();
-  }, [userToDelete, performDeleteUser, handleModalClose]);
+    // Không cần gọi handleModalClose ở đây nữa vì nó đã được gọi trong performDeleteUser.finally
+  }, [userToDelete, performDeleteUser]);
 
   const handleDeletePress = useCallback((userId: string, username: string) => {
     Keyboard.dismiss();
@@ -306,13 +329,12 @@ const TaiKhoanScreen = () => {
     setIsModalVisible(true);
   }, []);
 
-  // --- SỬA Ở ĐÂY: Bỏ khoảng trắng thừa quanh item.username ---
   const renderUserItem = useCallback(
     ({item}: {item: User}) => (
       <View style={styles.userItem}>
         <Image source={PERSON_ICON} style={styles.personIcon} />
         <Text style={styles.usernameText} numberOfLines={1}>
-          {item.username} {/* << ĐÃ BỎ {' '} */}
+          {item.username}
         </Text>
         <TouchableOpacity
           style={styles.deleteButton}
@@ -331,7 +353,6 @@ const TaiKhoanScreen = () => {
     ),
     [handleDeletePress, deletingUserId],
   );
-  // --- KẾT THÚC SỬA ---
 
   const handleLogout = useCallback(async () => {
     setIsProfileMenuVisible(false);
@@ -349,8 +370,9 @@ const TaiKhoanScreen = () => {
           style: 'destructive',
           onPress: async () => {
             console.log('Bắt đầu đăng xuất...');
-            await logout();
+            await logout(); // Sử dụng hàm logout từ AuthContext
             console.log('Đã đăng xuất.');
+            // AuthContext sẽ xử lý việc điều hướng sau khi logout
           },
         },
       ],
@@ -361,7 +383,8 @@ const TaiKhoanScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton}>
+        <TouchableOpacity style={styles.headerButton} disabled>
+          {/* Nút logo không cần active */}
           <Image
             source={LOGO_ICON}
             style={styles.headerIcon}
@@ -391,27 +414,66 @@ const TaiKhoanScreen = () => {
           placeholder="Tìm kiếm người dùng..."
           placeholderTextColor="#999"
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={setSearchQuery} // Cập nhật searchQuery trực tiếp
           returnKeyType="search"
           onBlur={() => Keyboard.dismiss()}
         />
       </View>
 
-      <FlatList
-        data={filteredUsers}
-        renderItem={renderUserItem}
-        keyExtractor={item => item.user_id}
-        style={styles.listContainer}
-        contentContainerStyle={styles.listContentContainer}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={
+      {isLoading &&
+        filteredUsers.length === 0 && ( // Chỉ hiển thị loading toàn màn hình khi chưa có data
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator
+              size="large"
+              color={COLORS.primary || '#007bff'}
+            />
+            <Text style={styles.loadingText}>Đang tải người dùng...</Text>
+          </View>
+        )}
+
+      {!isLoading &&
+        error &&
+        filteredUsers.length === 0 && ( // Hiển thị lỗi nếu có và không có data
+          <View style={styles.emptyListContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              onPress={() => fetchUsers(searchQuery.trim() || undefined)}
+              style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Thử lại</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+      {!isLoading &&
+        !error &&
+        filteredUsers.length === 0 && ( // Hiển thị không có user nếu không loading, không lỗi, và list rỗng
           <View style={styles.emptyListContainer}>
             <Text style={styles.emptyListText}>
               Không tìm thấy người dùng nào.
             </Text>
           </View>
-        }
-      />
+        )}
+
+      {filteredUsers.length > 0 && (
+        <FlatList
+          data={filteredUsers}
+          renderItem={renderUserItem}
+          keyExtractor={item => item.user_id}
+          style={styles.listContainer}
+          contentContainerStyle={styles.listContentContainer}
+          keyboardShouldPersistTaps="handled"
+          // Không cần ListEmptyComponent ở đây nữa vì đã xử lý ở trên
+        />
+      )}
+
+      {/* ActivityIndicator nhỏ khi đang loading nhưng vẫn có data (ví dụ khi search hoặc delete) */}
+      {isLoading && filteredUsers.length > 0 && (
+        <ActivityIndicator
+          style={styles.inlineSpinner}
+          size="small"
+          color={COLORS.primary || '#007bff'}
+        />
+      )}
 
       <ConfirmDeleteModal
         visible={isModalVisible}
@@ -428,8 +490,11 @@ const TaiKhoanScreen = () => {
         <Pressable
           style={profileMenuStyles.backdrop}
           onPress={() => setIsProfileMenuVisible(false)}>
-          <View style={profileMenuStyles.menuContainer}>
-            <Pressable onPress={() => {}}>
+          {/* Bao bọc menu content bằng Pressable để ngăn việc đóng modal khi chạm vào nó */}
+          <Pressable
+            style={profileMenuStyles.menuViewWrapper}
+            onPress={() => {}}>
+            <View style={profileMenuStyles.menuContainer}>
               <TouchableOpacity
                 style={profileMenuStyles.menuItem}
                 onPress={handleLogout}>
@@ -440,8 +505,8 @@ const TaiKhoanScreen = () => {
                 />
                 <Text style={profileMenuStyles.menuText}>Đăng xuất</Text>
               </TouchableOpacity>
-            </Pressable>
-          </View>
+            </View>
+          </Pressable>
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -453,13 +518,13 @@ const TaiKhoanScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: '#FFFFFF'},
   header: {
-    paddingTop: 30,
+    paddingTop: 30, // Giữ nguyên
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.primary,
     paddingHorizontal: 15,
-    height: 90,
+    height: 90, // Giữ nguyên
   },
   headerButton: {padding: 5},
   headerIcon: {width: 30, height: 30},
@@ -481,7 +546,7 @@ const styles = StyleSheet.create({
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.nenItem,
+    backgroundColor: COLORS.nenItem || '#FAFAFA', // Thêm fallback color
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderRadius: 12,
@@ -497,25 +562,61 @@ const styles = StyleSheet.create({
   deleteButton: {padding: 5, marginLeft: 10},
   deleteIcon: {width: 24, height: 24, resizeMode: 'contain'},
   emptyListContainer: {
+    // Style cho thông báo khi list rỗng hoặc lỗi
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 50,
+    padding: 20, // Thêm padding
   },
-  emptyListText: {fontSize: 16, color: '#888'},
+  emptyListText: {fontSize: 16, color: '#888', textAlign: 'center'},
+  loadingContainer: {
+    // Style cho loading toàn màn hình
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {marginTop: 10, fontSize: 16, color: '#555'},
+  errorText: {
+    fontSize: 16,
+    color: COLORS.red || 'red',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  retryButton: {
+    marginTop: 15,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  inlineSpinner: {
+    // Spinner nhỏ khi đang load nhưng vẫn có data
+    marginVertical: 10,
+  },
 });
 // --- END: Styles chính của TaiKhoanScreen ---
 
-// --- THÊM STYLES CHO PROFILE MENU ---
+// --- THÊM STYLES CHO PROFILE MENU (GIỮ NGUYÊN) ---
 const profileMenuStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: 'transparent', // Cho phép click xuyên qua để đóng menu
+    // justifyContent: 'flex-start', // Để menu không bị ảnh hưởng bởi justify/align của backdrop
+    // alignItems: 'flex-end',
+  },
+  menuViewWrapper: {
+    // Wrapper cho menu content để bắt sự kiện press trên nó
+    position: 'absolute',
+    top: 80, // Điều chỉnh vị trí của menu
+    right: 15,
+    // không cần width/height ở đây, để nó tự điều chỉnh theo content
   },
   menuContainer: {
-    position: 'absolute',
-    top: 80,
-    right: 15,
     backgroundColor: 'white',
     borderRadius: 8,
     paddingVertical: 5,

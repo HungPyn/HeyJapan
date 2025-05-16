@@ -239,7 +239,6 @@ const TienDoScreen = () => {
 
   const performDeleteUser = useCallback(async (userId: string) => {
     setDeletingUserId(userId); // Giả lập API call
-    await new Promise(resolve => setTimeout(resolve, 500));
     setUsers(prevUsers => prevUsers.filter(user => user.user_id !== userId));
     setDeletingUserId(null);
     Alert.alert('Thành công', 'Đã xóa người dùng.'); // Thông báo giống TaiKhoan (nếu có)

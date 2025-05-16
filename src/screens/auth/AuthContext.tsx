@@ -10,6 +10,7 @@ import React, {
   ReactNode,
   useEffect,
 } from 'react';
+import {decode as atob, encode as btoa} from 'base-64'; // Đảm bảo bạn đã cài đặt: npm install base-64
 import {
   Alert, // Alert có thể không cần thiết ở đây nếu bạn dùng showMessage
 } from 'react-native';

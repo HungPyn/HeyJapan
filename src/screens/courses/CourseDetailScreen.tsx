@@ -1,5 +1,5 @@
 // src/screens/courses/CourseDetailScreen.tsx
-import React, {useMemo, useState} from 'react';
+import React, {useMemo, useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -10,203 +10,55 @@ import {
   ImageBackground,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {RootStackParamList, CoursesStackParamList} from '../../navigation';
-import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme';
-import {Image} from 'react-native'; // Import Image đã có sẵn
+import {CoursesStackParamList} from '../../navigation';
+import {COLORS, FONTS, SIZES} from '../../constants/theme';
+import {Image} from 'react-native';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Dữ liệu khóa học mẫu - BẠN NÊN IMPORT TỪ FILE DỮ LIỆU TRUNG TÂM
-const mockCoursesData = [
-  {
-    topic_code: '101',
-    title: 'Bảng chữ cái',
-    imageUrl: 'url_abc_course',
-    levelCode: 'Sơ cấp',
-    quantityLesson: 11,
-  },
-  {
-    topic_code: '102',
-    title: 'Lý thuyết',
-    imageUrl: 'url_greeting_course',
-    levelCode: 'Sơ cấp',
-    quantityLesson: 2,
-  },
-  {
-    topic_code: '103',
-    title: 'Số đếm & Thời gian',
-    imageUrl: 'url_numbers_course',
-    levelCode: 'Sơ cấp',
-    quantityLesson: 0,
-  },
-];
-
-// Định nghĩa Type cho Lesson
+// Định nghĩa Type cho Lesson (sử dụng trong màn hình)
 interface Lesson {
   lesson_code: number;
   lesson_name: string;
+  status?: 'completed' | 'pending';
+  lesson_type?: 'hira' | 'kata' | 'common' | 'theory' | 'exam';
   lesson_description: string;
   quantity_content: number;
   day_creation: string;
   topic_code: number;
-  status?: 'completed' | 'pending'; // Chỉ còn 2 trạng thái
-  lesson_type?: 'hira' | 'kata' | 'common' | 'grammar';
 }
 
-// Dữ liệu bài học bạn cung cấp
-const allLessonsData: Lesson[] = [
-  {
-    lesson_code: 1,
-    lesson_name: 'Giới thiệu khóa học',
-    lesson_description: 'Tổng quan...',
-    quantity_content: 3,
-    day_creation: '2025-05-10 08:00:00',
-    topic_code: 101,
-    status: 'completed',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 2,
-    lesson_name: 'Lý thuyết',
-    lesson_description: 'Học bảng chữ cái Hiragana...',
-    quantity_content: 5,
-    day_creation: '2025-05-10 08:10:00',
-    topic_code: 102,
-    status: 'completed',
-    lesson_type: 'hira',
-  },
-  {
-    lesson_code: 14,
-    lesson_name: 'Lý thuyết',
-    lesson_description: 'Học bảng chữ cái Hiragana...',
-    quantity_content: 5,
-    day_creation: '2025-05-10 08:10:00',
-    topic_code: 103,
-    status: 'completed',
-    lesson_type: 'hira',
-  },
-  {
-    lesson_code: 3,
-    lesson_name: 'カタカナ（基本）- Hàng KA',
-    lesson_description: 'Làm quen với bảng chữ cái Katakana...',
-    quantity_content: 5,
-    day_creation: '2025-05-10 08:20:00',
-    topic_code: 101,
-    status: 'completed',
-    lesson_type: 'kata',
-  },
-  {
-    lesson_code: 4,
-    lesson_name: 'Chữ ghép Hiragana',
-    lesson_description: '...',
-    quantity_content: 4,
-    day_creation: '2025-05-10 08:30:00',
-    topic_code: 103,
-    status: 'completed',
-    lesson_type: 'hira',
-  },
-  {
-    lesson_code: 5,
-    lesson_name: 'Chữ ghép Katakana',
-    lesson_description: '...',
-    quantity_content: 5,
-    day_creation: '2025-05-10 08:40:00',
-    topic_code: 103,
-    status: 'pending',
-    lesson_type: 'kata',
-  },
-  {
-    lesson_code: 6,
-    lesson_name: 'Âm đục và bán âm đục (Hira)',
-    lesson_description: '...',
-    quantity_content: 6,
-    day_creation: '2025-05-10 08:50:00',
-    topic_code: 103,
-    status: 'pending',
-    lesson_type: 'hira',
-  },
-  {
-    lesson_code: 7,
-    lesson_name: 'Trường âm (Kata)',
-    lesson_description: '...',
-    quantity_content: 5,
-    day_creation: '2025-05-10 09:00:00',
-    topic_code: 101,
-    status: 'pending',
-    lesson_type: 'kata',
-  },
-  {
-    lesson_code: 12,
-    lesson_name: 'Chào buổi sáng - おはようございます',
-    lesson_description: '...',
-    quantity_content: 3,
-    day_creation: '2025-05-11 08:00:00',
-    topic_code: 102,
-    status: 'completed',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 13,
-    lesson_name: 'Tự giới thiệu cơ bản',
-    lesson_description: '...',
-    quantity_content: 5,
-    day_creation: '2025-05-11 08:10:00',
-    topic_code: 102,
-    status: 'pending',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 14,
-    lesson_name: 'ひらがな – あいうえお',
-    lesson_description: 'ひらがなの母音の学習',
-    quantity_content: 5,
-    day_creation: '2025-05-11 08:10:00',
-    topic_code: 101,
-    status: 'pending',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 15,
-    lesson_name: 'ひらがな – かきくけこ',
-    lesson_description: 'K行の文字を学ぶ',
-    quantity_content: 5,
-    day_creation: '2025-05-11 08:20:00',
-    topic_code: 101,
-    status: 'pending',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 16,
-    lesson_name: 'ひらがな – さしすせそ',
-    lesson_description: 'S行の文字を学ぶ',
-    quantity_content: 5,
-    day_creation: '2025-05-11 08:30:00',
-    topic_code: 101,
-    status: 'pending',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 17,
-    lesson_name: 'ひらがな – たちつてと',
-    lesson_description: 'T行の文字を学ぶ',
-    quantity_content: 5,
-    day_creation: '2025-05-11 08:40:00',
-    topic_code: 101,
-    status: 'pending',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 18,
-    lesson_name: 'ひらがな – なにぬねの',
-    lesson_description: 'N行の文字を学ぶ',
-    quantity_content: 5,
-    day_creation: '2025-05-11 08:50:00',
-    topic_code: 101,
-    status: 'pending',
-    lesson_type: 'common',
-  },
-];
+// --- Định nghĩa Types cho cấu trúc dữ liệu API mới ---
+interface ApiTheoryDTO {
+  id: number;
+  name: string;
+  isComplete?: boolean | null; // CẬP NHẬT: Thêm isComplete cho theoryDTO
+}
+
+interface ApiLessonInList {
+  id: number;
+  name: string;
+  isComplete: boolean | null;
+}
+
+interface ApiExamResponseDTO {
+  id: number;
+  name: string;
+  isComplete: boolean | null;
+}
+
+interface ApiTopicViewResponse {
+  id: number;
+  name: string;
+  theoryDTO: ApiTheoryDTO | null;
+  lessons: ApiLessonInList[];
+  examResponseDTO: ApiExamResponseDTO | null;
+}
+// --- Kết thúc định nghĩa Types cho API ---
 
 type CourseDetailScreenRouteProp = RouteProp<
   CoursesStackParamList,
@@ -214,25 +66,22 @@ type CourseDetailScreenRouteProp = RouteProp<
 >;
 type CourseDetailScreenNavigationProp = StackNavigationProp<
   CoursesStackParamList,
-  'Lesson'
+  'Lesson' | 'ContentsLyThuyetScreen' | 'ContentsScreen'
 >;
 
-// Sửa đổi LessonStatusIcon: Chỉ còn completed và pending
 const LessonStatusIcon = ({status}: {status?: Lesson['status']}) => {
   if (status === 'completed') {
-    // Sử dụng Image component bạn đã có trong file gốc
     return (
       <Image
-        source={require('../../assets/images/hoanThanh.png')} // Đường dẫn icon hoàn thành của bạn
-        style={styles.lessonStatusImage} // Style riêng cho ảnh icon
+        source={require('../../assets/images/hoanThanh.png')}
+        style={styles.lessonStatusImage}
       />
     );
   }
-  // Mặc định là 'pending' (đang làm/chưa bắt đầu)
   return (
     <Image
-      source={require('../../assets/images/chuaHoc.png')} // Đường dẫn icon chưa học của bạn
-      style={styles.lessonStatusImage} // Style riêng cho ảnh icon
+      source={require('../../assets/images/chuaHoc.png')}
+      style={styles.lessonStatusImage}
     />
   );
 };
@@ -240,49 +89,165 @@ const LessonStatusIcon = ({status}: {status?: Lesson['status']}) => {
 const CourseDetailScreen: React.FC = () => {
   const route = useRoute<CourseDetailScreenRouteProp>();
   const navigation = useNavigation<CourseDetailScreenNavigationProp>();
-  const {courseId, title: courseTitleFromParams} = route.params; // Lấy title từ params nếu có, nếu không thì dùng từ course object
 
-  // SỬA ĐỔI: activeSegment mặc định là 'Hira', bỏ 'All' khỏi type
+  const {courseId, title: initialTopicTitle} = route.params;
+
+  const [allScreenItems, setAllScreenItems] = useState<Lesson[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeSegment, setActiveSegment] = useState<'Hira' | 'Kata'>('Hira');
+  const [displayTitle, setDisplayTitle] = useState<string>(
+    initialTopicTitle || 'Chi tiết chủ đề',
+  );
 
-  // Lấy thông tin khóa học từ mockCoursesData
-  // Ưu tiên title từ params nếu được truyền qua, nếu không thì tìm trong mockCoursesData
-  const courseInfo = mockCoursesData.find(c => c.topic_code === courseId);
-  const displayTitle =
-    courseTitleFromParams || courseInfo?.title || 'Chi tiết khóa học';
+  const currentTopicIdAsNumber = useMemo(
+    () => parseInt(courseId, 10),
+    [courseId],
+  );
+  const defaultUserId = '0bffe213-0356-4385-8c9c-6801638c15ba';
 
-  const currentCourseIdAsNumber = parseInt(courseId, 10);
-  const lessonsForThisCourse = useMemo(() => {
-    let filteredLessons = allLessonsData.filter(
-      lesson => lesson.topic_code === currentCourseIdAsNumber,
-    );
+  const fetchTopicDetails = useCallback(
+    async (topicIdToFetch: number, userId: string) => {
+      if (isNaN(topicIdToFetch)) {
+        setError('ID chủ đề không hợp lệ.');
+        setIsLoading(false);
+        setAllScreenItems([]);
+        return;
+      }
+      setIsLoading(true);
+      setError(null);
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          throw new Error('Không tìm thấy token. Vui lòng đăng nhập lại.');
+        }
 
-    // Logic filter theo activeSegment (Hira/Kata)
-    // Chỉ hiển thị nếu title của khóa học là "Bảng chữ cái" (viết hoa/thường)
+        const response = await axios.get<ApiTopicViewResponse>(
+          `http://10.0.2.2:8080/api/user/topic/view?topicId=${topicIdToFetch}&idUser=${userId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (response.data) {
+          const topicData = response.data;
+          setDisplayTitle(
+            topicData.name || initialTopicTitle || 'Chi tiết chủ đề',
+          );
+
+          const combinedItems: Lesson[] = [];
+
+          if (topicData.theoryDTO) {
+            combinedItems.push({
+              lesson_code: topicData.theoryDTO.id,
+              lesson_name: topicData.theoryDTO.name,
+              // CẬP NHẬT: Map status từ isComplete của theoryDTO
+              status:
+                topicData.theoryDTO.isComplete === true
+                  ? 'completed'
+                  : 'pending',
+              lesson_type: 'common', // Hoặc 'theory' nếu bạn muốn phân biệt và xử lý filter riêng
+              lesson_description: '',
+              quantity_content: 0,
+              day_creation: '',
+              topic_code: topicIdToFetch,
+            });
+          }
+
+          if (topicData.lessons && topicData.lessons.length > 0) {
+            topicData.lessons.forEach(apiLesson => {
+              combinedItems.push({
+                lesson_code: apiLesson.id,
+                lesson_name: apiLesson.name,
+                status: apiLesson.isComplete === true ? 'completed' : 'pending',
+                lesson_type: 'common',
+                lesson_description: '',
+                quantity_content: 0,
+                day_creation: '',
+                topic_code: topicIdToFetch,
+              });
+            });
+          }
+
+          if (topicData.examResponseDTO) {
+            combinedItems.push({
+              lesson_code: topicData.examResponseDTO.id,
+              lesson_name: topicData.examResponseDTO.name,
+              status:
+                topicData.examResponseDTO.isComplete === true
+                  ? 'completed'
+                  : 'pending',
+              lesson_type: 'common', // Hoặc 'exam' nếu bạn muốn phân biệt
+              lesson_description: '',
+              quantity_content: 0,
+              day_creation: '',
+              topic_code: topicIdToFetch,
+            });
+          }
+          setAllScreenItems(combinedItems);
+        } else {
+          setAllScreenItems([]);
+          setError('Không nhận được dữ liệu từ API.');
+        }
+      } catch (err: any) {
+        console.error(`Lỗi khi tải chi tiết chủ đề ${topicIdToFetch}:`, err);
+        let errorMessage = 'Đã xảy ra lỗi khi tải dữ liệu.';
+        if (axios.isAxiosError(err)) {
+          if (err.response) {
+            errorMessage = `Lỗi từ server: ${err.response.status} - ${
+              err.response.data?.message || 'Không có thông báo lỗi cụ thể'
+            }`;
+          } else if (err.request) {
+            errorMessage = 'Không nhận được phản hồi từ server.';
+          } else {
+            errorMessage = `Lỗi request: ${err.message}`;
+          }
+        } else {
+          errorMessage = err.message || errorMessage;
+        }
+        setError(errorMessage);
+        setAllScreenItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [initialTopicTitle],
+  );
+
+  useEffect(() => {
+    if (currentTopicIdAsNumber) {
+      fetchTopicDetails(currentTopicIdAsNumber, defaultUserId);
+    } else {
+      setError('Không thể tải dữ liệu: ID chủ đề không hợp lệ.');
+      setIsLoading(false);
+      setAllScreenItems([]);
+    }
+  }, [currentTopicIdAsNumber, fetchTopicDetails]);
+
+  const itemsForDisplay = useMemo(() => {
+    let filteredItems = [...allScreenItems];
     if (displayTitle.toLowerCase() === 'bảng chữ cái') {
       if (activeSegment === 'Hira') {
-        filteredLessons = filteredLessons.filter(
-          lesson =>
-            lesson.lesson_type === 'hira' || lesson.lesson_type === 'common',
+        filteredItems = filteredItems.filter(
+          item => item.lesson_type === 'hira' || item.lesson_type === 'common',
         );
       } else if (activeSegment === 'Kata') {
-        filteredLessons = filteredLessons.filter(
-          lesson =>
-            lesson.lesson_type === 'kata' || lesson.lesson_type === 'common',
+        filteredItems = filteredItems.filter(
+          item => item.lesson_type === 'kata' || item.lesson_type === 'common',
         );
       }
-    } else {
-      // Nếu không phải "Bảng chữ cái", không filter theo Hira/Kata, hiển thị tất cả bài của topic_code
-      // Hoặc bạn có thể ẩn luôn segment control nếu không phải khóa "Bảng chữ cái"
     }
-    return filteredLessons;
-  }, [currentCourseIdAsNumber, activeSegment, displayTitle]);
+    return filteredItems;
+  }, [allScreenItems, activeSegment, displayTitle]);
 
-  if (!courseInfo && !courseTitleFromParams) {
-    // Kiểm tra nếu không có thông tin khóa học
+  if (!courseId || !initialTopicTitle) {
     return (
       <SafeAreaView style={styles.errorContainer}>
-        <Text style={styles.errorText}>Không tìm thấy thông tin khóa học.</Text>
+        <Text style={styles.errorText}>
+          Không có thông tin chủ đề được truyền vào.
+        </Text>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButtonError}>
@@ -292,46 +257,30 @@ const CourseDetailScreen: React.FC = () => {
     );
   }
 
-  const handleLessonPress = (lesson: Lesson) => {
-    console.log(
-      'Đã chọn bài học:',
-      lesson.lesson_name,
-      'Code:',
-      lesson.lesson_code,
-    );
+  const handleLessonPress = (item: Lesson) => {
+    const lessonNameLower = (item.lesson_name || '').toLowerCase();
+    const targetLessonId = item.lesson_code.toString();
+    const targetLessonName = item.lesson_name;
 
-    const lessonNameLower = (lesson.lesson_name || '').toLowerCase();
-    const targetLessonCode = lesson.lesson_code.toString();
-    const targetLessonName = lesson.lesson_name;
+    console.log('Đã chọn mục:', targetLessonName, 'ID:', targetLessonId);
 
     if (lessonNameLower.includes('lý thuyết')) {
-      console.log(
-        `Điều hướng đến ContentsLyThuyetScreen với lessonCode: ${targetLessonCode}, lessonName: ${targetLessonName}`,
-      );
       navigation.navigate('ContentsLyThuyetScreen', {
-        lessonCode: targetLessonCode,
+        lessonCode: targetLessonId,
         lessonName: targetLessonName,
       });
     } else {
-      // Hiển thị thông báo xác nhận trước khi điều hướng
       Alert.alert(
         'Xác nhận',
-        'Bạn có chắc chắn muốn học bài này không?',
+        'Bạn có chắc chắn muốn vào mục này không?',
         [
-          {
-            text: 'Hủy',
-            style: 'cancel',
-          },
+          {text: 'Hủy', style: 'cancel'},
           {
             text: 'Đồng ý',
             onPress: () => {
-              console.log(
-                `Điều hướng đến ContentsScreen với lessonCode: ${targetLessonCode}, lessonName: ${targetLessonName}`,
-              );
               navigation.navigate('ContentsScreen', {
-                lessonCode: targetLessonCode,
+                lessonCode: targetLessonId,
                 lessonName: targetLessonName,
-                // contentType: lesson.lesson_type || 'unknown',
               });
             },
           },
@@ -341,11 +290,25 @@ const CourseDetailScreen: React.FC = () => {
     }
   };
 
-  const renderLessonItem = ({item, index}: {item: Lesson; index: number}) => (
+  const renderScreenItem = ({item, index}: {item: Lesson; index: number}) => (
     <TouchableOpacity
       style={styles.lessonItemContainer}
       onPress={() => handleLessonPress(item)}>
-      <Text style={styles.lessonNumberText}>Bài {index + 1}</Text>
+      <Text style={styles.lessonNumberText}>
+        {item.lesson_name.toLowerCase().includes('lý thuyết')
+          ? 'LT'
+          : item.lesson_name.toLowerCase().includes('kiểm tra')
+          ? 'KT'
+          : `Bài ${
+              index +
+              1 -
+              (allScreenItems.find(i =>
+                i.lesson_name.toLowerCase().includes('lý thuyết'),
+              )
+                ? 1
+                : 0)
+            }`}
+      </Text>
       <View style={styles.lessonInfoContainer}>
         <Text style={styles.lessonNameText} numberOfLines={1}>
           {item.lesson_name}
@@ -355,8 +318,142 @@ const CourseDetailScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  // Biến để quyết định có hiển thị Segment Control hay không
+  // Điều chỉnh hiển thị số thứ tự trong renderScreenItem
+  // Để tính toán index chính xác hơn cho "Bài x", ta cần biết có theoryDTO hay không
+  const hasTheory = useMemo(
+    () =>
+      allScreenItems.some(item =>
+        item.lesson_name.toLowerCase().includes('lý thuyết'),
+      ),
+    [allScreenItems],
+  );
+
+  const renderScreenItemWithCorrectIndex = ({
+    item,
+    index,
+  }: {
+    item: Lesson;
+    index: number;
+  }) => {
+    let displayIndex = '';
+    if (item.lesson_name.toLowerCase().includes('lý thuyết')) {
+      displayIndex = 'Lý thuyết';
+    } else if (item.lesson_name.toLowerCase().includes('kiểm tra')) {
+      displayIndex = 'Kiểm tra';
+    } else {
+      // Tính index cho các bài học thường, bỏ qua lý thuyết nếu có
+      // Cách này sẽ đếm lại index cho các bài học thường
+      let lessonCounter = 0;
+      for (let i = 0; i < allScreenItems.length; i++) {
+        if (allScreenItems[i].lesson_code === item.lesson_code) break;
+        if (
+          !allScreenItems[i].lesson_name.toLowerCase().includes('lý thuyết') &&
+          !allScreenItems[i].lesson_name.toLowerCase().includes('kiểm tra')
+        ) {
+          lessonCounter++;
+        }
+      }
+      displayIndex = `Bài ${lessonCounter + 1}`;
+    }
+
+    return (
+      <TouchableOpacity
+        style={styles.lessonItemContainer}
+        onPress={() => handleLessonPress(item)}>
+        <Text style={styles.lessonNumberText}>{displayIndex}</Text>
+        <View style={styles.lessonInfoContainer}>
+          <Text style={styles.lessonNameText} numberOfLines={1}>
+            {item.lesson_name}
+          </Text>
+        </View>
+        <LessonStatusIcon status={item.status} />
+      </TouchableOpacity>
+    );
+  };
+
   const showSegmentControl = displayTitle.toLowerCase() === 'bảng chữ cái';
+
+  const handleRetryFetch = () => {
+    if (currentTopicIdAsNumber) {
+      fetchTopicDetails(currentTopicIdAsNumber, defaultUserId);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ImageBackground
+          source={require('../../assets/images/nen3.jpg')}
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={{opacity: 0.15}}
+          resizeMode="cover">
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}>
+              <Text style={styles.backButtonText}>‹</Text>
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {displayTitle}
+              </Text>
+            </View>
+            <View
+              style={{
+                width: showSegmentControl
+                  ? styles.segmentControlContainer.width || SIZES.padding * 10
+                  : SIZES.padding * 4,
+              }}
+            />
+          </View>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+          </View>
+        </ImageBackground>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ImageBackground
+          source={require('../../assets/images/nen3.jpg')}
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={{opacity: 0.15}}
+          resizeMode="cover">
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}>
+              <Text style={styles.backButtonText}>‹</Text>
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {displayTitle}
+              </Text>
+            </View>
+            <View
+              style={{
+                width: showSegmentControl
+                  ? styles.segmentControlContainer.width || SIZES.padding * 10
+                  : SIZES.padding * 4,
+              }}
+            />
+          </View>
+          <View style={styles.errorDisplayContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              onPress={handleRetryFetch}
+              style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Thử lại</Text>
+            </TouchableOpacity>
+          </View>
+        </ImageBackground>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -378,7 +475,6 @@ const CourseDetailScreen: React.FC = () => {
                 {displayTitle}
               </Text>
             </View>
-            {/* Chỉ hiển thị segment control nếu là khóa "Bảng chữ cái" */}
             {showSegmentControl ? (
               <View style={styles.segmentControlContainer}>
                 <TouchableOpacity
@@ -413,16 +509,16 @@ const CourseDetailScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             ) : (
-              // Placeholder để giữ cấu trúc header nếu không có segment control
-              <View style={{width: SIZES.padding * 4}} /> // Điều chỉnh width cho phù hợp
+              <View style={{width: SIZES.padding * 4}} />
             )}
           </View>
 
-          {lessonsForThisCourse.length > 0 ? (
+          {itemsForDisplay.length > 0 ? (
             <FlatList
-              data={lessonsForThisCourse}
-              renderItem={renderLessonItem}
-              keyExtractor={item => item.lesson_code.toString()}
+              data={itemsForDisplay}
+              // CẬP NHẬT: Sử dụng hàm render mới với logic index
+              renderItem={renderScreenItemWithCorrectIndex}
+              keyExtractor={(item, index) => `${item.lesson_code}-${index}`}
               style={styles.lessonsList}
               contentContainerStyle={styles.lessonsListContent}
               showsVerticalScrollIndicator={false}
@@ -430,7 +526,7 @@ const CourseDetailScreen: React.FC = () => {
           ) : (
             <View style={styles.emptyLessonsContainer}>
               <Text style={styles.emptyLessonsText}>
-                Chưa có bài học nào cho chủ đề này hoặc bộ lọc hiện tại.
+                Chưa có nội dung nào cho chủ đề này.
               </Text>
             </View>
           )}
@@ -440,9 +536,7 @@ const CourseDetailScreen: React.FC = () => {
   );
 };
 
-// Giữ nguyên styles bạn đã cung cấp ở lần gần nhất (lúc 07:41 PM)
-// Chỉ cần đảm bảo các màu như COLORS.green, COLORS.orange cho LessonStatusIcon
-// và COLORS.nenItem, COLORS.primary cho lessonItemContainer đã được định nghĩa.
+// Styles giữ nguyên
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -454,7 +548,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    // justifyContent: 'space-between', // Bỏ cái này để headerTitleContainer có thể flex và đẩy segment ra xa
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.padding * 0.5,
     marginTop: StatusBar.currentHeight || 20,
@@ -462,7 +555,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.gray,
   },
   backButton: {
-    paddingRight: SIZES.padding, // Giữ padding để dễ bấm
+    paddingRight: SIZES.padding,
     paddingLeft: SIZES.padding * 0.5,
     paddingVertical: SIZES.padding * 0.5,
   },
@@ -473,9 +566,9 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.padding * 0.5,
   },
   headerTitleContainer: {
-    flex: 1, // Cho phép tiêu đề chiếm không gian còn lại ở giữa
-    alignItems: 'flex-start', // Căn giữa tiêu đề
-    marginHorizontal: SIZES.medium, // Khoảng cách nhỏ với nút back và segment
+    flex: 1,
+    alignItems: 'flex-start',
+    marginHorizontal: SIZES.medium,
   },
   headerTitle: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
@@ -485,21 +578,20 @@ const styles = StyleSheet.create({
   },
   segmentControlContainer: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white, // Giữ style của bạn
+    backgroundColor: COLORS.white,
     borderRadius: 5,
     borderColor: COLORS.primary,
     borderWidth: 2,
-    // Không cần padding ở đây nếu segmentButton đã có
+    // @ts-ignore
+    width: undefined,
   },
   segmentButton: {
     paddingHorizontal: SIZES.padding * 1.2,
     paddingVertical: SIZES.padding * 0.6,
     backgroundColor: COLORS.white,
-    // borderRadius: 5, // Bo góc bên trong segment, có thể không cần nếu container đã bo
   },
   segmentButtonActive: {
     backgroundColor: COLORS.primary,
-    // shadow có thể giữ nếu muốn
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.1,
@@ -535,23 +627,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: COLORS.primary,
   },
-  // Không cần lessonItemLocked nữa
-  lessonNumberContainer: {
-    backgroundColor: COLORS.nenItem, // Giữ nguyên
-    minWidth: 55,
-    paddingVertical: SIZES.padding * 0.5,
-    paddingHorizontal: SIZES.padding * 0.5,
-    borderRadius: SIZES.radius * 0.8,
-    marginRight: SIZES.padding,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   lessonNumberText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
     fontSize: SIZES.large,
     color: COLORS.black,
     fontWeight: '700',
     marginRight: 10,
+    minWidth: 50,
+    textAlign: 'center',
   },
   lessonInfoContainer: {
     flex: 1,
@@ -564,14 +647,8 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontWeight: '400',
   },
-  lessonStatusIcon: {
-    // Style chung cho icon text
-    fontSize: SIZES.h2 * 0.8, // Điều chỉnh kích thước icon
-    marginLeft: SIZES.padding,
-  },
   lessonStatusImage: {
-    // Style cho icon dạng ảnh
-    width: 20, // Kích thước bạn muốn cho icon ảnh
+    width: 20,
     height: 20,
     marginLeft: SIZES.padding,
   },
@@ -580,7 +657,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: SIZES.padding,
-    marginTop: SIZES.padding * 5,
+    paddingBottom: 100,
   },
   emptyLessonsText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
@@ -588,19 +665,46 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     textAlign: 'center',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: SIZES.font,
+    color: COLORS.gray,
+  },
+  errorDisplayContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.padding,
+  },
+  errorText: {
+    fontFamily: FONTS.medium?.fontFamily || 'System',
+    fontSize: SIZES.large,
+    color: COLORS.red,
+    textAlign: 'center',
+    marginBottom: SIZES.padding * 2,
+  },
+  retryButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SIZES.padding * 2,
+    paddingVertical: SIZES.padding,
+    borderRadius: SIZES.radius,
+  },
+  retryButtonText: {
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    color: COLORS.white,
+    fontSize: SIZES.medium,
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SIZES.padding,
     backgroundColor: COLORS.background,
-  },
-  errorText: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.large,
-    color: COLORS.error,
-    textAlign: 'center',
-    marginBottom: SIZES.padding * 2,
   },
   backButtonError: {
     backgroundColor: COLORS.primary,

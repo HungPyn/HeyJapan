@@ -671,7 +671,7 @@ const ContentAdminScreen = () => {
   }, [logout, navigation]);
   const performDeleteItem = useCallback(async (contentCode: number) => {
     /* ... giữ nguyên ... */ setDeletingItemCode(contentCode);
-    await new Promise(resolve => setTimeout(resolve, 500));
+
     setContents(prev => prev.filter(item => item.content_code !== contentCode));
     setDeletingItemCode(null);
     Alert.alert('Thành công', 'Đã xóa nội dung bài học.');

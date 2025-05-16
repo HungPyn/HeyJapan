@@ -1,20 +1,23 @@
-// src/screens/theo_doi/FollowScreen.tsx (Hoặc đường dẫn bạn chọn)
-import React from 'react';
+// src/screens/theo_doi/FollowScreen.tsx
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   TouchableOpacity,
-  Image, // Image component đã có sẵn
+  Image,
   ImageBackground,
   StatusBar,
-  FlatList, // Sử dụng FlatList cho hiệu năng
+  FlatList,
+  ActivityIndicator,
+  Modal, // Thêm Modal
 } from 'react-native';
-import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme'; // Đảm bảo đường dẫn đúng
+import axios from 'axios';
+import {COLORS, FONTS, SIZES} from '../../constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Định nghĩa Type cho Course
+// Định nghĩa Type cho Course (giữ nguyên)
 interface Course {
   topic_code: string;
   title: string;
@@ -23,111 +26,220 @@ interface Course {
   quantityLesson: number;
 }
 
-// Dữ liệu mockCourses bạn cung cấp
-export const mockCourses: Course[] = [
-  {
-    topic_code: '101',
-    title: 'Bảng chữ cái',
-    imageUrl: 'https://i.imgur.com/oVacZ4F.png', // Ví dụ một URL ảnh khác
-    levelCode: 'Sơ cấp',
-    quantityLesson: 5,
-  },
-  {
-    topic_code: '102',
-    title: 'Cơ bản 1',
-    imageUrl: 'https://i.imgur.com/na3U2uk.png',
-    levelCode: 'Cơ bản',
-    quantityLesson: 10,
-  },
-  {
-    topic_code: '103',
-    title: 'Cơ bản 2',
-    imageUrl: 'https://i.imgur.com/na3U2uk.png',
-    levelCode: 'Cơ bản',
-    quantityLesson: 10,
-  },
-  {
-    topic_code: '2',
-    title: 'Gia đình',
-    imageUrl: 'https://i.imgur.com/TkoFNx0.png',
-    levelCode: 'Cơ bản',
-    quantityLesson: 8,
-  },
+// Định nghĩa Type cho Topic từ API (giữ nguyên)
+interface ApiTopic {
+  id: number;
+  levelId: number;
+  name: string;
+  avatarUrl: string;
+  dayCreation: string;
+}
 
-  {
-    topic_code: '4',
-    title: 'Món ăn',
-    imageUrl: 'https://i.imgur.com/loLlsoi.png',
-    levelCode: 'Sơ cấp',
-    quantityLesson: 15,
-  },
-  {
-    topic_code: '5',
-    title: 'Thời gian',
-    imageUrl: 'https://i.imgur.com/4NYSRPT.jpeg',
-    levelCode: 'Sơ cấp',
-    quantityLesson: 20,
-  },
-  {
-    topic_code: '6',
-    title: 'Địa điểm',
-    imageUrl: 'https://i.imgur.com/Q7zBfOg.jpeg',
-    levelCode: 'Sơ cấp',
-    quantityLesson: 12,
-  },
-  {
-    topic_code: '7',
-    title: 'Số điểm',
-    imageUrl: 'https://i.imgur.com/BI2iGmn.jpeg',
-    levelCode: 'Trung cấp',
-    quantityLesson: 15,
-  },
-  {
-    topic_code: '8',
-    title: 'Động vật',
-    imageUrl: 'https://i.imgur.com/CJQ8ooS.jpeg',
-    levelCode: 'Trung cấp',
-    quantityLesson: 20,
-  },
-];
+// Định nghĩa Type cho Response của API lấy topics theo level (giữ nguyên)
+interface TopicsApiResponse {
+  id: number;
+  name: string; // Tên của level hiện tại
+  topics: ApiTopic[];
+}
 
-// << THAY ĐỔIỞ ĐÂY: Component để hiển thị hình ảnh từ imageUrl >>
+// Định nghĩa Type cho một Level trong danh sách chọn (mới)
+interface LevelInfo {
+  id: number;
+  name: string;
+}
+
+// Định nghĩa Type cho Response của API lấy tất cả levels (mới)
+// Giả sử API trả về một mảng các object, mỗi object có id, name và topics
+// nhưng chúng ta chỉ cần id và name cho việc chọn level.
+type AllLevelsApiResponse = Array<{
+  id: number;
+  name: string;
+  topics?: ApiTopic[]; // topics ở đây có thể không cần thiết cho việc chọn level
+}>;
+
+// Component để hiển thị hình ảnh từ imageUrl (giữ nguyên)
 const CourseItemImage = ({imageUrl}: {imageUrl: string}) => (
-  <Image
-    source={{uri: imageUrl}}
-    style={styles.itemImage}
-    resizeMode="cover" // Hoặc "contain" tùy theo ảnh của bạn và style bạn muốn
-  />
+  <Image source={{uri: imageUrl}} style={styles.itemImage} resizeMode="cover" />
 );
 
 const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
+  const [coursesData, setCoursesData] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentLevelName, setCurrentLevelName] =
+    useState<string>('Đang tải...'); // Tên của level hiện tại đang hiển thị
+  const [currentLevelId, setCurrentLevelId] = useState<number>(1); // ID của level hiện tại, mặc định là 1
+
+  const [allLevels, setAllLevels] = useState<LevelInfo[]>([]); // State cho danh sách tất cả levels
+  const [isLevelModalVisible, setIsLevelModalVisible] =
+    useState<boolean>(false); // State cho modal chọn level
+
+  // Hàm gọi API lấy danh sách topics theo levelId
+  const fetchTopicsByLevel = async (levelId: number) => {
+    setIsLoading(true);
+    setError(null);
+    setCoursesData([]); // Xóa dữ liệu cũ trước khi tải mới
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        throw new Error('Không tìm thấy token');
+      }
+      const response = await axios.get<TopicsApiResponse>(
+        `http://10.0.2.2:8080/api/user/topic/${levelId}/topics`,
+        {
+          headers: {Authorization: `Bearer ${token}`},
+        },
+      );
+
+      if (response.data) {
+        setCurrentLevelName(response.data.name || `Level ${levelId}`);
+        if (response.data.topics && response.data.topics.length > 0) {
+          const mappedCourses: Course[] = response.data.topics.map(
+            (topic: ApiTopic) => ({
+              topic_code: topic.id.toString(),
+              title: topic.name,
+              imageUrl: topic.avatarUrl,
+              levelCode: response.data.name || `Level ${levelId}`,
+              quantityLesson: 0,
+            }),
+          );
+          setCoursesData(mappedCourses);
+        } else {
+          // Không có topics cho level này, nhưng level vẫn hợp lệ
+          setCoursesData([]); // Đảm bảo coursesData rỗng
+        }
+      } else {
+        setError(`Không tìm thấy dữ liệu cho Level ID: ${levelId}.`);
+        setCurrentLevelName(`Level ${levelId}`); // Cập nhật tên level dự phòng
+      }
+    } catch (err: any) {
+      console.error(`Lỗi khi gọi API cho level ${levelId}:`, err);
+      let errorMessage = 'Đã xảy ra lỗi không xác định khi tải dữ liệu chủ đề.';
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+          errorMessage = `Lỗi từ server: ${err.response.status} - ${
+            err.response.data?.message || 'Không có thông báo lỗi cụ thể'
+          }`;
+        } else if (err.request) {
+          errorMessage =
+            'Không nhận được phản hồi từ server. Vui lòng kiểm tra kết nối mạng và địa chỉ API.';
+        } else {
+          errorMessage = `Lỗi khi thiết lập request: ${err.message}`;
+        }
+      } else if (err.message === 'Không tìm thấy token') {
+        errorMessage =
+          'Phiên đăng nhập hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.';
+      }
+      setError(errorMessage);
+      setCurrentLevelName(`Lỗi tải Level ${levelId}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Hàm gọi API lấy tất cả các levels
+  const fetchAllLevelsData = async () => {
+    // Không set isLoading ở đây để tránh xung đột với isLoading của fetchTopicsByLevel
+    // Hoặc bạn có thể dùng một state isLoading khác cho việc này nếu cần
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        // Không ném lỗi ở đây để màn hình vẫn có thể cố gắng tải topics với level mặc định
+        console.warn('Không tìm thấy token khi tải danh sách levels.');
+        setAllLevels([]); // Không có level để chọn nếu không có token
+        return;
+      }
+      // THAY THẾ URL NÀY BẰNG API THỰC TẾ ĐỂ LẤY DANH SÁCH LEVELS
+      const response = await axios.get<AllLevelsApiResponse>(
+        `http://10.0.2.2:8080/api/user/level`, // API Endpoint giả định
+        {
+          headers: {Authorization: `Bearer ${token}`},
+        },
+      );
+      if (response.data && Array.isArray(response.data)) {
+        const levels: LevelInfo[] = response.data.map(level => ({
+          id: level.id,
+          name: level.name,
+        }));
+        setAllLevels(levels);
+      } else {
+        console.warn('Dữ liệu levels không hợp lệ từ API');
+        setAllLevels([]);
+      }
+    } catch (err) {
+      console.error('Lỗi khi gọi API lấy danh sách levels:', err);
+      setAllLevels([]); // Đặt lại danh sách levels nếu có lỗi
+      // Có thể hiển thị thông báo lỗi cho người dùng nếu cần
+    }
+  };
+
+  useEffect(() => {
+    fetchAllLevelsData(); // Gọi API lấy tất cả levels khi component mount
+    fetchTopicsByLevel(currentLevelId); // Gọi API lấy topics cho level hiện tại (mặc định ban đầu)
+  }, [currentLevelId]); // Chạy lại khi currentLevelId thay đổi
+
   const handleItemPress = (course: Course) => {
-    console.log(`Đã chọn khóa học: ${course.title}, ID: ${course.topic_code}`);
-    // Ví dụ điều hướng:
-    // navigation.navigate('CourseDetailScreen', { courseId: course.topic_code });
+    navigation.navigate('CourseDetail', {
+      courseId: course.topic_code,
+      title: course.title,
+    });
   };
 
   const handleMenuPress = () => {
-    console.log('Menu button pressed');
-    // if (navigation && navigation.openDrawer) navigation.openDrawer();
+    if (allLevels.length > 0) {
+      setIsLevelModalVisible(true); // Mở modal nếu có danh sách levels
+    } else {
+      // Có thể fetch lại allLevels ở đây hoặc thông báo không có level để chọn
+      console.log('Không có danh sách level để hiển thị hoặc đang tải.');
+      fetchAllLevelsData(); // Thử tải lại danh sách level
+    }
+  };
+
+  const handleSelectLevel = (level: LevelInfo) => {
+    setCurrentLevelId(level.id); // Cập nhật levelId hiện tại, useEffect sẽ tự động gọi fetchTopicsByLevel
+    // setCurrentLevelName(level.name); // Tên sẽ được cập nhật từ response của fetchTopicsByLevel
+    setIsLevelModalVisible(false);
   };
 
   const renderCourseItem = ({item}: {item: Course}) => (
     <TouchableOpacity
       style={styles.trackItem}
-      onPress={() =>
-        navigation.navigate('CourseDetail', {
-          courseId: item.topic_code.toString(),
-          title: item.title, // thêm dòng này
-        })
-      }>
-      {/* << THAY ĐỔI Ở ĐÂY: Sử dụng CourseItemImage và truyền imageUrl >> */}
+      onPress={() => handleItemPress(item)}>
       <CourseItemImage imageUrl={item.imageUrl} />
       <Text style={styles.trackItemText}>{item.title}</Text>
-      {/* Bạn có thể thêm thông tin khác như số bài học hoặc cấp độ ở đây nếu muốn */}
-      {/* <Text style={styles.itemDetails}>{item.levelCode} - {item.quantityLesson} bài</Text> */}
     </TouchableOpacity>
   );
+
+  const renderLevelSelectItem = ({item}: {item: LevelInfo}) => (
+    <TouchableOpacity
+      style={styles.modalLevelItem}
+      onPress={() => handleSelectLevel(item)}>
+      <Text style={styles.modalLevelText}>{item.name}</Text>
+    </TouchableOpacity>
+  );
+
+  if (isLoading && coursesData.length === 0) {
+    // Chỉ hiển thị loading toàn màn hình khi chưa có dữ liệu nào
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centeredMessageContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Không hiển thị lỗi toàn màn hình nếu đang tải lại level khác, chỉ khi có lỗi thực sự và không có data
+  if (error && coursesData.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centeredMessageContainer}>
+          <Text style={styles.errorText}>Lỗi: {error}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -138,14 +250,18 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
         imageStyle={{opacity: 0.3}}
         resizeMode="cover">
         <View style={styles.container}>
-          {/* Header Section */}
           <View style={styles.header}>
             <Image
               source={require('../../assets/images/Logo.png')}
               style={styles.avatar}
             />
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>Tiếng Nhật mới bắt đầu</Text>
+              <Text
+                style={styles.headerTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail">
+                {currentLevelName}
+              </Text>
             </View>
             <TouchableOpacity
               onPress={handleMenuPress}
@@ -153,9 +269,9 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
                 styles.menuButton,
                 {
                   backgroundColor: COLORS.primary,
-                  borderRadius: 50, // hoặc 50 nếu muốn tròn nhưng không quá to
+                  borderRadius: 50,
                   padding: 10,
-                  paddingTop: 3, // thêm padding để icon không bị dính mép
+                  paddingTop: 3,
                   paddingBottom: 3,
                 },
               ]}>
@@ -164,18 +280,71 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
           </View>
 
           <Text style={{marginTop: 20}}></Text>
+          {isLoading && (
+            <ActivityIndicator
+              size="small"
+              color={COLORS.primary}
+              style={{marginBottom: 10}}
+            />
+          )}
 
-          {/* Course Items Section */}
-          <FlatList // Sử dụng FlatList thay cho ScrollView + map để tối ưu hiệu năng
-            data={mockCourses} // Sử dụng dữ liệu mockCourses
-            renderItem={renderCourseItem}
-            keyExtractor={item => item.topic_code} // Sử dụng topic_code làm key
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollViewContent}
-            showsVerticalScrollIndicator={false}
-          />
+          {coursesData.length > 0 ? (
+            <FlatList
+              data={coursesData}
+              renderItem={renderCourseItem}
+              keyExtractor={item => `${currentLevelId}-${item.topic_code}`} // Key nên unique hơn khi data thay đổi
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollViewContent}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : !isLoading ? ( // Chỉ hiển thị "không có chủ đề" khi không loading và không có lỗi
+            <View style={styles.centeredMessageContainer}>
+              <Text style={styles.emptyDataText}>
+                {error
+                  ? `Lỗi: ${error}`
+                  : 'Không có chủ đề nào cho cấp độ này.'}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </ImageBackground>
+
+      {/* Modal chọn Level */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isLevelModalVisible}
+        onRequestClose={() => {
+          setIsLevelModalVisible(!isLevelModalVisible);
+        }}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPressOut={() => setIsLevelModalVisible(false)} // Đóng modal khi chạm ra ngoài
+        >
+          <View
+            style={styles.modalContentView}
+            onStartShouldSetResponder={() => true}>
+            <Text style={styles.modalTitle}>Chọn Cấp Độ</Text>
+            {allLevels.length > 0 ? (
+              <FlatList
+                data={allLevels}
+                renderItem={renderLevelSelectItem}
+                keyExtractor={item => item.id.toString()}
+              />
+            ) : (
+              <Text style={styles.modalNoLevelsText}>
+                Không có cấp độ nào để chọn.
+              </Text>
+            )}
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setIsLevelModalVisible(false)}>
+              <Text style={styles.modalCloseButtonText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -203,7 +372,7 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: COLORS.primary, // Màu xanh lá
+    backgroundColor: COLORS.primary,
     paddingHorizontal: SIZES.padding * 1.5,
     paddingVertical: SIZES.padding * 0.5,
     borderRadius: SIZES.radius * 3,
@@ -211,7 +380,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.large, // Điều chỉnh kích thước cho phù hợp
+    fontSize: SIZES.large,
     fontWeight: 'bold',
     color: COLORS.white,
   },
@@ -219,11 +388,9 @@ const styles = StyleSheet.create({
     padding: SIZES.padding * 0.5,
   },
   scrollView: {
-    // Style này giờ áp dụng cho FlatList
     flex: 1,
   },
   scrollViewContent: {
-    // Style này cho contentContainer của FlatList
     paddingHorizontal: SIZES.padding * 1.5,
     paddingTop: SIZES.padding,
     paddingBottom: SIZES.padding * 2,
@@ -232,44 +399,99 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.nenItem,
-    padding: SIZES.padding * 0.4, // Điều chỉnh padding cho item
+    padding: SIZES.padding * 0.4,
     borderRadius: SIZES.radius * 1.5,
-
     borderBottomWidth: 2,
     borderBottomColor: COLORS.primary,
     marginBottom: SIZES.margin,
-
-    // Thêm shadow nếu muốn
-    // shadowColor: "#000",
-    // shadowOffset: { width: 0, height: 1 },
-    // shadowOpacity: 0.18,
-    // shadowRadius: 1.00,
-    // elevation: 1,
   },
-  // << THÊM MỚI: Style cho Image của mỗi item >>
   itemImage: {
-    width: 48, // Kích thước ảnh (điều chỉnh cho giống "manTheoDoi.png")
+    width: 48,
     height: 48,
-    borderRadius: 10, // Bo tròn nếu ảnh của bạn là vuông và muốn nó tròn
+    borderRadius: 10,
     marginRight: SIZES.padding * 1.5,
-    backgroundColor: COLORS.gray, // Màu nền tạm thời khi ảnh đang tải
+    backgroundColor: COLORS.gray,
   },
-  // itemIconText style cũ có thể không cần nữa nếu bạn luôn dùng ảnh
-  // itemIconText: {
-  //   fontSize: SIZES.h1,
-  //   marginRight: SIZES.padding * 1.5,
-  // },
   trackItemText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.medium * 1.15, // Tăng kích thước chữ một chút
+    fontSize: SIZES.medium * 1.15,
     color: COLORS.black,
-    flex: 1, // Cho phép text co giãn
+    flex: 1,
   },
-  // itemDetails: { // Nếu bạn muốn hiển thị thêm thông tin như level, số bài học
-  //   fontSize: SIZES.small,
-  //   color: COLORS.gray,
-  //   marginTop: 2,
-  // }
+  centeredMessageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.padding * 2,
+  },
+  loadingText: {
+    marginTop: SIZES.padding,
+    fontSize: SIZES.medium,
+    color: COLORS.text || '#000000', // Fallback color
+  },
+  errorText: {
+    fontSize: SIZES.medium,
+    color: COLORS.red || '#FF0000', // Fallback color
+    textAlign: 'center',
+  },
+  emptyDataText: {
+    fontSize: SIZES.medium,
+    color: COLORS.gray || '#808080', // Fallback color
+    textAlign: 'center',
+  },
+  // Styles cho Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContentView: {
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding * 2,
+    width: '80%',
+    maxHeight: '60%',
+  },
+  modalTitle: {
+    fontSize: SIZES.h3,
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontWeight: 'bold',
+    marginBottom: SIZES.padding * 1.5,
+    textAlign: 'center',
+    color: COLORS.text || '#000000',
+  },
+  modalLevelItem: {
+    paddingVertical: SIZES.padding,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray || '#DDDDDD', // Fallback color
+  },
+  modalLevelText: {
+    fontSize: SIZES.medium,
+    fontFamily: FONTS.regular?.fontFamily || 'System',
+    textAlign: 'center',
+    color: COLORS.text || '#000000',
+  },
+  modalNoLevelsText: {
+    fontSize: SIZES.medium,
+    fontFamily: FONTS.regular?.fontFamily || 'System',
+    textAlign: 'center',
+    color: COLORS.gray || '#808080',
+    paddingVertical: SIZES.padding,
+  },
+  modalCloseButton: {
+    marginTop: SIZES.padding * 2,
+    backgroundColor: COLORS.primary,
+    borderRadius: SIZES.radius,
+    paddingVertical: SIZES.padding,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: COLORS.white,
+    fontSize: SIZES.medium,
+    fontFamily: FONTS.semiBold?.fontFamily || 'System',
+    fontWeight: '600',
+  },
 });
 
 export default FollowScreen;
