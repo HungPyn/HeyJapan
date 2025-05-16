@@ -1,5 +1,6 @@
 // src/screens/theo_doi/FollowScreen.tsx
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
+
 import {
   View,
   Text,
@@ -11,13 +12,17 @@ import {
   StatusBar,
   FlatList,
   ActivityIndicator,
-  Modal, // Thêm Modal
+  Modal,
 } from 'react-native';
 import axios from 'axios';
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {RootStackParamList} from '../../navigation';
+import {showMessage} from 'react-native-flash-message'; // Import showMessage
 
-// Định nghĩa Type cho Course (giữ nguyên)
+// Interfaces (giữ nguyên như trước)
 interface Course {
   topic_code: string;
   title: string;
@@ -25,8 +30,6 @@ interface Course {
   levelCode: string;
   quantityLesson: number;
 }
-
-// Định nghĩa Type cho Topic từ API (giữ nguyên)
 interface ApiTopic {
   id: number;
   levelId: number;
@@ -34,131 +37,118 @@ interface ApiTopic {
   avatarUrl: string;
   dayCreation: string;
 }
-
-// Định nghĩa Type cho Response của API lấy topics theo level (giữ nguyên)
 interface TopicsApiResponse {
   id: number;
-  name: string; // Tên của level hiện tại
+  name: string;
   topics: ApiTopic[];
 }
-
-// Định nghĩa Type cho một Level trong danh sách chọn (mới)
 interface LevelInfo {
   id: number;
   name: string;
 }
-
-// Định nghĩa Type cho Response của API lấy tất cả levels (mới)
-// Giả sử API trả về một mảng các object, mỗi object có id, name và topics
-// nhưng chúng ta chỉ cần id và name cho việc chọn level.
 type AllLevelsApiResponse = Array<{
   id: number;
   name: string;
-  topics?: ApiTopic[]; // topics ở đây có thể không cần thiết cho việc chọn level
+  topics?: ApiTopic[];
 }>;
 
-// Component để hiển thị hình ảnh từ imageUrl (giữ nguyên)
+type FollowScreenRouteProp = RouteProp<RootStackParamList, 'CourseListScreen'>;
+type FollowScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'CourseListScreen'
+>;
+
 const CourseItemImage = ({imageUrl}: {imageUrl: string}) => (
   <Image source={{uri: imageUrl}} style={styles.itemImage} resizeMode="cover" />
 );
 
-const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
+const FollowScreen: React.FC = () => {
+  const navigation = useNavigation<FollowScreenNavigationProp>();
+  const route = useRoute<FollowScreenRouteProp>();
+
   const [coursesData, setCoursesData] = useState<Course[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingTopics, setIsLoadingTopics] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentLevelName, setCurrentLevelName] =
-    useState<string>('Đang tải...'); // Tên của level hiện tại đang hiển thị
-  const [currentLevelId, setCurrentLevelId] = useState<number>(1); // ID của level hiện tại, mặc định là 1
+    useState<string>('Đang tải...');
+  const [currentLevelId, setCurrentLevelId] = useState<number | null>(null);
 
-  const [allLevels, setAllLevels] = useState<LevelInfo[]>([]); // State cho danh sách tất cả levels
+  const [allLevels, setAllLevels] = useState<LevelInfo[]>([]);
   const [isLevelModalVisible, setIsLevelModalVisible] =
-    useState<boolean>(false); // State cho modal chọn level
+    useState<boolean>(false);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 
-  // Hàm gọi API lấy danh sách topics theo levelId
-  const fetchTopicsByLevel = async (levelId: number) => {
-    setIsLoading(true);
+  const fetchTopicsByLevel = useCallback(async (levelId: number) => {
+    if (isNaN(levelId)) {
+      console.warn('fetchTopicsByLevel: levelId không hợp lệ.');
+      setError('ID cấp độ không hợp lệ.');
+      setIsLoadingTopics(false);
+      return;
+    }
+    setIsLoadingTopics(true);
     setError(null);
-    setCoursesData([]); // Xóa dữ liệu cũ trước khi tải mới
+    setCoursesData([]);
     try {
       const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        throw new Error('Không tìm thấy token');
-      }
+      if (!token) throw new Error('Không tìm thấy token');
+
       const response = await axios.get<TopicsApiResponse>(
         `http://10.0.2.2:8080/api/user/topic/${levelId}/topics`,
-        {
-          headers: {Authorization: `Bearer ${token}`},
-        },
+        {headers: {Authorization: `Bearer ${token}`}},
       );
 
       if (response.data) {
-        setCurrentLevelName(response.data.name || `Level ${levelId}`);
+        setCurrentLevelName(response.data.name || `Cấp độ ${levelId}`);
         if (response.data.topics && response.data.topics.length > 0) {
           const mappedCourses: Course[] = response.data.topics.map(
             (topic: ApiTopic) => ({
               topic_code: topic.id.toString(),
               title: topic.name,
               imageUrl: topic.avatarUrl,
-              levelCode: response.data.name || `Level ${levelId}`,
+              levelCode: response.data.name || `Cấp độ ${levelId}`,
               quantityLesson: 0,
             }),
           );
           setCoursesData(mappedCourses);
         } else {
-          // Không có topics cho level này, nhưng level vẫn hợp lệ
-          setCoursesData([]); // Đảm bảo coursesData rỗng
+          setCoursesData([]);
         }
       } else {
-        setError(`Không tìm thấy dữ liệu cho Level ID: ${levelId}.`);
-        setCurrentLevelName(`Level ${levelId}`); // Cập nhật tên level dự phòng
+        setError(`Không tìm thấy dữ liệu cho Cấp độ ID: ${levelId}.`);
+        setCurrentLevelName(`Cấp độ ${levelId}`);
       }
     } catch (err: any) {
-      console.error(`Lỗi khi gọi API cho level ${levelId}:`, err);
-      let errorMessage = 'Đã xảy ra lỗi không xác định khi tải dữ liệu chủ đề.';
-      if (axios.isAxiosError(err)) {
-        if (err.response) {
-          errorMessage = `Lỗi từ server: ${err.response.status} - ${
-            err.response.data?.message || 'Không có thông báo lỗi cụ thể'
-          }`;
-        } else if (err.request) {
-          errorMessage =
-            'Không nhận được phản hồi từ server. Vui lòng kiểm tra kết nối mạng và địa chỉ API.';
-        } else {
-          errorMessage = `Lỗi khi thiết lập request: ${err.message}`;
-        }
-      } else if (err.message === 'Không tìm thấy token') {
-        errorMessage =
-          'Phiên đăng nhập hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.';
+      console.error(`Lỗi khi gọi API topics cho level ${levelId}:`, err);
+      let errorMessage = 'Lỗi tải danh sách chủ đề.';
+      if (axios.isAxiosError(err) && err.response) {
+        errorMessage = `Lỗi server (${err.response.status}): ${
+          err.response.data?.message || 'Không rõ lỗi'
+        }`;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       setError(errorMessage);
-      setCurrentLevelName(`Lỗi tải Level ${levelId}`);
+      setCurrentLevelName(`Lỗi tải Cấp độ ${levelId}`);
     } finally {
-      setIsLoading(false);
+      setIsLoadingTopics(false);
     }
-  };
+  }, []);
 
-  // Hàm gọi API lấy tất cả các levels
-  const fetchAllLevelsData = async () => {
-    // Không set isLoading ở đây để tránh xung đột với isLoading của fetchTopicsByLevel
-    // Hoặc bạn có thể dùng một state isLoading khác cho việc này nếu cần
+  const fetchAllLevelsData = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) {
-        // Không ném lỗi ở đây để màn hình vẫn có thể cố gắng tải topics với level mặc định
         console.warn('Không tìm thấy token khi tải danh sách levels.');
-        setAllLevels([]); // Không có level để chọn nếu không có token
+        setAllLevels([]);
         return;
       }
-      // THAY THẾ URL NÀY BẰNG API THỰC TẾ ĐỂ LẤY DANH SÁCH LEVELS
       const response = await axios.get<AllLevelsApiResponse>(
-        `http://10.0.2.2:8080/api/user/level`, // API Endpoint giả định
-        {
-          headers: {Authorization: `Bearer ${token}`},
-        },
+        `http://10.0.2.2:8080/api/user/level`,
+        {headers: {Authorization: `Bearer ${token}`}},
       );
       if (response.data && Array.isArray(response.data)) {
         const levels: LevelInfo[] = response.data.map(level => ({
-          id: level.id,
+          id: Number(level.id),
           name: level.name,
         }));
         setAllLevels(levels);
@@ -168,15 +158,47 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
       }
     } catch (err) {
       console.error('Lỗi khi gọi API lấy danh sách levels:', err);
-      setAllLevels([]); // Đặt lại danh sách levels nếu có lỗi
-      // Có thể hiển thị thông báo lỗi cho người dùng nếu cần
+      setAllLevels([]);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchAllLevelsData(); // Gọi API lấy tất cả levels khi component mount
-    fetchTopicsByLevel(currentLevelId); // Gọi API lấy topics cho level hiện tại (mặc định ban đầu)
-  }, [currentLevelId]); // Chạy lại khi currentLevelId thay đổi
+    const initializeScreen = async () => {
+      setIsInitialLoading(true);
+      let levelToLoad: number;
+      const levelIdFromParams = route.params?.levelId;
+
+      if (levelIdFromParams !== undefined && !isNaN(levelIdFromParams)) {
+        levelToLoad = levelIdFromParams;
+      } else {
+        const storedLevelString = await AsyncStorage.getItem('userLevel');
+        if (storedLevelString !== null) {
+          const storedLevelId = parseInt(storedLevelString, 10);
+          levelToLoad = !isNaN(storedLevelId) ? storedLevelId : 1;
+        } else {
+          levelToLoad = 1;
+        }
+      }
+
+      setCurrentLevelId(levelToLoad);
+      try {
+        await AsyncStorage.setItem('userLevel', String(levelToLoad));
+      } catch (e) {
+        console.error('FollowScreen: Lỗi khi lưu userLevel ban đầu:', e);
+      }
+
+      setIsInitialLoading(false);
+    };
+
+    initializeScreen();
+    fetchAllLevelsData();
+  }, [route.params?.levelId, fetchAllLevelsData]);
+
+  useEffect(() => {
+    if (currentLevelId !== null && !isInitialLoading) {
+      fetchTopicsByLevel(currentLevelId);
+    }
+  }, [currentLevelId, isInitialLoading, fetchTopicsByLevel]);
 
   const handleItemPress = (course: Course) => {
     navigation.navigate('CourseDetail', {
@@ -187,19 +209,86 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
 
   const handleMenuPress = () => {
     if (allLevels.length > 0) {
-      setIsLevelModalVisible(true); // Mở modal nếu có danh sách levels
+      setIsLevelModalVisible(true);
     } else {
-      // Có thể fetch lại allLevels ở đây hoặc thông báo không có level để chọn
-      console.log('Không có danh sách level để hiển thị hoặc đang tải.');
-      fetchAllLevelsData(); // Thử tải lại danh sách level
+      fetchAllLevelsData();
     }
   };
 
-  const handleSelectLevel = (level: LevelInfo) => {
-    setCurrentLevelId(level.id); // Cập nhật levelId hiện tại, useEffect sẽ tự động gọi fetchTopicsByLevel
-    // setCurrentLevelName(level.name); // Tên sẽ được cập nhật từ response của fetchTopicsByLevel
+  // <<<<< SỬA ĐỔI CHÍNH Ở ĐÂY >>>>>
+  const handleSelectLevel = async (level: LevelInfo) => {
     setIsLevelModalVisible(false);
+    if (currentLevelId !== level.id) {
+      const newLevelId = level.id;
+      const newLevelName = level.name; // Lấy tên level để hiển thị thông báo
+
+      // Cập nhật UI ngay để người dùng thấy thay đổi
+      setCurrentLevelId(newLevelId);
+      // Tên level (currentLevelName) sẽ được cập nhật sau khi fetchTopicsByLevel thành công
+
+      try {
+        const userId = await AsyncStorage.getItem('UserId');
+        const authToken = await AsyncStorage.getItem('token');
+
+        if (!userId || !authToken) {
+          showMessage({
+            message:
+              'Lỗi xác thực. Không thể đồng bộ lựa chọn level lên server.',
+            type: 'warning',
+            duration: 3000,
+          });
+          // Vẫn cho phép xem local, nhưng không lưu vào AsyncStorage nếu không xác thực được
+          // Hoặc có thể quyết định không cho setCurrentLevelId nếu không có auth. Tùy logic bạn muốn.
+          return;
+        }
+
+        const payload = {
+          id: userId, // idUser từ AsyncStorage
+          levelId: String(newLevelId), // idLevel mới được chọn (chuyển thành string nếu API yêu cầu)
+        };
+
+        console.log(
+          `FollowScreen: Đang cập nhật level lên server: ${JSON.stringify(
+            payload,
+          )}`,
+        );
+        // Gọi API để cập nhật level của user trên server
+        // Sử dụng POST như trong SelectionScreen (hoặc PUT nếu backend của bạn dùng PUT)
+        await axios.post('http://10.0.2.2:8080/api/user/level', payload, {
+          headers: {Authorization: `Bearer ${authToken}`},
+        });
+
+        // Nếu API thành công, LƯU level mới này vào AsyncStorage
+        await AsyncStorage.setItem('userLevel', String(newLevelId));
+        // Không cần showMessage ở đây nữa vì fetchTopicsByLevel sẽ cập nhật tên Level
+        // và người dùng sẽ thấy danh sách topics mới.
+        // showMessage({ message: `Đã chuyển sang xem ${newLevelName} và đồng bộ lựa chọn.`, type: 'success' });
+        console.log(
+          `FollowScreen: Đã cập nhật userLevel mới: ${newLevelId} lên server và AsyncStorage.`,
+        );
+      } catch (error: any) {
+        console.error(
+          `FollowScreen: Lỗi khi cập nhật level ${newLevelId} (${newLevelName}) lên server:`,
+          error,
+        );
+        let errorMessage = `Không thể đồng bộ lựa chọn "${newLevelName}" lên server. Bạn vẫn có thể xem nội dung của cấp độ này cho phiên hiện tại.`;
+        if (axios.isAxiosError(error) && error.response) {
+          errorMessage = `Lỗi server (${
+            error.response.status
+          }) khi đồng bộ "${newLevelName}": ${
+            error.response.data?.message || 'Không rõ lỗi'
+          }`;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        showMessage({message: errorMessage, type: 'danger', duration: 4000});
+        // Lưu ý: currentLevelId đã được set, người dùng vẫn xem được level mới localy.
+        // AsyncStorage không được cập nhật 'userLevel' với newLevelId nếu API lỗi,
+        // nên lần sau mở app sẽ là level cũ (đã được đồng bộ thành công trước đó).
+      }
+    }
   };
+  // <<<<< KẾT THÚC SỬA ĐỔI CHÍNH >>>>>
 
   const renderCourseItem = ({item}: {item: Course}) => (
     <TouchableOpacity
@@ -218,24 +307,14 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
     </TouchableOpacity>
   );
 
-  if (isLoading && coursesData.length === 0) {
-    // Chỉ hiển thị loading toàn màn hình khi chưa có dữ liệu nào
+  // Các phần return và styles giữ nguyên như trước
+  // ... (Phần return JSX và styles đầy đủ như bạn đã có) ...
+  if (isInitialLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centeredMessageContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Không hiển thị lỗi toàn màn hình nếu đang tải lại level khác, chỉ khi có lỗi thực sự và không có data
-  if (error && coursesData.length === 0) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.centeredMessageContainer}>
-          <Text style={styles.errorText}>Lỗi: {error}</Text>
+          <Text style={styles.loadingText}>Đang khởi tạo dữ liệu...</Text>
         </View>
       </SafeAreaView>
     );
@@ -260,7 +339,7 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
                 style={styles.headerTitle}
                 numberOfLines={1}
                 ellipsizeMode="tail">
-                {currentLevelName}
+                {isLoadingTopics ? 'Đang tải...' : currentLevelName}
               </Text>
             </View>
             <TouchableOpacity
@@ -280,7 +359,7 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
           </View>
 
           <Text style={{marginTop: 20}}></Text>
-          {isLoading && (
+          {isLoadingTopics && (
             <ActivityIndicator
               size="small"
               color={COLORS.primary}
@@ -288,40 +367,42 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
             />
           )}
 
-          {coursesData.length > 0 ? (
+          {!isLoadingTopics && error && coursesData.length === 0 && (
+            <View style={styles.centeredMessageContainer}>
+              <Text style={styles.errorText}>Lỗi: {error}</Text>
+            </View>
+          )}
+
+          {!isLoadingTopics && !error && coursesData.length === 0 && (
+            <View style={styles.centeredMessageContainer}>
+              <Text style={styles.emptyDataText}>
+                Không có chủ đề nào cho cấp độ này.
+              </Text>
+            </View>
+          )}
+
+          {coursesData.length > 0 && (
             <FlatList
               data={coursesData}
               renderItem={renderCourseItem}
-              keyExtractor={item => `${currentLevelId}-${item.topic_code}`} // Key nên unique hơn khi data thay đổi
+              keyExtractor={item => `${currentLevelId}-${item.topic_code}`}
               style={styles.scrollView}
               contentContainerStyle={styles.scrollViewContent}
               showsVerticalScrollIndicator={false}
             />
-          ) : !isLoading ? ( // Chỉ hiển thị "không có chủ đề" khi không loading và không có lỗi
-            <View style={styles.centeredMessageContainer}>
-              <Text style={styles.emptyDataText}>
-                {error
-                  ? `Lỗi: ${error}`
-                  : 'Không có chủ đề nào cho cấp độ này.'}
-              </Text>
-            </View>
-          ) : null}
+          )}
         </View>
       </ImageBackground>
 
-      {/* Modal chọn Level */}
       <Modal
         animationType="fade"
         transparent={true}
         visible={isLevelModalVisible}
-        onRequestClose={() => {
-          setIsLevelModalVisible(!isLevelModalVisible);
-        }}>
+        onRequestClose={() => setIsLevelModalVisible(false)}>
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPressOut={() => setIsLevelModalVisible(false)} // Đóng modal khi chạm ra ngoài
-        >
+          onPressOut={() => setIsLevelModalVisible(false)}>
           <View
             style={styles.modalContentView}
             onStartShouldSetResponder={() => true}>
@@ -334,7 +415,7 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
               />
             ) : (
               <Text style={styles.modalNoLevelsText}>
-                Không có cấp độ nào để chọn.
+                Không có cấp độ nào để chọn hoặc đang tải...
               </Text>
             )}
             <TouchableOpacity
@@ -427,19 +508,18 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: SIZES.padding,
     fontSize: SIZES.medium,
-    color: COLORS.text || '#000000', // Fallback color
+    color: COLORS.text || '#000000',
   },
   errorText: {
     fontSize: SIZES.medium,
-    color: COLORS.red || '#FF0000', // Fallback color
+    color: COLORS.red || '#FF0000',
     textAlign: 'center',
   },
   emptyDataText: {
     fontSize: SIZES.medium,
-    color: COLORS.gray || '#808080', // Fallback color
+    color: COLORS.gray || '#808080',
     textAlign: 'center',
   },
-  // Styles cho Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -464,7 +544,7 @@ const styles = StyleSheet.create({
   modalLevelItem: {
     paddingVertical: SIZES.padding,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray || '#DDDDDD', // Fallback color
+    borderBottomColor: COLORS.lightGray || '#DDDDDD',
   },
   modalLevelText: {
     fontSize: SIZES.medium,

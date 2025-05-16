@@ -164,31 +164,25 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
         decodedToken.authorities ||
         'ROLE_USER';
 
+      const idFromToken = decodedToken.sub;
+      const levelFromToken = decodedToken.level ?? null; // Nếu không có level thì sẽ là null
+
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('role', String(roleFromToken));
-      console.log('Decode', decodedToken);
+      await AsyncStorage.setItem('UserId', String(idFromToken));
+      await AsyncStorage.setItem(
+        'userLevel',
+        levelFromToken !== null ? String(levelFromToken) : 'null',
+      );
 
+      console.log('Decode', decodedToken);
       console.log('Đã lưu token:', token);
       console.log('Đã lưu role:', roleFromToken);
-
-      // setUserRole(String(roleFromToken)); // Nếu bạn muốn lưu role vào state
-
-      // Logic kiểm tra người dùng cũ/mới
-      // Cách 1: Nếu API login trả về thông tin isSetupComplete (ví dụ trong response.data.userInfo)
-      // if (response.data.userInfo && typeof response.data.userInfo.isSetupComplete === 'boolean') {
-      //   if (response.data.userInfo.isSetupComplete) {
-      //     setSelectionComplete(true);
-      //     await AsyncStorage.setItem('hasCompletedSelection', 'true');
-      //   } else {
-      //     setSelectionComplete(false);
-      //     await AsyncStorage.removeItem('hasCompletedSelection'); // Đảm bảo người mới phải chọn
-      //   }
-      // } else {
-      // Cách 2: Dựa vào AsyncStorage (mặc định cho người mới)
-      const storedSelectionFlag = await AsyncStorage.getItem(
-        'hasCompletedSelection',
-      );
-      if (storedSelectionFlag === 'true') {
+      console.log('Đã lưu UserId:', idFromToken);
+      console.log('Đã lưu userLevel:', levelFromToken);
+      // ---- BẮT ĐẦU PHẦN LOG ASYNCSTORAGE ----
+      const userLevel = await AsyncStorage.getItem('userLevel');
+      if (userLevel !== null && userLevel !== 'null') {
         setSelectionComplete(true);
       } else {
         setSelectionComplete(false); // Cần vào SelectionScreen
@@ -453,6 +447,8 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
     // setUserRole(null); // Nếu bạn có state cho role
     try {
       await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('userId');
+      await AsyncStorage.removeItem('userLevel');
       await AsyncStorage.removeItem('role');
       await AsyncStorage.removeItem('hasCompletedSelection');
     } catch (error) {

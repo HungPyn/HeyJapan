@@ -1,7 +1,6 @@
-// Đổi tên file này thành src/screens/courses/SelectionScreen.tsx (hoặc nơi bạn đã quyết định lưu)
-// Và cập nhật import trong navigation/index.tsx cho phù hợp.
+// src/screens/courses/SelectionScreen.tsx
 import axios from 'axios';
-import React, {useEffect, useState} from 'react'; // Thêm useState
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -10,54 +9,58 @@ import {
   Image,
   StatusBar,
   SafeAreaView,
+  ActivityIndicator, // Thêm để hiển thị loading cho nút Tiếp tục
 } from 'react-native';
-// Bỏ useNavigation và StackNavigationProp nếu màn hình này không tự điều hướng theo cách cũ
-// import {useNavigation} from '@react-navigation/native';
-// import {StackNavigationProp} from '@react-navigation/stack';
-// import {AuthStackParamList} from '../../navigation'; // Không cần thiết nữa cho màn hình này
+import {useNavigation} from '@react-navigation/native'; // Import useNavigation
+import {StackNavigationProp} from '@react-navigation/stack';
+import {RootStackParamList} from '../../navigation'; // Import RootStackParamList để định kiểu navigation
 
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import CustomButton from '../../components/common/CustomButton';
-import {useAuth} from '../auth/AuthContext'; // Import useAuth để gọi markSelectionComplete
+import {useAuth} from '../auth/AuthContext';
 import {showMessage} from 'react-native-flash-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Bỏ type WelcomeScreenNavigationProp vì chúng ta không dùng navigation kiểu cũ ở đây nữa
-// type WelcomeScreenNavigationProp = StackNavigationProp<
-//   AuthStackParamList,
-//   'Welcome'
-// >;
-
-// Định nghĩa các lựa chọn trình độ
-
 interface Level {
-  id: string;
+  id: string; // API của bạn cho get levels trả về id là string hay number? Hiện tại đang là string
   name: string;
-  // Thêm các thuộc tính khác nếu API trả về, ví dụ: description, code, ...
 }
+
+// Định kiểu cho navigation prop
+type SelectionScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'Selection' // Tên của route hiện tại trong RootStackParamList
+>;
+
 const SelectionScreen: React.FC = () => {
   const {markSelectionComplete} = useAuth();
+  const navigation = useNavigation<SelectionScreenNavigationProp>(); // Sử dụng hook navigation
 
-  const [levels, setLevels] = useState<Level[]>([]); // State cho danh sách levels
-  const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null); // Ban đầu chưa chọn level nào
-  const [isLoadingLevels, setIsLoadingLevels] = useState(true); // State cho trạng thái tải levels
+  const [levels, setLevels] = useState<Level[]>([]);
+  const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
+  const [isLoadingLevels, setIsLoadingLevels] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false); // State cho nút "Tiếp tục"
 
-  // useEffect để fetch levels khi component được mount
   useEffect(() => {
     const fetchLevels = async () => {
       setIsLoadingLevels(true);
-
       try {
         const authToken = await AsyncStorage.getItem('token');
+        if (!authToken) {
+          showMessage({
+            message: 'Lỗi xác thực. Vui lòng đăng nhập lại.',
+            type: 'danger',
+          });
+          setIsLoadingLevels(false);
+          return;
+        }
         const config = {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
+          headers: {Authorization: `Bearer ${authToken}`},
         };
-        // THAY THẾ URL NÀY bằng API endpoint đúng để lấy danh sách levels
+        // API lấy danh sách levels (GET)
         const response = await axios.get<Level[]>(
-          'http://10.0.2.2:8080/api/user/level', // Endpoint của bạn
-          config, // Truyền config vào đây
+          'http://10.0.2.2:8080/api/user/level', // Endpoint GET levels
+          config,
         );
 
         if (
@@ -66,11 +69,12 @@ const SelectionScreen: React.FC = () => {
           response.data.length > 0
         ) {
           setLevels(response.data);
-          // Tự động chọn level đầu tiên làm mặc định nếu muốn
-          // Hoặc để người dùng tự chọn hoàn toàn: setSelectedLevelId(null);
-          setSelectedLevelId(response.data[0].id);
+          // Tự động chọn level đầu tiên nếu danh sách không rỗng và chưa có level nào được chọn
+          if (!selectedLevelId && response.data[0]?.id) {
+            setSelectedLevelId(response.data[0].id);
+          }
         } else {
-          setLevels([]); // Không có level nào hoặc dữ liệu không đúng định dạng
+          setLevels([]);
           showMessage({
             message: 'Không tìm thấy danh sách trình độ.',
             type: 'warning',
@@ -82,24 +86,87 @@ const SelectionScreen: React.FC = () => {
           message: 'Lỗi tải danh sách trình độ. Vui lòng thử lại!',
           type: 'danger',
         });
-        setLevels([]); // Đặt về mảng rỗng khi có lỗi
+        setLevels([]);
       } finally {
         setIsLoadingLevels(false);
       }
     };
 
     fetchLevels();
-  }, []);
+  }, []); // Chỉ chạy một lần khi component mount
 
   const handleLevelSelect = (levelId: string) => {
     setSelectedLevelId(levelId);
   };
 
   const handleContinue = async () => {
-    
-    console.log('Trình độ đã được người dùng chọn:', selectedLevelId);
-    await markSelectionComplete();
+    if (!selectedLevelId) {
+      showMessage({message: 'Vui lòng chọn một trình độ.', type: 'warning'});
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const userId = await AsyncStorage.getItem('UserId');
+      const authToken = await AsyncStorage.getItem('token');
+
+      if (!userId || !authToken) {
+        showMessage({
+          message:
+            'Không tìm thấy thông tin người dùng hoặc token. Vui lòng đăng nhập lại.',
+          type: 'danger',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const payload = {
+        id: userId,
+        levelId: selectedLevelId,
+      };
+
+      // 1. Gọi API cập nhật level lên server
+      await axios.post('http://10.0.2.2:8080/api/user/level', payload, {
+        headers: {Authorization: `Bearer ${authToken}`},
+      });
+
+      // 2. LƯU selectedLevelId vào AsyncStorage với key 'userLevel'
+      //    Điều này QUAN TRỌNG để RootNavigator có thể đọc được khi nó re-render.
+      await AsyncStorage.setItem('userLevel', String(selectedLevelId));
+      console.log(
+        'SelectionScreen: Đã lưu userLevel vào AsyncStorage:',
+        selectedLevelId,
+      );
+
+      // 3. Đánh dấu đã hoàn thành lựa chọn -> sẽ trigger useEffect trong RootNavigator
+      await markSelectionComplete();
+
+      // 4. <<<< BỎ LỆNH navigation.replace(...) Ở ĐÂY >>>>
+      // RootNavigator sẽ tự động chuyển màn hình dựa trên thay đổi của selectionComplete và userLevel.
+    } catch (error: any) {
+      console.error('Lỗi khi xử lý chọn trình độ:', error);
+      let errorMessage = 'Không thể cập nhật trình độ. Vui lòng thử lại.';
+      if (axios.isAxiosError(error) && error.response) {
+        errorMessage = `Lỗi server: ${error.response.status} - ${
+          error.response.data?.message || 'Không rõ lỗi'
+        }`;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      showMessage({message: errorMessage, type: 'danger'});
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (isLoadingLevels) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Đang tải danh sách trình độ...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -108,16 +175,11 @@ const SelectionScreen: React.FC = () => {
         backgroundColor="transparent"
         barStyle="dark-content"
       />
-
-      <ImageBackground
-        // Bạn có thể thay đổi hoặc bỏ ImageBackground nếu muốn màn hình này có nền đơn giản hơn
-        source={{uri: 'https://example.com/background.jpg'}} // Giữ lại hoặc thay đổi
-        style={styles.backgroundImage}
-        resizeMode="cover">
+      <ImageBackground style={styles.backgroundImage} resizeMode="cover">
         <SafeAreaView style={styles.content}>
           <View style={styles.logoContainer}>
             <Image
-              source={require('../../assets/images/Logo.png')} // Giữ lại hoặc thay đổi
+              source={require('../../assets/images/Logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -127,30 +189,36 @@ const SelectionScreen: React.FC = () => {
           </View>
 
           <View style={styles.buttonContainer}>
-            {levels.map(level => (
-              <CustomButton
-                key={level.id}
-                title={level.name}
-                onPress={() => handleLevelSelect(level.id)}
-                // 'primary' là nền xanh, 'outline' là nền mặc định (ví dụ: trắng viền)
-                type={selectedLevelId === level.id ? 'primary' : 'outline'}
-                size="large"
-                style={styles.selectionButton} // Sử dụng style mới hoặc điều chỉnh style cũ
-                titleStyle={{
-                  // Chữ trắng khi nền primary (xanh), chữ đen khi nền outline
-                  color:
-                    selectedLevelId === level.id ? COLORS.white : COLORS.black,
-                }}
-              />
-            ))}
+            {levels.length > 0 ? (
+              levels.map(level => (
+                <CustomButton
+                  key={level.id}
+                  title={level.name}
+                  onPress={() => handleLevelSelect(level.id)}
+                  type={selectedLevelId === level.id ? 'primary' : 'outline'}
+                  size="large"
+                  style={styles.selectionButton}
+                  titleStyle={{
+                    color:
+                      selectedLevelId === level.id
+                        ? COLORS.white
+                        : COLORS.black,
+                  }}
+                />
+              ))
+            ) : (
+              <Text style={styles.noLevelsText}>
+                Không có trình độ nào để chọn.
+              </Text>
+            )}
 
             <CustomButton
               title="Tiếp tục"
               onPress={handleContinue}
-              type="primary" // Giả sử primary là nền xanh bạn muốn
+              type="primary"
               size="large"
-              style={styles.continueButton} // Sử dụng style mới hoặc điều chỉnh style cũ
-              // disabled={!selectedLevelId} // Bạn có thể vô hiệu hóa nút này nếu muốn người dùng phải chọn
+              style={styles.continueButton}
+              disabled={!selectedLevelId || isSubmitting} // Vô hiệu hóa khi đang submit hoặc chưa chọn
             />
           </View>
         </SafeAreaView>
@@ -168,52 +236,59 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Lớp phủ mờ cho background image
-    justifyContent: 'space-around', // Thay đổi justifyContent để phù hợp hơn
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'space-around',
     paddingTop: (StatusBar.currentHeight || 0) + SIZES.padding,
-    paddingHorizontal: SIZES.padding * 2, // Thêm padding ngang
-    paddingBottom: SIZES.padding * 2, // Thêm padding dưới
+    paddingHorizontal: SIZES.padding * 2,
+    paddingBottom: SIZES.padding * 2,
   },
   logoContainer: {
     alignItems: 'center',
-    // justifyContent: 'center', // Không cần thiết nếu content đã có justifyContent
-    // paddingTop: 60, // Điều chỉnh nếu cần
-    marginTop: SIZES.padding * 2, // Thêm khoảng cách trên
+    marginTop: SIZES.padding * 2,
   },
   logo: {
-    width: 120, // Có thể điều chỉnh kích thước logo
+    width: 120,
     height: 120,
     marginBottom: 20,
   },
   appSlogan: {
-    ...FONTS.bold, // Có thể dùng h2 hoặc h3 tùy theo kích thước mong muốn
-    // fontSize: SIZES.large, // Hoặc giữ nguyên
+    ...FONTS.bold,
     color: COLORS.black,
     fontSize: SIZES.xLarge,
     textAlign: 'center',
-    paddingHorizontal: SIZES.padding * 3, // Điều chỉnh padding
-
-    paddingTop: 50, // Bỏ nếu không cần thiết
-    marginBottom: SIZES.padding * 1, // Thêm khoảng cách dưới slogan
+    paddingHorizontal: SIZES.padding * 3,
+    marginBottom: SIZES.padding * 1,
   },
   buttonContainer: {
-    width: '100%', // Đảm bảo các nút chiếm toàn bộ chiều rộng nếu cần
-    // padding: SIZES.padding * 3, // Bỏ nếu đã có padding ở content
-    // marginBottom: 150, // Bỏ hoặc điều chỉnh vì content đã có justifyContent: 'space-around'
+    width: '100%',
   },
   selectionButton: {
-    // Style chung cho các nút lựa chọn trình độ
-    marginBottom: SIZES.margin, // Khoảng cách giữa các nút lựa chọn
-    borderRadius: SIZES.radius * 100, // Bo góc lớn hơn cho mềm mại
-    // Thêm các style khác nếu CustomButton của bạn không tự xử lý nền/viền cho type 'outline'
+    marginBottom: SIZES.margin,
+    borderRadius: SIZES.radius * 100,
   },
   continueButton: {
-    // Style cho nút Tiếp tục
-    marginTop: SIZES.padding * 2, // Khoảng cách với các nút lựa chọn ở trên
+    marginTop: SIZES.padding * 2,
     borderRadius: SIZES.radius * 100,
-    marginBottom: 150,
+    // marginBottom: 150, // Có thể không cần nếu dùng justifyContent: 'space-around' ở content
   },
-  // Bỏ các style không cần thiết như appName, termsText, termsLink nếu chúng không dùng ở màn này
+  loadingContainer: {
+    // Style cho màn hình loading ban đầu
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white, // Hoặc màu nền bạn muốn
+  },
+  loadingText: {
+    marginTop: SIZES.padding,
+    fontSize: SIZES.medium,
+    color: COLORS.gray,
+  },
+  noLevelsText: {
+    textAlign: 'center',
+    fontSize: SIZES.medium,
+    color: COLORS.gray,
+    marginBottom: SIZES.padding,
+  },
 });
 
-export default SelectionScreen; // Đổi tên export
+export default SelectionScreen;

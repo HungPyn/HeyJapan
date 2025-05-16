@@ -20,7 +20,7 @@ import {Image} from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Định nghĩa Type cho Lesson (sử dụng trong màn hình)
+// Interfaces (giữ nguyên)
 interface Lesson {
   lesson_code: number;
   lesson_name: string;
@@ -31,26 +31,21 @@ interface Lesson {
   day_creation: string;
   topic_code: number;
 }
-
-// --- Định nghĩa Types cho cấu trúc dữ liệu API mới ---
 interface ApiTheoryDTO {
   id: number;
   name: string;
-  isComplete?: boolean | null; // CẬP NHẬT: Thêm isComplete cho theoryDTO
+  isComplete?: boolean | null;
 }
-
 interface ApiLessonInList {
   id: number;
   name: string;
   isComplete: boolean | null;
 }
-
 interface ApiExamResponseDTO {
   id: number;
   name: string;
   isComplete: boolean | null;
 }
-
 interface ApiTopicViewResponse {
   id: number;
   name: string;
@@ -58,7 +53,6 @@ interface ApiTopicViewResponse {
   lessons: ApiLessonInList[];
   examResponseDTO: ApiExamResponseDTO | null;
 }
-// --- Kết thúc định nghĩa Types cho API ---
 
 type CourseDetailScreenRouteProp = RouteProp<
   CoursesStackParamList,
@@ -90,7 +84,23 @@ const CourseDetailScreen: React.FC = () => {
   const route = useRoute<CourseDetailScreenRouteProp>();
   const navigation = useNavigation<CourseDetailScreenNavigationProp>();
 
-  const {courseId, title: initialTopicTitle} = route.params;
+  // ***** BỎ ĐOẠN CODE BỊ LẶP LẠI Ở ĐÂY *****
+  // Chỉ giữ lại một lần lấy params và console.log
+  console.log('--------------------------------------------------');
+  console.log('CourseDetailScreen: MOUNTED / PARAMS CHANGED');
+  console.log(
+    'CourseDetailScreen: route.params nhận được:',
+    JSON.stringify(route.params, null, 2),
+  );
+
+  const {courseId, title: initialTopicTitle} = route.params || {};
+
+  console.log('CourseDetailScreen: courseId trích xuất:', courseId);
+  console.log(
+    'CourseDetailScreen: initialTopicTitle trích xuất:',
+    initialTopicTitle,
+  );
+  // ***** KẾT THÚC PHẦN BỎ LẶP LẠI *****
 
   const [allScreenItems, setAllScreenItems] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -100,11 +110,20 @@ const CourseDetailScreen: React.FC = () => {
     initialTopicTitle || 'Chi tiết chủ đề',
   );
 
-  const currentTopicIdAsNumber = useMemo(
-    () => parseInt(courseId, 10),
-    [courseId],
-  );
-  const defaultUserId = '0bffe213-0356-4385-8c9c-6801638c15ba';
+  const currentTopicIdAsNumber = useMemo(() => {
+    if (typeof courseId === 'string' && courseId.trim() !== '') {
+      const parsedId = parseInt(courseId, 10);
+      console.log(
+        `CourseDetailScreen: Đang parse courseId "${courseId}" thành số: ${parsedId}`,
+      );
+      return parsedId;
+    }
+    console.warn(
+      'CourseDetailScreen: courseId không phải là string hợp lệ hoặc không được cung cấp:',
+      courseId,
+    );
+    return NaN;
+  }, [courseId]);
 
   const fetchTopicDetails = useCallback(
     async (topicIdToFetch: number, userId: string) => {
@@ -114,6 +133,16 @@ const CourseDetailScreen: React.FC = () => {
         setAllScreenItems([]);
         return;
       }
+      if (!userId) {
+        setError('Không có thông tin người dùng để tải dữ liệu.');
+        setIsLoading(false);
+        setAllScreenItems([]);
+        return;
+      }
+
+      console.log(
+        `CourseDetailScreen: Gọi fetchTopicDetails với topicId: ${topicIdToFetch}, userId: ${userId}`,
+      );
       setIsLoading(true);
       setError(null);
       try {
@@ -124,11 +153,16 @@ const CourseDetailScreen: React.FC = () => {
 
         const response = await axios.get<ApiTopicViewResponse>(
           `http://10.0.2.2:8080/api/user/topic/view?topicId=${topicIdToFetch}&idUser=${userId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          {headers: {Authorization: `Bearer ${token}`}},
+        );
+
+        console.log(
+          'CourseDetailScreen: API Response Status:',
+          response.status,
+        );
+        console.log(
+          'CourseDetailScreen: API Response Data:',
+          JSON.stringify(response.data, null, 2),
         );
 
         if (response.data) {
@@ -136,26 +170,22 @@ const CourseDetailScreen: React.FC = () => {
           setDisplayTitle(
             topicData.name || initialTopicTitle || 'Chi tiết chủ đề',
           );
-
           const combinedItems: Lesson[] = [];
-
           if (topicData.theoryDTO) {
             combinedItems.push({
               lesson_code: topicData.theoryDTO.id,
               lesson_name: topicData.theoryDTO.name,
-              // CẬP NHẬT: Map status từ isComplete của theoryDTO
               status:
                 topicData.theoryDTO.isComplete === true
                   ? 'completed'
                   : 'pending',
-              lesson_type: 'common', // Hoặc 'theory' nếu bạn muốn phân biệt và xử lý filter riêng
+              lesson_type: 'common',
               lesson_description: '',
               quantity_content: 0,
               day_creation: '',
               topic_code: topicIdToFetch,
             });
           }
-
           if (topicData.lessons && topicData.lessons.length > 0) {
             topicData.lessons.forEach(apiLesson => {
               combinedItems.push({
@@ -170,7 +200,6 @@ const CourseDetailScreen: React.FC = () => {
               });
             });
           }
-
           if (topicData.examResponseDTO) {
             combinedItems.push({
               lesson_code: topicData.examResponseDTO.id,
@@ -179,30 +208,45 @@ const CourseDetailScreen: React.FC = () => {
                 topicData.examResponseDTO.isComplete === true
                   ? 'completed'
                   : 'pending',
-              lesson_type: 'common', // Hoặc 'exam' nếu bạn muốn phân biệt
+              lesson_type: 'common',
               lesson_description: '',
               quantity_content: 0,
               day_creation: '',
               topic_code: topicIdToFetch,
             });
           }
+          console.log(
+            'CourseDetailScreen: Dữ liệu đã map (combinedItems):',
+            JSON.stringify(combinedItems, null, 2),
+          );
           setAllScreenItems(combinedItems);
         } else {
           setAllScreenItems([]);
-          setError('Không nhận được dữ liệu từ API.');
+          setError('Không nhận được cấu trúc dữ liệu mong đợi từ API.');
+          console.log(
+            'CourseDetailScreen: response.data là null hoặc undefined.',
+          );
         }
       } catch (err: any) {
-        console.error(`Lỗi khi tải chi tiết chủ đề ${topicIdToFetch}:`, err);
+        console.error(
+          `CourseDetailScreen: Lỗi nghiêm trọng khi tải chi tiết chủ đề ${topicIdToFetch}:`,
+          err.isAxiosError ? err.toJSON() : err,
+        );
         let errorMessage = 'Đã xảy ra lỗi khi tải dữ liệu.';
         if (axios.isAxiosError(err)) {
           if (err.response) {
-            errorMessage = `Lỗi từ server: ${err.response.status} - ${
-              err.response.data?.message || 'Không có thông báo lỗi cụ thể'
-            }`;
+            errorMessage = `Lỗi từ server: ${
+              err.response.status
+            } - ${JSON.stringify(
+              err.response.data?.message ||
+                err.response.data ||
+                'Không có thông báo lỗi cụ thể',
+            )}`;
           } else if (err.request) {
-            errorMessage = 'Không nhận được phản hồi từ server.';
+            errorMessage =
+              'Không nhận được phản hồi từ server. Kiểm tra kết nối mạng và địa chỉ API.';
           } else {
-            errorMessage = `Lỗi request: ${err.message}`;
+            errorMessage = `Lỗi khi thiết lập request: ${err.message}`;
           }
         } else {
           errorMessage = err.message || errorMessage;
@@ -211,19 +255,59 @@ const CourseDetailScreen: React.FC = () => {
         setAllScreenItems([]);
       } finally {
         setIsLoading(false);
+        console.log('CourseDetailScreen: fetchTopicDetails hoàn thành.');
       }
     },
     [initialTopicTitle],
   );
 
   useEffect(() => {
-    if (currentTopicIdAsNumber) {
-      fetchTopicDetails(currentTopicIdAsNumber, defaultUserId);
-    } else {
-      setError('Không thể tải dữ liệu: ID chủ đề không hợp lệ.');
-      setIsLoading(false);
-      setAllScreenItems([]);
-    }
+    const getUserIdAndFetch = async () => {
+      console.log(
+        'CourseDetailScreen: useEffect [currentTopicIdAsNumber, fetchTopicDetails] triggered. currentTopicIdAsNumber:',
+        currentTopicIdAsNumber,
+      );
+      if (!isNaN(currentTopicIdAsNumber)) {
+        try {
+          const storedUserId = await AsyncStorage.getItem('UserId');
+          console.log(
+            'CourseDetailScreen: UserId lấy từ AsyncStorage:',
+            storedUserId,
+          );
+          if (storedUserId) {
+            fetchTopicDetails(currentTopicIdAsNumber, storedUserId);
+          } else {
+            setError(
+              'Không tìm thấy UserId trong Storage. Không thể tải dữ liệu.',
+            );
+            setIsLoading(false);
+            setAllScreenItems([]);
+            console.error(
+              'CourseDetailScreen: UserId không tìm thấy trong AsyncStorage.',
+            );
+          }
+        } catch (e) {
+          setError('Lỗi khi đọc UserId từ Storage.');
+          setIsLoading(false);
+          setAllScreenItems([]);
+          console.error(
+            'CourseDetailScreen: Lỗi khi đọc UserId từ AsyncStorage:',
+            e,
+          );
+        }
+      } else {
+        setError(
+          'Không thể tải dữ liệu: ID chủ đề không hợp lệ hoặc không được cung cấp.',
+        );
+        setIsLoading(false);
+        setAllScreenItems([]);
+        console.log(
+          'CourseDetailScreen: ID chủ đề không hợp lệ, không fetch details.',
+        );
+      }
+    };
+
+    getUserIdAndFetch();
   }, [currentTopicIdAsNumber, fetchTopicDetails]);
 
   const itemsForDisplay = useMemo(() => {
@@ -242,7 +326,7 @@ const CourseDetailScreen: React.FC = () => {
     return filteredItems;
   }, [allScreenItems, activeSegment, displayTitle]);
 
-  if (!courseId || !initialTopicTitle) {
+  if (!courseId && !initialTopicTitle) {
     return (
       <SafeAreaView style={styles.errorContainer}>
         <Text style={styles.errorText}>
@@ -290,44 +374,6 @@ const CourseDetailScreen: React.FC = () => {
     }
   };
 
-  const renderScreenItem = ({item, index}: {item: Lesson; index: number}) => (
-    <TouchableOpacity
-      style={styles.lessonItemContainer}
-      onPress={() => handleLessonPress(item)}>
-      <Text style={styles.lessonNumberText}>
-        {item.lesson_name.toLowerCase().includes('lý thuyết')
-          ? 'LT'
-          : item.lesson_name.toLowerCase().includes('kiểm tra')
-          ? 'KT'
-          : `Bài ${
-              index +
-              1 -
-              (allScreenItems.find(i =>
-                i.lesson_name.toLowerCase().includes('lý thuyết'),
-              )
-                ? 1
-                : 0)
-            }`}
-      </Text>
-      <View style={styles.lessonInfoContainer}>
-        <Text style={styles.lessonNameText} numberOfLines={1}>
-          {item.lesson_name}
-        </Text>
-      </View>
-      <LessonStatusIcon status={item.status} />
-    </TouchableOpacity>
-  );
-
-  // Điều chỉnh hiển thị số thứ tự trong renderScreenItem
-  // Để tính toán index chính xác hơn cho "Bài x", ta cần biết có theoryDTO hay không
-  const hasTheory = useMemo(
-    () =>
-      allScreenItems.some(item =>
-        item.lesson_name.toLowerCase().includes('lý thuyết'),
-      ),
-    [allScreenItems],
-  );
-
   const renderScreenItemWithCorrectIndex = ({
     item,
     index,
@@ -336,17 +382,17 @@ const CourseDetailScreen: React.FC = () => {
     index: number;
   }) => {
     let displayIndex = '';
-    if (item.lesson_name.toLowerCase().includes('lý thuyết')) {
+    const itemNameLower = item.lesson_name.toLowerCase();
+
+    if (itemNameLower.includes('lý thuyết')) {
       displayIndex = 'Lý thuyết';
-    } else if (item.lesson_name.toLowerCase().includes('kiểm tra')) {
+    } else if (itemNameLower.includes('kiểm tra')) {
       displayIndex = 'Kiểm tra';
     } else {
-      // Tính index cho các bài học thường, bỏ qua lý thuyết nếu có
-      // Cách này sẽ đếm lại index cho các bài học thường
       let lessonCounter = 0;
-      for (let i = 0; i < allScreenItems.length; i++) {
-        if (allScreenItems[i].lesson_code === item.lesson_code) break;
+      for (let i = 0; i < index; i++) {
         if (
+          allScreenItems[i] && // Thêm kiểm tra để đảm bảo allScreenItems[i] tồn tại
           !allScreenItems[i].lesson_name.toLowerCase().includes('lý thuyết') &&
           !allScreenItems[i].lesson_name.toLowerCase().includes('kiểm tra')
         ) {
@@ -373,11 +419,41 @@ const CourseDetailScreen: React.FC = () => {
 
   const showSegmentControl = displayTitle.toLowerCase() === 'bảng chữ cái';
 
-  const handleRetryFetch = () => {
-    if (currentTopicIdAsNumber) {
-      fetchTopicDetails(currentTopicIdAsNumber, defaultUserId);
+  const handleRetryFetch = async () => {
+    console.log('CourseDetailScreen: Người dùng nhấn Thử lại.');
+    if (!isNaN(currentTopicIdAsNumber)) {
+      try {
+        const storedUserId = await AsyncStorage.getItem('UserId');
+        if (storedUserId) {
+          fetchTopicDetails(currentTopicIdAsNumber, storedUserId);
+        } else {
+          setError('Không tìm thấy UserId. Không thể thử lại.');
+          console.error(
+            'CourseDetailScreen: Thử lại thất bại - UserId không tìm thấy trong AsyncStorage.',
+          );
+        }
+      } catch (e) {
+        setError('Lỗi đọc UserId khi thử lại.');
+        console.error(
+          'CourseDetailScreen: Thử lại thất bại - Lỗi đọc UserId từ AsyncStorage:',
+          e,
+        );
+      }
+    } else {
+      console.warn(
+        'CourseDetailScreen: Thử lại thất bại - ID chủ đề không hợp lệ.',
+      );
     }
   };
+
+  console.log(
+    'CourseDetailScreen: Chuẩn bị render. isLoading:',
+    isLoading,
+    'error:',
+    error,
+    'itemsForDisplay length:',
+    itemsForDisplay.length,
+  );
 
   if (isLoading) {
     return (
@@ -516,7 +592,6 @@ const CourseDetailScreen: React.FC = () => {
           {itemsForDisplay.length > 0 ? (
             <FlatList
               data={itemsForDisplay}
-              // CẬP NHẬT: Sử dụng hàm render mới với logic index
               renderItem={renderScreenItemWithCorrectIndex}
               keyExtractor={(item, index) => `${item.lesson_code}-${index}`}
               style={styles.lessonsList}
@@ -536,7 +611,7 @@ const CourseDetailScreen: React.FC = () => {
   );
 };
 
-// Styles giữ nguyên
+// Styles (giữ nguyên)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

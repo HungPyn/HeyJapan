@@ -3,13 +3,14 @@ import React from 'react';
 import {
   getFocusedRouteNameFromRoute,
   NavigationContainer,
+  NavigatorScreenParams,
 } from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {Text, View} from 'react-native'; // Giữ lại Text, View nếu bạn có dùng ở đâu đó khác mà tôi không thấy
+import {Text, View} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Import screens (Giữ nguyên)
+// Import screens
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
@@ -31,20 +32,21 @@ import LessonAdminScreen from '../screens/admin/LessonAdminScreen';
 import ContentAdminScreen from '../screens/admin/ContensAdminScreen';
 import TienDoDetailScreen from '../screens/admin/TienDoDetailScreen';
 
-// Định nghĩa các type cho navigation (Giữ nguyên)
+// Định nghĩa các type cho navigation
 export type RootStackParamList = {
   Auth: undefined;
-  Main: undefined;
+  Main: NavigatorScreenParams<MainTabParamList>; // Đã đúng cho điều hướng lồng nhau
   Selection: undefined;
   Loading: undefined;
-  CourseDetail: {courseId: string};
+  CourseDetail: {courseId: string; title?: string}; // Thêm title là optional
   Lesson: {lessonId: string; courseId: string};
   DictionaryScreen: undefined;
-  TienDoScreen: {topic_code: string; title: string}; // Type này có vẻ đang được định nghĩa cho User TienDoScreen
+  TienDoScreen: {topic_code: string; title: string};
   HomeAdmin: undefined;
-  LessonAdmin: {topic_code: string; title: string}; //
-  ContentAdmin: {lesson_code: number; lesson_name: string}; // Dòng này quan trọng
+  LessonAdmin: {topic_code: string; title: string};
+  ContentAdmin: {lesson_code: number; lesson_name: string};
   TienDoDetail: {userId: string; username: string};
+  CourseListScreen: {levelId: number}; // Type này vẫn có thể dùng nếu có lúc bạn nav trực tiếp
 };
 
 export type AuthStackParamList = {
@@ -55,27 +57,27 @@ export type AuthStackParamList = {
 };
 
 export type MainTabParamList = {
-  Courses: undefined;
+  Courses: NavigatorScreenParams<CoursesStackParamList>; // Đã đúng
   Dictionary: undefined;
-  Flashcards: undefined; // Giữ lại type dù không thấy dùng trong MainNavigator
+  Flashcards: undefined;
   Profile: undefined;
 };
 
 export type CoursesStackParamList = {
-  CourseList: undefined;
-  CourseDetail: {courseId: string; title: string};
+  CourseList: {levelId: number}; // Đã đúng
+  CourseDetail: {courseId: string; title: string}; // << Mong đợi cả title
   Lesson: {lessonId: string; courseId: string};
   ContentsLyThuyetScreen: {lessonCode: string; lessonName?: string};
   ContentsScreen: {lessonCode: string; lessonName?: string};
 };
 
-// Tạo các navigator (Giữ nguyên)
+// Tạo các navigator
 const RootStack = createStackNavigator<RootStackParamList>();
 const AuthStack = createStackNavigator<AuthStackParamList>();
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const CoursesStack = createStackNavigator<CoursesStackParamList>();
 
-// Auth Navigator (Giữ nguyên)
+// Auth Navigator
 const AuthNavigator = () => (
   <AuthStack.Navigator
     screenOptions={{
@@ -89,7 +91,7 @@ const AuthNavigator = () => (
   </AuthStack.Navigator>
 );
 
-// Courses Stack Navigator (Giữ nguyên)
+// Courses Stack Navigator
 const CoursesNavigator = () => (
   <CoursesStack.Navigator
     screenOptions={{
@@ -107,7 +109,7 @@ const CoursesNavigator = () => (
   </CoursesStack.Navigator>
 );
 
-// getTabBarVisibility (Giữ nguyên)
+// getTabBarVisibility
 const getTabBarVisibility = (route: any) => {
   const routeName = getFocusedRouteNameFromRoute(route);
   const hiddenScreens = [
@@ -118,7 +120,7 @@ const getTabBarVisibility = (route: any) => {
   return routeName ? !hiddenScreens.includes(routeName) : true;
 };
 
-// Main Tab Navigator (Giữ nguyên)
+// Main Tab Navigator
 const MainNavigator = () => (
   <MainTab.Navigator
     screenOptions={({route}) => {
@@ -156,7 +158,6 @@ const MainNavigator = () => (
       component={DictionaryScreen}
       options={{tabBarLabel: 'Theo dõi', tabBarIcon: () => null}}
     />
-    {/* Flashcards không được thêm vào đây, nếu cần bạn phải thêm một MainTab.Screen */}
     <MainTab.Screen
       name="Profile"
       component={ProfileScreen}
@@ -165,7 +166,7 @@ const MainNavigator = () => (
   </MainTab.Navigator>
 );
 
-// Component màn hình chờ đơn giản (Giữ nguyên)
+// Component màn hình chờ
 const LoadingScreenComponent = () => (
   <View
     style={{
@@ -178,53 +179,58 @@ const LoadingScreenComponent = () => (
   </View>
 );
 
-// --- BEGIN: SỬA ĐỔI RootNavigator ---
-// Đièu hướng sau khi đăng nhập
+// RootNavigator
 const RootNavigator = () => {
   const {isAuthenticated, selectionComplete, isLoadingAuthState} = useAuth();
   const [role, setRole] = React.useState<string | null>(null);
   const [level, setLevel] = React.useState<string | null>(null);
-  // isCheckingRole sẽ được quản lý bên trong useEffect dựa trên isAuthenticated
-  const [isCheckingRole, setIsCheckingRole] = React.useState(true);
+  const [isCheckingData, setIsCheckingData] = React.useState(true); // Đổi tên từ isCheckingRole
 
-  // --- SỬA useEffect NÀY ---
   React.useEffect(() => {
-    const fetchRole = async () => {
-      // Chỉ thực hiện đọc role nếu đã đăng nhập
+    const fetchUserData = async () => {
+      // Đổi tên hàm từ fetchRole
+      console.log('(RootNavigator) useEffect triggered. Deps: ', {
+        isAuthenticated,
+        selectionComplete,
+      });
       if (isAuthenticated) {
+        setIsCheckingData(true);
         try {
-          // Bắt đầu kiểm tra role cho trạng thái đã đăng nhập
-          setIsCheckingRole(true);
           const storedRole = await AsyncStorage.getItem('role');
-          const storedLevel = await AsyncStorage.getItem('level');
+          const storedLevel = await AsyncStorage.getItem('userLevel');
+
           console.log(
-            '(Index) DEBUG: Role lấy từ AsyncStorage (khi authenticated):',
+            '(RootNavigator) Fetched Role:',
             storedRole,
-          ); // Giữ log debug
-          setLevel(storedLevel);
-          console.log('LevelIndex', level);
+            '| Fetched Level (userLevel):',
+            storedLevel,
+            '| selectionComplete from context:',
+            selectionComplete,
+          );
 
           setRole(storedRole);
+          setLevel(storedLevel);
         } catch (error) {
-          console.error('(Index) Lỗi khi lấy role từ AsyncStorage:', error);
-          setRole(null); // Đặt về null nếu có lỗi
+          console.error(
+            '(RootNavigator) Lỗi khi lấy dữ liệu từ AsyncStorage:',
+            error,
+          );
+          setRole(null);
+          setLevel(null);
         } finally {
-          setIsCheckingRole(false); // Kết thúc kiểm tra cho trạng thái này
+          setIsCheckingData(false);
         }
       } else {
-        // Nếu không đăng nhập, xóa role state và kết thúc kiểm tra
         setRole(null);
-        setIsCheckingRole(false);
+        setLevel(null);
+        setIsCheckingData(false);
       }
     };
 
-    fetchRole();
-    // }, []); // Bỏ dependency rỗng
-  }, [isAuthenticated]); // <-- THAY ĐỔI Dependency Array
-  // --- KẾT THÚC SỬA useEffect ---
+    fetchUserData();
+  }, [isAuthenticated, selectionComplete]); // <<<<< ĐÃ THÊM selectionComplete VÀO ĐÂY!
 
-  // Xử lý trạng thái đang tải (Kiểm tra cả isLoadingAuthState VÀ isCheckingRole)
-  if (isLoadingAuthState || isCheckingRole) {
+  if (isLoadingAuthState || isCheckingData) {
     return (
       <RootStack.Navigator
         screenOptions={{
@@ -235,6 +241,17 @@ const RootNavigator = () => {
       </RootStack.Navigator>
     );
   }
+
+  console.log(
+    '(RootNavigator) Rendering with state - isAuthenticated:',
+    isAuthenticated,
+    'role:',
+    role,
+    'level:',
+    level,
+    'selectionComplete:',
+    selectionComplete,
+  );
 
   return (
     <RootStack.Navigator
@@ -249,7 +266,6 @@ const RootNavigator = () => {
           <RootStack.Screen name="HomeAdmin" component={HomeAdminScreen} />
           <RootStack.Screen name="LessonAdmin" component={LessonAdminScreen} />
           <RootStack.Screen name="TienDoScreen" component={TienDoScreen} />
-
           <RootStack.Screen
             name="TienDoDetail"
             component={TienDoDetailScreen}
@@ -258,21 +274,57 @@ const RootNavigator = () => {
             name="ContentAdmin"
             component={ContentAdminScreen}
           />
+          {/* Các màn hình khác mà Admin có thể truy cập trực tiếp từ RootStack */}
+          <RootStack.Screen
+            name="CourseDetail"
+            component={CourseDetailScreen}
+          />
+          <RootStack.Screen name="Lesson" component={LessonScreen} />
         </>
-      ) : level !== null ? (
+      ) : !selectionComplete || level === null || level === 'null' ? (
+        // Nếu chưa hoàn thành lựa chọn (selectionComplete là false)
+        // HOẶC nếu level từ AsyncStorage chưa được load/set (level là null)
+        // thì hiển thị SelectionScreen.
+        // Khi SelectionScreen gọi markSelectionComplete() -> selectionComplete sẽ true.
+        // useEffect trên sẽ chạy lại, fetch lại level (mà CourseListScreen đã lưu).
+        // RootNavigator sẽ re-render. Nếu level mới khác null, sẽ vào nhánh else dưới.
         <RootStack.Screen name="Selection" component={SelectionScreen} />
       ) : (
+        // Đã đăng nhập, không phải admin, VÀ (selectionComplete = true VÀ level đã có giá trị)
         <>
           <RootStack.Screen name="Main" component={MainNavigator} />
+          {/* Các màn hình CourseDetail, Lesson, TienDoScreen cũng được khai báo ở RootStack.
+            Điều này cho phép điều hướng tới chúng từ bất kỳ đâu trong RootStack, 
+            ví dụ từ các màn hình bên trong MainNavigator (nếu bạn dùng navigation.navigate('CourseDetail', ...))
+            mà không cần phải dùng '../TênStackCha/CourseDetail'.
+            LƯU Ý: Đảm bảo rằng bạn không có xung đột tên nếu các màn hình này cũng được khai báo
+            bên trong một Stack con nào đó với cùng tên mà bạn không muốn ghi đè.
+            Trong trường hợp này, CourseDetail và Lesson cũng có trong CoursesStack.
+            Khi điều hướng từ bên trong CoursesStack (ví dụ từ CourseList sang CourseDetail), 
+            nó sẽ ưu tiên màn hình trong CoursesStack.
+            Khi điều hướng từ RootStack (ví dụ từ một màn hình không thuộc MainNavigator), 
+            nó sẽ dùng các khai báo ở đây.
+          */}
+          <RootStack.Screen
+            name="CourseDetail"
+            component={CourseDetailScreen}
+          />
+          <RootStack.Screen name="Lesson" component={LessonScreen} />
           <RootStack.Screen name="TienDoScreen" component={TienDoScreen} />
+
+          {/* Dòng CourseListScreen ở đây không cần thiết nếu bạn đang điều hướng lồng vào
+              Main -> Courses -> CourseList. Lệnh navigation.replace('Main', ...) sẽ lo việc đó.
+              Việc khai báo CourseListScreen trong RootStackParamList vẫn hữu ích cho type checking 
+              khi bạn định nghĩa params cho nó.
+          */}
+          {/* <RootStack.Screen name="CourseListScreen" component={CourseListScreen} /> */}
         </>
       )}
     </RootStack.Navigator>
   );
 };
-// --- KẾT THÚC SỬA ĐỔI RootNavigator ---
 
-// Bọc NavigationContainer với AuthProvider (Giữ nguyên)
+// AppNavigator
 const AppNavigator = () => {
   return (
     <AuthProvider>
@@ -283,4 +335,4 @@ const AppNavigator = () => {
   );
 };
 
-export default AppNavigator; // Giữ nguyên export
+export default AppNavigator;
