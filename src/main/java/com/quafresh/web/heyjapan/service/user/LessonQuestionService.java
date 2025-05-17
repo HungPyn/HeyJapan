@@ -6,4 +6,10 @@ import java.util.List;
 
 public interface LessonQuestionService {
      List<ResponseLessonQuesDTO> getQuestionsAndChoicesForLesson(Integer lessonId);
+
+     //admin
+     void create(ResponseLessonQuesDTO responseLessonQuesDTO);
+     void update(ResponseLessonQuesDTO responseLessonQuesDTO);
+     void getById(Integer id);
+     void deleteById(Integer id);
 }

@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface LessonResultService {
     String create(RequestLessonResultDTO requestLessonResultDTO);
+    List<ResponseLessonResultDTO> getLessonResultByTopic(String userId, Integer topicId);
 
     //admin
     List<ResponseLessonResultDTO> getAllLessonResultByuserId(String userId);

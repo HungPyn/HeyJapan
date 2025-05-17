@@ -31,4 +31,5 @@ public interface LessonRepository extends JpaRepository<Lesson, Integer> {
     @Query("select l from Lesson l where l.topic.id = :topicId order by l.dayCreation DESC ")
     List<Lesson> getAllLessonsByTopicId(@Param("topicId") Integer topicId);
 
+    List<Lesson> findByTopicId(Integer topicId);
 }
