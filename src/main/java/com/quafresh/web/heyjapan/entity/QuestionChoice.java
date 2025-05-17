@@ -49,4 +49,6 @@ public class QuestionChoice {
     @Column(name = "is_correct", nullable = false)
     private Boolean isCorrect = false;
 
+    @Column(name = "text_block",nullable = false,columnDefinition = "json")
+    private String textBlock;
 }

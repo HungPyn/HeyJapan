@@ -34,10 +34,10 @@ public class Lesson {
     @JoinColumn(name = "topic_id")
     private com.quafresh.web.heyjapan.entity.Topic topic;
 
-    @OneToMany(mappedBy = "lesson")
+    @OneToMany(mappedBy = "lesson",cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<LessonQuestion> lessonQuestions = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "lesson")
+    @OneToMany(mappedBy = "lesson",cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<LessonResult> lessonResults = new LinkedHashSet<>();
 
 }
