@@ -37,7 +37,8 @@ public class TopicAdminController {
         return ResponseEntity.ok(topicService.getById(id));
     }
     @DeleteMapping("/delete")
-    public void deleteById(@RequestParam("id") Integer id) {
+    public ResponseEntity<?> deleteById(@RequestParam("id") Integer id) {
         topicService.delete(id);
+        return ResponseEntity.ok("Xóa chủ đề than công");
     }
 }

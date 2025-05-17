@@ -16,6 +16,7 @@ import com.quafresh.web.heyjapan.service.user.TopicService;
 import com.quafresh.web.heyjapan.util.ErrorMessages;
 import com.quafresh.web.heyjapan.util.UserMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TopicServiceImpl implements TopicService {
@@ -160,16 +161,20 @@ public class TopicServiceImpl implements TopicService {
     public String delete(Integer topicID) {
         Topic topic = topicRepository.findById(topicID)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));
+
         String oldAvatarUrl = topic.getAvatarUrl();
-        if (oldAvatarUrl != null) {
-            String oldObjectName = topic.getAvatarUrl().substring(topic.getAvatarUrl().lastIndexOf("/") + 1);
+        if (oldAvatarUrl != null && !oldAvatarUrl.isBlank()) {
+            String oldObjectName = oldAvatarUrl.substring(oldAvatarUrl.lastIndexOf("/") + 1);
             try {
                 gcsStorageService.deleteFile(oldObjectName);
             } catch (Exception e) {
-                throw new RuntimeException("Xóa ảnh cũ thất bại", e);
+               log.error("Không thể xóa ảnh cũ trên GCS: {}", oldObjectName, e);
+                // Có thể bỏ qua hoặc throw nếu muốn rollback toàn bộ
             }
         }
+
         topicRepository.delete(topic);
         return "Xóa topic thành công";
     }
+
 }
