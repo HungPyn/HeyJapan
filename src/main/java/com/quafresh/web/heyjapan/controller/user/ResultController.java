@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.controller.user;
 
+import com.quafresh.web.heyjapan.dto.user.question.ResponseLessonQuesDTO;
 import com.quafresh.web.heyjapan.dto.user.result.RequestExamResultDTO;
 import com.quafresh.web.heyjapan.dto.user.result.RequestLessonResultDTO;
 import com.quafresh.web.heyjapan.service.user.ExamResultService;
@@ -8,10 +9,9 @@ import com.quafresh.web.heyjapan.service.user.TopicService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -27,10 +27,18 @@ public class ResultController {
         String result = lessonResultService.create(requestLessonResultDTO);
         return ResponseEntity.ok(result);
     }
-
+    @GetMapping("/lesson-result")
+    public ResponseEntity<?> getLessonResultByTopic(String userId,Integer topicId) {
+        return ResponseEntity.ok(lessonResultService.getLessonResultByTopic(userId,topicId));
+    }
     @PostMapping("/exam-result")
     public ResponseEntity<String> createExamResultResult(@RequestBody RequestExamResultDTO requestExamResultDTO) {
         String result = examResultService.create(requestExamResultDTO);
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("exam-result")
+    public ResponseEntity<?> getExamResultByTopic(String userId,Integer topicId) {
+        return ResponseEntity.ok(examResultService.getExamResultByID(userId,topicId));
     }
 }

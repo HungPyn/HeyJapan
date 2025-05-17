@@ -87,4 +87,7 @@ public interface LessonResultRepository extends JpaRepository<LessonResult, Inte
     ORDER BY l.id ASC
     """)
     Optional<ResponseLessonResultDTO> getLessonResultById(@Param("userId") String userId, @Param("lessonId") Integer lessonId);
+
+    List<LessonResult> findByUserIdAndLesson_Topic_Id(String userId, Integer topicId);
+
 }

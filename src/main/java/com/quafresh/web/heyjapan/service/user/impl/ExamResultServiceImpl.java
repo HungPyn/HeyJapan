@@ -13,6 +13,7 @@ import com.quafresh.web.heyjapan.util.ErrorMessages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -46,6 +47,24 @@ public class ExamResultServiceImpl implements ExamResultService {
         examResultRepository.save(examResult);
         return "Kết quả kiểm tra thêm thành công";
     }
+    @Override
+    public ResponseExamResultDTO getExamResultByID(String userId, Integer topicId) {
+        ExamResult examResult = examResultRepository.findByUserIdAndTopicId(userId,topicId).orElse(null);
+        ResponseExamResultDTO dto = new ResponseExamResultDTO();
+        if (examResult == null) {
+            dto.setTotalQuestions(0);
+            dto.setScorePercent(BigDecimal.ZERO);
+            dto.setCorrectAnswers(0);
+            dto.setExamTime(0);
+        } else {
+            dto.setTotalQuestions(examResult.getTotalQuestions());
+            dto.setScorePercent(examResult.getScorePercent());
+            dto.setCorrectAnswers(examResult.getCorrectAnswers());
+            dto.setExamTime(examResult.getExamTime());
+        }
+
+        return dto;
+    }
 
     //admin
     @Override
@@ -66,6 +85,6 @@ public class ExamResultServiceImpl implements ExamResultService {
 
     @Override
     public List<ResponseExamResultDTO> search(String userId, String keyword) {
-        return List.of();
+        return examResultRepository.searchExamResultsByUserIdAndKeyword(userId,keyword);
     }
 }

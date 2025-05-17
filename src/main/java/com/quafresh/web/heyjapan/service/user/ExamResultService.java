@@ -7,7 +7,9 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ExamResultService {
+    //user
     String create(RequestExamResultDTO examResultDTO);
+    ResponseExamResultDTO getExamResultByID(String userId, Integer topicId);
 
     //admin
     List<ResponseExamResultDTO> getAllById(String userId);

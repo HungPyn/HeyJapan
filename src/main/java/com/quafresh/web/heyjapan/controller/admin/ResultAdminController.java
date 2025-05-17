@@ -5,6 +5,7 @@ import com.quafresh.web.heyjapan.dto.user.result.ResponseLessonResultDTO;
 import com.quafresh.web.heyjapan.service.user.ExamResultService;
 import com.quafresh.web.heyjapan.service.user.LessonResultService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -42,12 +43,12 @@ public class ResultAdminController {
         return ResponseEntity.ok(examResultService.getAllById(userId));
     }
     @GetMapping("/exam-result/id")
-    public ResponseEntity<ResponseExamResultDTO> getExamResultId(@RequestParam("userId") String userId,@RequestParam("topicId") Integer lessonId) {
-        return ResponseEntity.ok(examResultService.getById(userId,lessonId));
+    public ResponseEntity<ResponseExamResultDTO> getExamResultId(@RequestParam("userId") String userId,@RequestParam("topicId") Integer topicId) {
+        return ResponseEntity.ok(examResultService.getById(userId,topicId));
     }
 
     @GetMapping("exam-result/search")
-    public ResponseEntity<?> searchExamResult(@RequestParam("userId") String userId,@RequestParam("topicId") String lessonName) {
-        return ResponseEntity.ok(examResultService.search(userId,lessonName));
+    public ResponseEntity<?> searchExamResult(@RequestParam("userId") String userId,@RequestParam("topicId") String topicId) {
+        return ResponseEntity.ok(examResultService.search(userId,topicId));
     }
 }
