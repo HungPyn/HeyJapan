@@ -18,6 +18,7 @@ export const COLORS = {
   white: '#FFFFFF',
   black: '#000000',
   gray: '#808080',
+  deeperRed: '#ef5350', // Màu đỏ đậm
   lightGray: '#D3D3D3', // Xám nhạt
   transparent: 'transparent',
   nenItem: 'rgba(241, 233, 217, 0.99)',
@@ -25,6 +26,7 @@ export const COLORS = {
   // Màu sắc mới bạn yêu cầu
   lightGreen: '#a8e6cf', // Màu xanh lá nhạt
   lightRed: '#f8d7da', // Màu đỏ nhạt
+  mediumRed: '#e57373', // Màu đỏ đậm nhẹ
   orange: '#f39c12', // Màu cam
 
   lightGray2: '#F5F5F5', // Màu xám nhạt hơn

@@ -68,7 +68,11 @@ export type CoursesStackParamList = {
   CourseDetail: {courseId: string; title: string}; // << Mong đợi cả title
   Lesson: {lessonId: string; courseId: string};
   ContentsLyThuyetScreen: {lessonCode: string; lessonName?: string};
-  ContentsScreen: {lessonCode: string; lessonName?: string};
+  ContentsScreen: {
+    lessonCode: string;
+    lessonName?: string;
+    idLesson?: number; // Thêm idLesson với kiểu number (hoặc kiểu bạn mong muốn)
+  };
 };
 
 // Tạo các navigator

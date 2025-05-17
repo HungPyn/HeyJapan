@@ -337,6 +337,10 @@ const CourseDetailScreen: React.FC = () => {
         lessonName: targetLessonName,
       });
     } else {
+      navigation.navigate('ContentsScreen', {
+        lessonCode: targetLessonId,
+        lessonName: targetLessonName,
+      });
     }
   };
 
