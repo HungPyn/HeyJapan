@@ -143,7 +143,7 @@ const FollowScreen: React.FC = () => {
         return;
       }
       const response = await axios.get<AllLevelsApiResponse>(
-        `http://10.0.2.2:8080/api/user/level`,
+        `http://10.0.2.2:8080/api/public/level`,
         {headers: {Authorization: `Bearer ${token}`}},
       );
       if (response.data && Array.isArray(response.data)) {
@@ -254,7 +254,7 @@ const FollowScreen: React.FC = () => {
         );
         // Gọi API để cập nhật level của user trên server
         // Sử dụng POST như trong SelectionScreen (hoặc PUT nếu backend của bạn dùng PUT)
-        await axios.post('http://10.0.2.2:8080/api/user/level', payload, {
+        await axios.post('http://10.0.2.2:8080/api/public/level', payload, {
           headers: {Authorization: `Bearer ${authToken}`},
         });
 

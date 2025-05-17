@@ -29,6 +29,7 @@
     "react-native-awesome-alerts": "^2.0.0",
     "react-native-flash-message": "^0.4.2",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-image-picker": "^8.2.1",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-paper": "^5.14.0",
     "react-native-reanimated": "^3.17.5",
@@ -43,7 +44,7 @@
     "@babel/core": "^7.25.2",
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
-   "@react-native-community/cli": "latest",
+    "@react-native-community/cli": "latest",
     "@react-native-community/cli-platform-android": "18.0.0",
     "@react-native-community/cli-platform-ios": "18.0.0",
     "@react-native/babel-preset": "0.79.2",
@@ -61,7 +62,6 @@
     "prettier": "2.8.8",
     "react-test-renderer": "19.0.0",
     "typescript": "^5.8.3"
-    
   },
   "engines": {
     "node": ">=18"

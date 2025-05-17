@@ -59,7 +59,7 @@ const SelectionScreen: React.FC = () => {
         };
         // API lấy danh sách levels (GET)
         const response = await axios.get<Level[]>(
-          'http://10.0.2.2:8080/api/user/level', // Endpoint GET levels
+          'http://10.0.2.2:8080/api/public/level', // Endpoint GET levels
           config,
         );
 
@@ -126,7 +126,7 @@ const SelectionScreen: React.FC = () => {
       };
 
       // 1. Gọi API cập nhật level lên server
-      await axios.post('http://10.0.2.2:8080/api/user/level', payload, {
+      await axios.post('http://10.0.2.2:8080/api/public/level', payload, {
         headers: {Authorization: `Bearer ${authToken}`},
       });
 

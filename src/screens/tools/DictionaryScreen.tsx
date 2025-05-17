@@ -150,7 +150,7 @@ const FollowScreen: React.FC<{navigation?: any}> = ({navigation}) => {
       }
       // API endpoint để lấy danh sách tất cả các level
       const response = await axios.get<AllLevelsApiResponse>(
-        `http://10.0.2.2:8080/api/user/level`,
+        `http://10.0.2.2:8080/api/public/level`,
         {
           headers: {Authorization: `Bearer ${token}`},
         },
