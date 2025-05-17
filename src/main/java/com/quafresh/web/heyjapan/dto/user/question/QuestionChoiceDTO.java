@@ -18,5 +18,7 @@ public class QuestionChoiceDTO {
 
         private String audioUrlForeign;
 
+        private String textBlock;
+
         private Boolean isCorrect;
 }

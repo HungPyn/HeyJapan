@@ -1,12 +1,15 @@
 package com.quafresh.web.heyjapan.controller.admin;
 
 import com.quafresh.web.heyjapan.dto.user.topic.RequestTopicDTO;
+import com.quafresh.web.heyjapan.dto.user.topic.ResponseTopicDTO;
 import com.quafresh.web.heyjapan.service.user.TopicService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/admin/topic")
@@ -23,13 +26,27 @@ public class TopicAdminController {
     public ResponseEntity<?> search(@RequestParam("keyword") String keyword) {
     return ResponseEntity.ok(topicService.search(keyword));}
 
-    @PostMapping("/create")
-    public ResponseEntity<?> create(@Valid @RequestBody RequestTopicDTO requestTopicDTO) {
-        return ResponseEntity.ok(topicService.create(requestTopicDTO));
+    @PostMapping(value = "/create", consumes = {"multipart/form-data"})
+    public ResponseEntity<?> create(
+            @Valid @RequestPart("topicMetaData") RequestTopicDTO topicMetaData,
+            @RequestPart("avatarFile") MultipartFile avatarFile
+    ) {
+        if (avatarFile.isEmpty()) {
+            return ResponseEntity.badRequest().body("Ảnh không được để trống");
+        }
+
+        ResponseTopicDTO response = topicService.create(topicMetaData, avatarFile);
+        return ResponseEntity.ok(response);
     }
-    @PutMapping("/update")
-    public ResponseEntity<?> update(@Valid @RequestBody RequestTopicDTO requestTopicDTO) {
-        return ResponseEntity.ok(topicService.update(requestTopicDTO));
+    @PutMapping(value = "/update",consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    public ResponseEntity<?> update(
+            @Valid  @RequestPart("topicMetaData") RequestTopicDTO requestTopicDTO,
+            @RequestPart("avatarFile") MultipartFile avatarFile) {
+        if (avatarFile.isEmpty()) {
+            return ResponseEntity.badRequest().body("Ảnh không được để trống");
+        }
+        ResponseTopicDTO response = topicService.update(requestTopicDTO, avatarFile);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/id")

@@ -19,9 +19,6 @@ public class RequestTopicDTO {
         @NotBlank(message = "Tên chủ đề không được để trống")
         private String name;
 
-        @NotEmptyFile(message = "Ảnh không được để trống")
-        private MultipartFile avatar;
-
         private Instant dayCreation;
 
         private Integer levelId;

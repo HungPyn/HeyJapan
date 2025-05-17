@@ -18,6 +18,7 @@ import com.quafresh.web.heyjapan.util.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -88,63 +89,57 @@ public class TopicServiceImpl implements TopicService {
 
 
     @Override
-    public ResponseTopicDTO create(RequestTopicDTO requestTopicDTO) {
+    public ResponseTopicDTO create(RequestTopicDTO topicMetaData, MultipartFile avatarFile) {
         Topic topic = new Topic();
-        topic.setName(requestTopicDTO.getName());
+        topic.setName(topicMetaData.getName());
         topic.setDayCreation(Instant.now());
-        String originalFilename = requestTopicDTO.getAvatar().getOriginalFilename();
+        if (avatarFile == null || avatarFile.isEmpty()) {
+            throw new RuntimeException("File avatar không được để trống.");
+        }
+
+        String originalFilename = avatarFile.getOriginalFilename();
         String fileExtension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
             fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
-        String objectName = UUID.randomUUID() + fileExtension;
+
+        String objectName = UUID.randomUUID().toString() + fileExtension;
 
         try {
-            gcsStorageService.uploadFileToPublicBucket(requestTopicDTO.getAvatar(), objectName);
+            gcsStorageService.uploadFileToPublicBucket(avatarFile, objectName);
         } catch (IOException e) {
-            throw new RuntimeException("Cập nhập file thất bại", e);
+
+            throw new RuntimeException("Cập nhật file thất bại", e);
         }
         String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
         topic.setAvatarUrl(publicUrl);
+
         topicRepository.save(topic);
-        return new ResponseTopicDTO(topic.getId(), topic.getLevel().getId(), topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
+        Integer levelIdResponse = (topic.getLevel() != null) ? topic.getLevel().getId() : null;
+        return new ResponseTopicDTO(topic.getId(), levelIdResponse, topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
     }
 
     @Override
-    public ResponseTopicDTO update(RequestTopicDTO requestTopicDTO) {
+    public ResponseTopicDTO update(RequestTopicDTO requestTopicDTO, MultipartFile avatarFile) {
         Topic topic = topicRepository.findById(requestTopicDTO.getLevelId())
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_LEVEL.getMessage()));
         String oldAvatarUrl = topic.getAvatarUrl();
         topic.setName(requestTopicDTO.getName());
-        if (requestTopicDTO.getAvatar() != null && !requestTopicDTO.getAvatar().isEmpty()) {
-            if (oldAvatarUrl != null) {
-                String oldObjectName = topic.getAvatarUrl().substring(topic.getAvatarUrl().lastIndexOf("/") + 1);
-                try {
-                    gcsStorageService.deleteFile(oldObjectName);
-                } catch (Exception e) {
-                    throw new RuntimeException("Xóa ảnh cũ thất bại", e);
-                }
-            }
-            // Lấy tên file gốc và mở rộng (file extension)
-            String originalFilename = requestTopicDTO.getAvatar().getOriginalFilename();
-            String fileExtension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-
-            // Tạo tên đối tượng cho file tải lên (UUID)
-            String objectName = UUID.randomUUID() + fileExtension;
-
-            try {
-                // Tải ảnh mới lên Google Cloud Storage (Firebase)
-                gcsStorageService.uploadFileToPublicBucket(requestTopicDTO.getAvatar(), objectName);
-            } catch (IOException e) {
-                throw new RuntimeException("Cập nhật file thất bại", e);
-            }
-
-            String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
-            topic.setAvatarUrl(publicUrl);
+        String originalFilename = avatarFile.getOriginalFilename();
+        String fileExtension = "";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
+
+        String objectName = UUID.randomUUID().toString() + fileExtension;
+        try {
+            gcsStorageService.uploadFileToPublicBucket(avatarFile, objectName);
+        } catch (IOException e) {
+
+            throw new RuntimeException("Cập nhật file thất bại", e);
+        }
+        String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
+        topic.setAvatarUrl(publicUrl);
 
         topicRepository.save(topic);
         return new ResponseTopicDTO(topic.getId(), topic.getLevel().getId(), topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
