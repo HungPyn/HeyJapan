@@ -24,4 +24,24 @@ public class LessonQuestionServiceImpl implements LessonQuestionService {
         return list.stream().map(userMapper::toResponseLessonQuesDTO).collect(Collectors.toList());
     }
 
+    @Override
+    public void create(ResponseLessonQuesDTO responseLessonQuesDTO) {
+    }
+
+    @Override
+    public void update(ResponseLessonQuesDTO responseLessonQuesDTO) {
+
+    }
+
+    @Override
+    public void getById(Integer id) {
+
+    }
+
+    @Override
+    public void deleteById(Integer id) {
+
+    }
+
+    //admin
 }

@@ -1,7 +1,9 @@
 package com.quafresh.web.heyjapan.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -13,6 +15,8 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "exam_results")
+@AllArgsConstructor
+@NoArgsConstructor
 public class ExamResult {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
