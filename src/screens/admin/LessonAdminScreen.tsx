@@ -593,7 +593,7 @@ const LessonAdminScreen = () => {
         setIsLoadingLessons(false);
       }
     },
-    [logout],
+    [logout], // Thêm getToken vào dependency array nếu nó không phải là hàm thuần túy hoặc có thể thay đổi
   );
 
   useEffect(() => {
@@ -611,25 +611,69 @@ const LessonAdminScreen = () => {
   }, [currentTopicId, fetchLessonsForTopic]);
 
   // --- CRUD cho Bài học ---
-  const performDeleteLesson = useCallback(async (lessonCode: number) => {
-    /* ... */ setDeletingLessonCode(lessonCode);
 
-    setLessons(prev => prev.filter(l => l.lesson_code !== lessonCode));
-    setDeletingLessonCode(null);
-    Alert.alert('Thành công', 'Đã xóa bài học (client-side).');
-  }, []);
+  // <<<<< HÀM performDeleteLesson ĐƯỢC CẬP NHẬT Ở ĐÂY >>>>>
+  const performDeleteLesson = useCallback(
+    async (lessonId: number) => {
+      if (currentTopicId === null) {
+        showMessage({
+          message: 'Lỗi: Không xác định được chủ đề hiện tại để tải lại.',
+          type: 'danger',
+        });
+        return;
+      }
+      setDeletingLessonCode(lessonId);
+      try {
+        const token = await getToken();
+        const response = await axios.put(
+          `${API_ADMIN_LESSON_URL}/delete?lessonId=${lessonId}`,
+          {}, // PUT request có thể không cần body, tùy thuộc vào API backend
+          {
+            headers: {Authorization: `Bearer ${token}`},
+          },
+        );
+
+        // Log phản hồi từ backend (ví dụ: "Xoa thanh cong")
+        console.log(
+          'LessonAdminScreen: Phản hồi từ API xóa bài học:',
+          response.data,
+        );
+
+        showMessage({
+          message: 'Xóa bài học thành công!',
+          type: 'success',
+        });
+        fetchLessonsForTopic(currentTopicId); // Tải lại danh sách bài học
+      } catch (apiError: any) {
+        console.error(
+          'LessonAdminScreen: Lỗi khi xóa bài học:',
+          apiError.response?.data || apiError.message,
+        );
+        const errorMessage =
+          apiError.response?.data?.message || 'Không thể xóa bài học.';
+        showMessage({message: errorMessage, type: 'danger', duration: 3000});
+      } finally {
+        setDeletingLessonCode(null);
+        setIsDeleteLessonConfirmVisible(false); // Đóng modal xác nhận sau khi hoàn tất
+        setLessonToDeleteConfirm(null);
+      }
+    },
+    [currentTopicId, getToken, fetchLessonsForTopic, logout], //Thêm logout vào dependency array
+  );
+  // <<<<< KẾT THÚC CẬP NHẬT performDeleteLesson >>>>>
+
   const handleCloseLessonDeleteConfirm = useCallback(() => {
     setIsDeleteLessonConfirmVisible(false);
     setLessonToDeleteConfirm(null);
   }, []);
+
   const handleConfirmLessonDelete = useCallback(() => {
-    if (lessonToDeleteConfirm) performDeleteLesson(lessonToDeleteConfirm.id);
-    handleCloseLessonDeleteConfirm();
-  }, [
-    lessonToDeleteConfirm,
-    performDeleteLesson,
-    handleCloseLessonDeleteConfirm,
-  ]);
+    if (lessonToDeleteConfirm) {
+      performDeleteLesson(lessonToDeleteConfirm.id);
+      // Không cần đóng modal hay reset state ở đây nữa, vì performDeleteLesson sẽ làm
+    }
+  }, [lessonToDeleteConfirm, performDeleteLesson]);
+
   const handleDeleteLessonPress = useCallback(
     (lessonCode: number, lessonName: string) => {
       Keyboard.dismiss();
@@ -638,6 +682,7 @@ const LessonAdminScreen = () => {
     },
     [],
   );
+
   const handleAddNewLesson = () => {
     setLessonModalMode('add');
     setCurrentEditingLesson(null);
@@ -653,7 +698,6 @@ const LessonAdminScreen = () => {
     setIsAddEditLessonModalVisible(true);
   };
 
-  // <<<<< SỬA ĐỔI HÀM NÀY ĐỂ GỌI API THÊM/SỬA BÀI HỌC >>>>>
   const handleLessonFormSubmit = useCallback(
     async (formData: AddEditLessonModalFormData) => {
       if (currentTopicId === null) {
@@ -717,10 +761,9 @@ const LessonAdminScreen = () => {
       currentTopicId,
       getToken,
       fetchLessonsForTopic,
-      logout,
+      logout, // Thêm logout vào dependency array
     ],
   );
-  // <<<<< KẾT THÚC SỬA ĐỔI handleLessonFormSubmit >>>>>
 
   // --- CRUD cho Bài kiểm tra (giữ nguyên logic client-side) ---
   // ... (Các hàm performDeleteTest, handleCloseTestDeleteConfirm, etc. giữ nguyên) ...
@@ -812,7 +855,7 @@ const LessonAdminScreen = () => {
       ],
       {cancelable: true},
     );
-  }, [logout, navigation]);
+  }, [logout, navigation]); // Thêm navigation vào dependencies nếu nó được sử dụng để điều hướng sau logout
 
   const renderLessonItem = useCallback(
     ({item}: {item: Lesson}) => (

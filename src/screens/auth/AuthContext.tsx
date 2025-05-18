@@ -447,7 +447,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
     // setUserRole(null); // Nếu bạn có state cho role
     try {
       await AsyncStorage.removeItem('token');
-      await AsyncStorage.removeItem('userId');
+      await AsyncStorage.removeItem('UserId');
       await AsyncStorage.removeItem('userLevel');
       await AsyncStorage.removeItem('role');
       await AsyncStorage.removeItem('hasCompletedSelection');
