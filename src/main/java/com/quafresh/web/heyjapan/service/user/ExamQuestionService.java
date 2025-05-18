@@ -7,7 +7,7 @@ import com.quafresh.web.heyjapan.entity.ExamQuestion;
 import java.util.List;
 
 public interface ExamQuestionService {
-    List<ResponseExamQuesDTO> getExamQuesWithTopicId(Integer topicID);
+    List<?> getExamQuesWithTopicId(Integer topicID);
 
     void createNewExam(RequestExamQuestion requestExamQuestion);
 

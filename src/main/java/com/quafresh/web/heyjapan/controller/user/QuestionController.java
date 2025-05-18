@@ -31,7 +31,7 @@ public class QuestionController {
     }
 
     @GetMapping("/exam-question")
-    public ResponseEntity<List<ResponseExamQuesDTO>> getExamQuestion(@RequestParam("topicId") Integer topicId) {
+    public ResponseEntity<List<?>> getExamQuestion(@RequestParam("topicId") Integer topicId) {
         return ResponseEntity.ok(examQuestionService.getExamQuesWithTopicId(topicId));
     }
 

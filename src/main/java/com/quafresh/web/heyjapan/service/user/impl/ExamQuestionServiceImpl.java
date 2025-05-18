@@ -1,6 +1,7 @@
 package com.quafresh.web.heyjapan.service.user.impl;
 
 import com.quafresh.web.heyjapan.dto.user.exam.RequestExamQuestion;
+import com.quafresh.web.heyjapan.dto.user.exam.ResponseExamDTO;
 import com.quafresh.web.heyjapan.dto.user.question.ResponseExamQuesDTO;
 import com.quafresh.web.heyjapan.entity.ExamQuestion;
 import com.quafresh.web.heyjapan.entity.Topic;
@@ -22,10 +23,23 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
     private final ExamQuestionRepository examQuestionRepository;
     private final UserMapper userMapper;
     private final TopicRepository topicRepository;
+
+    private ResponseExamDTO convertToDTO(ExamQuestion examQuestion){
+        ResponseExamDTO responseExamDTO = new ResponseExamDTO();
+        responseExamDTO.setTopicID(examQuestion.getTopic().getId());
+        responseExamDTO.setAudioUrlExam(examQuestion.getAudioUrlExam());
+        responseExamDTO.setOptionsLanguageCode(examQuestion.getOptionsLanguageCode());
+        responseExamDTO.setTargetWordNative(examQuestion.getTargetWordNative());
+        responseExamDTO.setQuestionType(String.valueOf(examQuestion.getQuestionType()));
+        responseExamDTO.setPromptTextTemplate(examQuestion.getPromptTextTemplate());
+        responseExamDTO.setTargetLanguageCode(examQuestion.getTargetLanguageCode());
+        return responseExamDTO;
+    }
     @Override
-    public List<ResponseExamQuesDTO> getExamQuesWithTopicId(Integer topicID) {
-        List<ExamQuestion> list = examQuestionRepository.findQuestionsByTopicId(topicID);
-        return list.stream().map(userMapper::toResponseExamQuesDTO).collect(Collectors.toList());
+    public List<?> getExamQuesWithTopicId(Integer topicID) {
+        Topic topic = topicRepository.findById(topicID).orElseThrow(()-> new RuntimeException("Loi khon tim thay topic"));
+        List<ExamQuestion> list = examQuestionRepository.findAllByTopic(topic);
+        return list.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
     @Override
