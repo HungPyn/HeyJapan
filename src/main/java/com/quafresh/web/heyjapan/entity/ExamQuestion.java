@@ -48,7 +48,9 @@ public class ExamQuestion {
     @Column(name = "options_language_code", nullable = false, length = 10)
     private String optionsLanguageCode;
 
-    @OneToMany(mappedBy = "examQuestion")
+    @OneToMany(mappedBy = "examQuestion",cascade = CascadeType.REMOVE,orphanRemoval = true)
     private Set<com.quafresh.web.heyjapan.entity.QuestionChoice> questionChoices = new LinkedHashSet<>();
 
+    @Column(name = "audio_url_exam")
+    private String audioUrlExam;
 }

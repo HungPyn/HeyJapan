@@ -1,6 +1,7 @@
 package com.quafresh.web.heyjapan.security;
 
 import com.quafresh.web.heyjapan.entity.User; // <-- Thêm import này
+import com.quafresh.web.heyjapan.repository.UserRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class JwtTokenUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenUtil.class);
+    private final UserRepository userRepository;
 
     @Value("${app.auth.jwt.secret}")
     private String jwtSecret;
@@ -31,23 +33,31 @@ public class JwtTokenUtil {
     @Value("${app.auth.jwt.token-validity-in-seconds}")
     private long jwtExpirationInSeconds;
 
+    public JwtTokenUtil(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
     private SecretKey getSigningKey() {
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
     // Phương thức tạo token từ Authentication (cho login thường)
-    public String createToken(Authentication authentication) {
+    public String createToken(Authentication authentication,User user) {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         String roles = userPrincipal.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInSeconds * 1000);
-
+        Integer levelId = null;
+        if (user.getLevel()!= null){
+            levelId = user.getLevel().getId();
+        }
         return Jwts.builder()
                 .setSubject(userPrincipal.getId())
                 .claim("roles", roles)
+                .claim("level",levelId)
                 .claim("email", userPrincipal.getEmail())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
@@ -56,12 +66,16 @@ public class JwtTokenUtil {
     }
     public String createTokenForUser(User user) {
         String roles = "ROLE_USER";
+        Integer levelId = null;
+        if (user.getLevel() != null){
+            levelId = user.getLevel().getId();
+        }
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInSeconds * 1000);
         return Jwts.builder()
                 .setSubject(user.getId())
                 .claim("roles", roles)
-                .claim("email", user.getEmail())
+                .claim("level", levelId)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey())

@@ -64,4 +64,9 @@ public class VocabularyServiceImpl implements VocabularyService {
                 .orElseThrow(()->new RuntimeException("Từ vựng không tồn tại"));
         return userMapper.toVocabularyDTO(vocabulary);
     }
+
+    @Override
+    public List<?> getAll() {
+        return vocabularyRepository.findAll();
+    }
 }

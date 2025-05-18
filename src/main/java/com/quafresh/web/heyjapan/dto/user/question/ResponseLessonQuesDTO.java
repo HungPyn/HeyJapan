@@ -24,5 +24,7 @@ public class ResponseLessonQuesDTO {
 
         private String optionsLanguageCode;
 
+        private String audio_url_questions;
+
         private List<QuestionChoiceDTO> questionChoices;
 }

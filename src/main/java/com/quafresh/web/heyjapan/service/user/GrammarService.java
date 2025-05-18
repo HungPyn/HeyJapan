@@ -14,4 +14,6 @@ public interface GrammarService {
     void updateGrammar(RequestGrammarDTO dto);
     ResponseGrammarDTO getById(Long id);
     void deleteGrammar(Long id);
+
+    List<?> getAll();
 }

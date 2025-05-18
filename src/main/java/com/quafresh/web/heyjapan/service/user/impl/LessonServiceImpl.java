@@ -64,6 +64,5 @@ public class LessonServiceImpl implements LessonService {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(()->new RuntimeException(ErrorMessages.INVALID_LESSON.getMessage()));
         lessonRepository.delete(lesson);
-
     }
 }
