@@ -70,4 +70,13 @@ public class TheoryAdminController {
         grammarService.deleteGrammar(grammarId);
         return ResponseEntity.ok("Ngữ pháp đã được xóa");
     }
+    @GetMapping("grammar-get-all")
+    public ResponseEntity<?> getAllGrammars(){
+        return ResponseEntity.ok(grammarService.getAll());
+    }
+
+    @GetMapping("vocabularies-get-all")
+    public ResponseEntity<?> getAllVocabularis(){
+        return ResponseEntity.ok(vocabularyService.getAll());
+    }
 }

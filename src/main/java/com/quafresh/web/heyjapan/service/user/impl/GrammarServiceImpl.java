@@ -66,4 +66,9 @@ public class GrammarServiceImpl implements GrammarService {
         grammarRepository.delete(grammar);
     }
 
+    @Override
+    public List<?> getAll() {
+        return grammarRepository.findAll();
+    }
+
 }
