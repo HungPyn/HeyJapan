@@ -24,6 +24,7 @@ public class LessonQuestionServiceImpl implements LessonQuestionService {
         return list.stream().map(userMapper::toResponseLessonQuesDTO).collect(Collectors.toList());
     }
 
+    //admin
     @Override
     public void create(ResponseLessonQuesDTO responseLessonQuesDTO) {
     }
@@ -43,5 +44,5 @@ public class LessonQuestionServiceImpl implements LessonQuestionService {
 
     }
 
-    //admin
+
 }
