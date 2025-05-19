@@ -28,7 +28,7 @@ public class ResultController {
         return ResponseEntity.ok(result);
     }
     @GetMapping("/lesson-result")
-    public ResponseEntity<?> getLessonResultByTopic(String userId,Integer topicId) {
+    public ResponseEntity<?> getLessonResultByTopic(@RequestParam("userId") String userId,@RequestParam("topicId") Integer topicId) {
         return ResponseEntity.ok(lessonResultService.getLessonResultByTopic(userId,topicId));
     }
     @PostMapping("/exam-result")
@@ -38,7 +38,7 @@ public class ResultController {
     }
 
     @GetMapping("exam-result")
-    public ResponseEntity<?> getExamResultByTopic(String userId,Integer topicId) {
+    public ResponseEntity<?> getExamResultByTopic(@RequestParam("userId") String userId,@RequestParam("topicId") Integer topicId) {
         return ResponseEntity.ok(examResultService.getExamResultByID(userId,topicId));
     }
 }

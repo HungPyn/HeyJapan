@@ -57,7 +57,12 @@ public class LessonResultServiceImpl implements LessonResultService {
         List<Lesson> lessons = lessonRepository.findByTopicId(topicId);
         List<LessonResult> lessonResults = lessonResultRepository.findByUserIdAndLesson_Topic_Id(userId, topicId);
         Map<Integer, LessonResult> resultMap = lessonResults.stream()
-                .collect(Collectors.toMap(lr -> lr.getLesson().getId(), lr -> lr));
+                .collect(Collectors.toMap(
+                        lr -> lr.getLesson().getId(),
+                        lr -> lr,
+                        (lr1, lr2) -> lr1.getCompletionPercent().compareTo(lr2.getCompletionPercent()) >= 0 ? lr1 : lr2
+                ));
+
         List<ResponseLessonResultDTO> dtos = new ArrayList<>();
 
         for (Lesson lesson : lessons) {
