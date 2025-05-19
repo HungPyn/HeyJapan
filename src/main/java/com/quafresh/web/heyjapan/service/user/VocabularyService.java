@@ -7,7 +7,7 @@ import com.quafresh.web.heyjapan.dto.user.topic.TheoryDTO;
 import java.util.List;
 
 public interface VocabularyService {
-    List<ResponseVocabularyDTO> getAllByTopic(TheoryDTO theoryDTO);
+    List<ResponseVocabularyDTO> getAllByTopic(Integer topicId);
 
     //admin
     void create(Integer topicID,RequestVocabularyDTO requestVocabularyDTO);

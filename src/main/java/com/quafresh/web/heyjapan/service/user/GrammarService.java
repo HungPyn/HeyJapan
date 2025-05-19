@@ -7,7 +7,7 @@ import com.quafresh.web.heyjapan.dto.user.topic.TheoryDTO;
 import java.util.List;
 
 public interface GrammarService {
-    List<ResponseGrammarDTO> getAllByTopic(TheoryDTO theoryDTO);
+    List<ResponseGrammarDTO> getAllByTopic(Integer topicId);
 
     //admin
     void createGrammar(Integer topicId,RequestGrammarDTO dto);

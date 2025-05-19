@@ -19,8 +19,8 @@ public class TheoryAdminController {
     private final VocabularyService vocabularyService;
     private final GrammarService grammarService;
     @GetMapping("/vocabulary/by-topic")
-    public ResponseEntity<?> getVocabulary(@RequestBody TheoryDTO  dto) {
-        return ResponseEntity.ok(vocabularyService.getAllByTopic(dto));
+    public ResponseEntity<?> getVocabulary(@RequestParam("topicId") Integer topicId) {
+        return ResponseEntity.ok(vocabularyService.getAllByTopic(topicId));
     }
 
     @GetMapping("/vocabulary")
@@ -47,8 +47,8 @@ public class TheoryAdminController {
 
     //Grammar
     @GetMapping("/grammar/by-topic")
-    public ResponseEntity<?> getGrammars(@RequestBody TheoryDTO  dto) {
-        return ResponseEntity.ok(grammarService.getAllByTopic(dto));
+    public ResponseEntity<?> getGrammars(@RequestParam("topicId") Integer  topicId) {
+        return ResponseEntity.ok(grammarService.getAllByTopic(topicId));
     }
     @GetMapping("/grammar")
     public ResponseEntity<?> getGrammarById(@RequestParam("grammarId") Long id) {

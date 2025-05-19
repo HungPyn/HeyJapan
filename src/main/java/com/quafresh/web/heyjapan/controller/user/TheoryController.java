@@ -8,10 +8,7 @@ import com.quafresh.web.heyjapan.service.user.VocabularyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -23,13 +20,13 @@ public class TheoryController {
     private final GrammarService grammarService;
     private final VocabularyService vocabularyService;
     @GetMapping("/grammar")
-    public ResponseEntity<List<ResponseGrammarDTO>> getGrammarByTopics(@RequestBody TheoryDTO theoryDTO) {
-        return ResponseEntity.ok(grammarService.getAllByTopic(theoryDTO));
+    public ResponseEntity<List<ResponseGrammarDTO>> getGrammarByTopics(@RequestParam("topicId")Integer topicId) {
+        return ResponseEntity.ok(grammarService.getAllByTopic(topicId));
 
     }
 
     @GetMapping("/vocabulary")
-    public ResponseEntity<List<ResponseVocabularyDTO>> getVocabularyByTopics(@RequestBody TheoryDTO theoryDTO) {
-        return ResponseEntity.ok(vocabularyService.getAllByTopic(theoryDTO));
+    public ResponseEntity<List<ResponseVocabularyDTO>> getVocabularyByTopics(@RequestParam("topicId")Integer topicId) {
+        return ResponseEntity.ok(vocabularyService.getAllByTopic(topicId));
     }
 }

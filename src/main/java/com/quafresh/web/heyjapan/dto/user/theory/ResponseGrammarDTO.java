@@ -15,4 +15,6 @@ public class ResponseGrammarDTO {
     private String explanation;
 
     private String example;
+
+    private String urlAudio;
 }

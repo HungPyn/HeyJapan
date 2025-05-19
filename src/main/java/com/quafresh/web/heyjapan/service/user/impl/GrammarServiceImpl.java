@@ -24,8 +24,8 @@ public class GrammarServiceImpl implements GrammarService {
     private  final TopicRepository topicRepository;
     private final UserMapper userMapper;
     @Override
-    public List<ResponseGrammarDTO> getAllByTopic(TheoryDTO theoryDTO) {
-        List<Grammar> list = grammarRepository.findByTopicIdOrderByWordAsc(theoryDTO.getId());
+    public List<ResponseGrammarDTO> getAllByTopic(Integer topicId) {
+        List<Grammar> list = grammarRepository.findByTopicIdOrderByWordAsc(topicId);
         return list.stream().map(userMapper::toResponseGrammarDTO).collect(Collectors.toList());
     }
 

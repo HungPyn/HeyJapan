@@ -17,4 +17,5 @@ public class ResponseVocabularyDTO {
 
     private String pronunciation;
 
+    private String vocabularyUrl;
 }

@@ -37,4 +37,6 @@ public class Vocabulary {
     @JoinColumn(name = "topic_id")
     private Topic topic;
 
+    @Column(name = "vocabulary_audio_url")
+    private String vocabularyUrl;
 }

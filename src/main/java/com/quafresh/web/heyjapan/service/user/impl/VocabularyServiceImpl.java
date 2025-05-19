@@ -23,8 +23,8 @@ public class VocabularyServiceImpl implements VocabularyService {
     private final TopicRepository topicRepository;
     private final UserMapper userMapper;
     @Override
-    public List<ResponseVocabularyDTO> getAllByTopic(TheoryDTO theoryDTO) {
-        List<Vocabulary> list = vocabularyRepository.findByTopicIdOrderByWordAsc(theoryDTO.getId());
+    public List<ResponseVocabularyDTO> getAllByTopic(Integer topicId) {
+        List<Vocabulary> list = vocabularyRepository.findByTopicIdOrderByWordAsc(topicId);
         return list.stream().map(userMapper::toVocabularyDTO).collect(Collectors.toList());
     }
 
