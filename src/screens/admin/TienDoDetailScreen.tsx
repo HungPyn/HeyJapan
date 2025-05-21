@@ -17,242 +17,48 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import {COLORS} from '../../constants/theme'; // CẬP NHẬT ĐƯỜNG DẪN
-import {useAuth} from '../auth/AuthContext'; // CẬP NHẬT ĐƯỜNG DẪN
+import {COLORS} from '../../constants/theme';
+import {useAuth} from '../auth/AuthContext';
 import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {RootStackParamList} from '../../navigation'; // CẬP NHẬT ĐƯỜNG DẪN
+import {RootStackParamList} from '../../navigation';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// --- BEGIN: TYPES (GIỮ NGUYÊN NHƯ TRONG FILE CỦA BẠN) ---
-type User = {
-  user_id: string;
-  oauth_subject_id: string;
-  profile_picture_url: string;
-  username: string;
-  email: string;
-  user_password?: string;
-  level_id?: number;
-};
+// --- Định nghĩa kiểu dữ liệu cho API response ---
+interface ApiLessonResult {
+  id: number | null;
+  userId: string;
+  lessonId: number;
+  name: string;
+  total_attempts: number;
+  studyTime: number | null;
+  completionPercent: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+}
 
-type Lesson = {
-  lesson_code: number;
-  lesson_name: string;
-  lesson_description: string;
-  quantity_content: number;
-  day_creation: string;
-  topic_code: number;
-  status: string;
-  lesson_type: string;
-};
+interface ApiExamResult {
+  id: number | null;
+  userId: string;
+  topicId: number;
+  total_attempts: number;
+  examTime: number | null;
+  topicName: string;
+  scorePercent: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+}
 
-type TestItem = {
-  test_id: string;
-  test_name: string;
-  topic_code: number;
-  question_count: number;
-};
+interface ApiOverallStatsSummary {
+  accuracyPercent: number | null;
+  completionAverage: number | null;
+  totalStudyTime: number | null;
+  totalSum: number | null;
+}
+// --- END Định nghĩa kiểu dữ liệu cho API response ---
 
-type TopicInfo = {
-  topic_code: number;
-  topic_name: string;
-  level_name: string;
-};
-
-type UserLessonProgress = {
-  user_id: string;
-  lesson_code: number;
-  correct_answers: number;
-  total_questions_attempted: number;
-  completion_percentage: number;
-  time_spent_seconds: number;
-};
-
-type UserTestProgress = {
-  user_id: string;
-  test_id: string;
-  score: number;
-  completion_percentage: number;
-  time_spent_seconds: number;
-};
-
-type DisplayLessonProgress = Lesson & Partial<UserLessonProgress>;
-type DisplayTestProgress = TestItem & Partial<UserTestProgress>;
-// --- END: TYPES ---
-
-// --- BEGIN: DỮ LIỆU MẪU (GIỮ NGUYÊN) ---
-const allLessonsData: Lesson[] = [
-  {
-    lesson_code: 1,
-    lesson_name: 'Giới thiệu khóa học',
-    lesson_description: 'Tổng quan...',
-    quantity_content: 3,
-    day_creation: '2025-05-10 08:00:00',
-    topic_code: 101,
-    status: 'completed',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 2,
-    lesson_name: 'Lý thuyết Hiragana',
-    lesson_description: 'Học bảng chữ cái Hiragana...',
-    quantity_content: 5,
-    day_creation: '2025-05-10 08:10:00',
-    topic_code: 101,
-    status: 'completed',
-    lesson_type: 'hira',
-  },
-  {
-    lesson_code: 14,
-    lesson_name: 'Lý thuyết Hiragana Topic 102',
-    lesson_description: 'Học bảng chữ cái Hiragana...',
-    quantity_content: 5,
-    day_creation: '2025-05-10 08:10:00',
-    topic_code: 102,
-    status: 'completed',
-    lesson_type: 'hira',
-  },
-  {
-    lesson_code: 3,
-    lesson_name: 'カタカナ（基本）- Hàng KA',
-    lesson_description: 'Làm quen với bảng chữ cái Katakana...',
-    quantity_content: 5,
-    day_creation: '2025-05-10 08:20:00',
-    topic_code: 101,
-    status: 'completed',
-    lesson_type: 'kata',
-  },
-  {
-    lesson_code: 12,
-    lesson_name: 'Chào buổi sáng - おはようございます',
-    lesson_description: '...',
-    quantity_content: 3,
-    day_creation: '2025-05-11 08:00:00',
-    topic_code: 102,
-    status: 'completed',
-    lesson_type: 'common',
-  },
-  {
-    lesson_code: 13,
-    lesson_name: 'Tự giới thiệu cơ bản',
-    lesson_description: '...',
-    quantity_content: 5,
-    day_creation: '2025-05-11 08:10:00',
-    topic_code: 102,
-    status: 'pending',
-    lesson_type: 'common',
-  },
-];
-const initialUsersData: User[] = [
-  {
-    user_id: 'f23b8f14-6a2b-4c6e-8e3f-1d4823e8b001',
-    oauth_subject_id: 'oauth_001',
-    profile_picture_url: 'https://i.pravatar.cc/150?u=alice',
-    username: 'alice',
-    email: 'alice@example.com',
-    level_id: 1,
-  },
-  {
-    user_id: 'a8cc7b9f-9024-4e70-b199-e390847c8201',
-    oauth_subject_id: 'oauth_002',
-    profile_picture_url: 'https://i.pravatar.cc/150?u=bob',
-    username: 'bob',
-    email: 'bob@example.com',
-    level_id: 2,
-  },
-];
-const allTopicsData: TopicInfo[] = [
-  {
-    topic_code: 101,
-    topic_name: 'Bảng chữ cái và Phát âm',
-    level_name: 'N5 Sơ Cấp',
-  },
-  {
-    topic_code: 102,
-    topic_name: 'Chào hỏi và Giới thiệu',
-    level_name: 'N5 Sơ Cấp',
-  },
-  {topic_code: 103, topic_name: 'Từ vựng Gia Đình', level_name: 'N4 Trung Cấp'},
-];
-const allUserLessonProgressData: UserLessonProgress[] = [
-  {
-    user_id: 'f23b8f14-6a2b-4c6e-8e3f-1d4823e8b001',
-    lesson_code: 1,
-    correct_answers: 12,
-    total_questions_attempted: 15,
-    completion_percentage: 73,
-    time_spent_seconds: 1 * 60 + 52,
-  },
-  {
-    user_id: 'f23b8f14-6a2b-4c6e-8e3f-1d4823e8b001',
-    lesson_code: 2,
-    correct_answers: 25,
-    total_questions_attempted: 25,
-    completion_percentage: 100,
-    time_spent_seconds: 1500,
-  },
-  {
-    user_id: 'f23b8f14-6a2b-4c6e-8e3f-1d4823e8b001',
-    lesson_code: 12,
-    correct_answers: 3,
-    total_questions_attempted: 3,
-    completion_percentage: 100,
-    time_spent_seconds: 300,
-  },
-  {
-    user_id: 'a8cc7b9f-9024-4e70-b199-e390847c8201',
-    lesson_code: 1,
-    correct_answers: 10,
-    total_questions_attempted: 15,
-    completion_percentage: 60,
-    time_spent_seconds: 1200,
-  },
-];
-const allTestData: TestItem[] = [
-  {
-    test_id: 'test_hira_101',
-    test_name: 'Kiểm tra Hiragana (TC101)',
-    topic_code: 101,
-    question_count: 20,
-  },
-  {
-    test_id: 'test_kata_101',
-    test_name: 'Kiểm tra Katakana (TC101)',
-    topic_code: 101,
-    question_count: 15,
-  },
-  {
-    test_id: 'test_chaohoi_102',
-    test_name: 'Kiểm tra Chào hỏi (TC102)',
-    topic_code: 102,
-    question_count: 10,
-  },
-];
-const allUserTestProgressData: UserTestProgress[] = [
-  {
-    user_id: 'f23b8f14-6a2b-4c6e-8e3f-1d4823e8b001',
-    test_id: 'test_hira_101',
-    score: 18,
-    completion_percentage: 90,
-    time_spent_seconds: 980,
-  },
-  {
-    user_id: 'f23b8f14-6a2b-4c6e-8e3f-1d4823e8b001',
-    test_id: 'test_chaohoi_102',
-    score: 7,
-    completion_percentage: 70,
-    time_spent_seconds: 450,
-  },
-  {
-    user_id: 'a8cc7b9f-9024-4e70-b199-e390847c8201',
-    test_id: 'test_hira_101',
-    score: 15,
-    completion_percentage: 75,
-    time_spent_seconds: 1100,
-  },
-];
-// --- END: DỮ LIỆU MẪU ---
-
-// --- BEGIN: ICONS (GIỮ NGUYÊN) ---
+// --- ICONS ---
 const LOGO_ICON = require('../../assets/images/Logo.png');
 const PROFILE_ICON = require('../../assets/images/IconUserHeader.png');
 const BACK_ARROW_ICON = require('../../assets/images/IconBack.png');
@@ -262,9 +68,15 @@ const LESSON_LIST_ICON = require('../../assets/images/ngoiSao.png');
 const TEST_LIST_ICON = require('../../assets/images/ngoiSao.png');
 // --- END: ICONS ---
 
-// --- Helper Function (GIỮ NGUYÊN) ---
-const formatTime = (totalSeconds: number): string => {
-  if (isNaN(totalSeconds) || totalSeconds < 0) return '0 giây';
+// --- Helper Function ---
+const formatTime = (totalSeconds: number | null | undefined): string => {
+  if (
+    totalSeconds === null ||
+    totalSeconds === undefined ||
+    isNaN(totalSeconds) ||
+    totalSeconds < 0
+  )
+    return '0 giây';
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
@@ -277,11 +89,11 @@ const formatTime = (totalSeconds: number): string => {
 };
 // --- END Helper Function ---
 
-// --- BEGIN: CẬP NHẬT MODALS ---
+// --- MODALS ---
 interface LessonProgressDetailModalProps {
   visible: boolean;
   onClose: () => void;
-  lessonProgress?: DisplayLessonProgress | null;
+  lessonProgress?: ApiLessonResult | null;
 }
 const LessonProgressDetailModal: React.FC<LessonProgressDetailModalProps> = ({
   visible,
@@ -289,100 +101,12 @@ const LessonProgressDetailModal: React.FC<LessonProgressDetailModalProps> = ({
   lessonProgress,
 }) => {
   if (!visible || !lessonProgress) return null;
-
-  const correct = lessonProgress.correct_answers ?? 0;
-  const attempted =
-    lessonProgress.total_questions_attempted ??
-    lessonProgress.quantity_content ??
-    0;
+  const correct = lessonProgress.correctAnswers ?? 0;
+  const attempted = lessonProgress.totalQuestions ?? 0;
   const tỷLệCâuĐúng = attempted > 0 ? `${correct}/${attempted}` : 'N/A';
-  const phầnTrămHoànThành = `${lessonProgress.completion_percentage ?? 0}%`;
-  const tốcĐộHoànThành = formatTime(lessonProgress.time_spent_seconds ?? 0);
+  const phầnTrămHoànThành = `${lessonProgress.completionPercent ?? 0}%`;
+  const tốcĐộHoànThành = formatTime(lessonProgress.studyTime);
 
-  return (
-    <Modal
-      animationType="fade" // Đổi thành fade để giống fullManHinhKhiCoThognBaso.png
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}>
-      <Pressable style={detailModalStyles.backdrop} onPress={onClose}>
-        <Pressable
-          style={detailModalStyles.modalViewContainer}
-          onPress={() => {}} /* Ngăn press xuyên qua modal content */
-        >
-          <View style={detailModalStyles.modalViewContent}>
-            <View style={detailModalStyles.header}>
-              <TouchableOpacity
-                onPress={onClose}
-                style={detailModalStyles.backButton}>
-                <Image
-                  source={BACK_ARROW_ICON}
-                  style={detailModalStyles.backIcon}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={detailModalStyles.contentScroll}>
-              <Text style={detailModalStyles.headerTitle}>
-                Tổng kết bài học
-              </Text>
-
-              <View style={detailModalStyles.infoItem}>
-                <Text style={detailModalStyles.infoLabel}>Tỷ lệ câu đúng</Text>
-
-                <View style={detailModalStyles.infoValueContainer}>
-                  <Text style={detailModalStyles.infoValue}>{tỷLệCâuĐúng}</Text>
-                </View>
-              </View>
-
-              <View style={detailModalStyles.infoItem}>
-                <Text style={detailModalStyles.infoLabel}>
-                  Phần trăm hoàn thành
-                </Text>
-
-                <View style={detailModalStyles.infoValueContainer}>
-                  <Text style={detailModalStyles.infoValue}>
-                    {phầnTrămHoànThành}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={detailModalStyles.infoItem}>
-                <Text style={detailModalStyles.infoLabel}>
-                  Tốc độ hoàn thành
-                </Text>
-
-                <View style={detailModalStyles.infoValueContainer}>
-                  <Text style={detailModalStyles.infoValue}>
-                    {tốcĐộHoànThành}
-                  </Text>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-};
-
-interface TestProgressDetailModalProps {
-  visible: boolean;
-  onClose: () => void;
-  testProgress?: DisplayTestProgress | null;
-}
-const TestProgressDetailModal: React.FC<TestProgressDetailModalProps> = ({
-  visible,
-  onClose,
-  testProgress,
-}) => {
-  if (!visible || !testProgress) return null;
-
-  const score = testProgress.score ?? 0;
-  const totalQuestions = testProgress.question_count ?? 0;
-  const tỷLệCâuĐúng = totalQuestions > 0 ? `${score}/${totalQuestions}` : 'N/A';
-  const phầnTrămHoànThành = `${testProgress.completion_percentage ?? 0}%`;
-  const tốcĐộHoànThành = formatTime(testProgress.time_spent_seconds ?? 0);
   return (
     <Modal
       animationType="fade"
@@ -403,36 +127,114 @@ const TestProgressDetailModal: React.FC<TestProgressDetailModalProps> = ({
                   style={detailModalStyles.backIcon}
                 />
               </TouchableOpacity>
-
-              <Text style={detailModalStyles.headerTitle}>
-                Tổng kết kiểm tra
+              <Text style={detailModalStyles.headerTitleInModal}>
+                {lessonProgress.name || 'Chi tiết bài học'}
               </Text>
-              <View style={detailModalStyles.headerSpacer} />
+              <View
+                style={{
+                  width: detailModalStyles.backIcon.width,
+                }}
+              />
             </View>
-
             <ScrollView contentContainerStyle={detailModalStyles.contentScroll}>
               <View style={detailModalStyles.infoItem}>
-                <Text style={detailModalStyles.infoLabel}>
-                  Điểm số (Câu đúng)
-                </Text>
-
+                <Text style={detailModalStyles.infoLabel}>Tỷ lệ câu đúng</Text>
                 <View style={detailModalStyles.infoValueContainer}>
                   <Text style={detailModalStyles.infoValue}>{tỷLệCâuĐúng}</Text>
                 </View>
               </View>
-
               <View style={detailModalStyles.infoItem}>
                 <Text style={detailModalStyles.infoLabel}>
                   Phần trăm hoàn thành
                 </Text>
-
                 <View style={detailModalStyles.infoValueContainer}>
                   <Text style={detailModalStyles.infoValue}>
                     {phầnTrămHoànThành}
                   </Text>
                 </View>
               </View>
+              <View style={detailModalStyles.infoItem}>
+                <Text style={detailModalStyles.infoLabel}>
+                  Tốc độ hoàn thành
+                </Text>
+                <View style={detailModalStyles.infoValueContainer}>
+                  <Text style={detailModalStyles.infoValue}>
+                    {tốcĐộHoànThành}
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+};
 
+interface TestProgressDetailModalProps {
+  visible: boolean;
+  onClose: () => void;
+  testProgress?: ApiExamResult | null;
+}
+const TestProgressDetailModal: React.FC<TestProgressDetailModalProps> = ({
+  visible,
+  onClose,
+  testProgress,
+}) => {
+  if (!visible || !testProgress) return null;
+  const score = testProgress.correctAnswers ?? 0;
+  const totalQuestions = testProgress.totalQuestions ?? 0;
+  const tỷLệCâuĐúng = totalQuestions > 0 ? `${score}/${totalQuestions}` : 'N/A';
+  const phầnTrămHoànThành = `${testProgress.scorePercent ?? 0}%`;
+  const tốcĐộHoànThành = formatTime(testProgress.examTime);
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}>
+      <Pressable style={detailModalStyles.backdrop} onPress={onClose}>
+        <Pressable
+          style={detailModalStyles.modalViewContainer}
+          onPress={() => {}}>
+          <View style={detailModalStyles.modalViewContent}>
+            <View style={detailModalStyles.header}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={detailModalStyles.backButton}>
+                <Image
+                  source={BACK_ARROW_ICON}
+                  style={detailModalStyles.backIcon}
+                />
+              </TouchableOpacity>
+              <Text style={detailModalStyles.headerTitleInModal}>
+                {testProgress.topicName || 'Chi tiết kiểm tra'}
+              </Text>
+              <View
+                style={{
+                  width: detailModalStyles.backIcon.width,
+                }}
+              />
+            </View>
+            <ScrollView contentContainerStyle={detailModalStyles.contentScroll}>
+              <View style={detailModalStyles.infoItem}>
+                <Text style={detailModalStyles.infoLabel}>
+                  Điểm số (Câu đúng)
+                </Text>
+                <View style={detailModalStyles.infoValueContainer}>
+                  <Text style={detailModalStyles.infoValue}>{tỷLệCâuĐúng}</Text>
+                </View>
+              </View>
+              <View style={detailModalStyles.infoItem}>
+                <Text style={detailModalStyles.infoLabel}>
+                  Phần trăm hoàn thành
+                </Text>
+                <View style={detailModalStyles.infoValueContainer}>
+                  <Text style={detailModalStyles.infoValue}>
+                    {phầnTrămHoànThành}
+                  </Text>
+                </View>
+              </View>
               <View style={detailModalStyles.infoItem}>
                 <Text style={detailModalStyles.infoLabel}>
                   Thời gian làm bài
@@ -451,22 +253,33 @@ const TestProgressDetailModal: React.FC<TestProgressDetailModalProps> = ({
   );
 };
 
-// OverallStatsModal (GIỮ NGUYÊN NHƯ TRONG FILE CỦA BẠN)
 interface OverallStatsModalProps {
   visible: boolean;
   onClose: () => void;
-  totalLessonTime: number;
-  totalTestTime: number;
+  lessonSummary: ApiOverallStatsSummary | null;
+  examSummary: ApiOverallStatsSummary | null;
   username: string;
+  isLoading: boolean;
+  activeTab: 'lessons' | 'tests'; // Thêm activeTab để biết tab nào đang hoạt động
 }
 const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
   visible,
   onClose,
-  totalLessonTime,
-  totalTestTime,
+  lessonSummary,
+  examSummary,
   username,
+  isLoading,
+  activeTab, // Nhận activeTab
 }) => {
   if (!visible) return null;
+
+  const summaryToShow = activeTab === 'lessons' ? lessonSummary : examSummary;
+  const sectionTitle = activeTab === 'lessons' ? 'Bài học' : 'Bài kiểm tra';
+  const timeLabel = activeTab === 'lessons' ? 'học' : 'kiểm tra';
+
+  // Xác định minHeight dựa trên nội dung sẽ hiển thị (3 mục)
+  const modalMinHeight = 290; // Ước tính chiều cao cho header, 3 items và nút đóng
+
   return (
     <Modal
       animationType="fade"
@@ -475,69 +288,93 @@ const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
       onRequestClose={onClose}>
       <Pressable style={detailModalStyles.backdrop} onPress={onClose}>
         <Pressable
-          style={[detailModalStyles.modalViewContainer, {height: 'auto'}]}
+          style={[
+            detailModalStyles.modalViewContainer,
+            {height: 'auto', minHeight: modalMinHeight}, // Điều chỉnh minHeight
+          ]}
           onPress={() => {}}>
           <View style={detailModalStyles.modalViewContent}>
             <View style={detailModalStyles.header}>
+              {/* Spacer để căn giữa tiêu đề khi không có nút back thật sự */}
               <View style={detailModalStyles.headerSpacer} />
-
-              <Text style={detailModalStyles.headerTitle}>
-                Thống Kê: {username}
+              <Text style={detailModalStyles.headerTitleInModal}>
+                Thống Kê {sectionTitle}: {username}
               </Text>
-
               <TouchableOpacity
                 onPress={onClose}
-                style={[
-                  detailModalStyles.backButton,
-                  {transform: [{translateX: 0}]},
-                ]} /* Adjusted transform */
-              >
+                style={[detailModalStyles.backButton, {paddingHorizontal: 5}]}>
                 <Text
-                  style={{
-                    fontSize: 24,
-                    color: COLORS.darkGray || '#555555',
-                  }}></Text>
+                  style={{fontSize: 24, color: COLORS.darkGray || '#555555'}}>
+                  ×
+                </Text>
               </TouchableOpacity>
             </View>
-
-            <View style={detailModalStyles.contentScroll}>
-              <View style={detailModalStyles.infoItem}>
-                <Text style={detailModalStyles.infoLabel}>
-                  Tổng thời gian học:
+            {isLoading ? (
+              <View
+                style={{
+                  height: 150, // Giảm chiều cao cho phù hợp
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{marginTop: 10, color: COLORS.darkGray}}>
+                  Đang tải thống kê...
                 </Text>
-
-                <View style={detailModalStyles.infoValueContainer}>
-                  <Text style={detailModalStyles.infoValue}>
-                    {formatTime(totalLessonTime)}
-                  </Text>
-                </View>
               </View>
-
-              <View style={detailModalStyles.infoItem}>
-                <Text style={detailModalStyles.infoLabel}>
-                  Tổng thời gian kiểm tra:
-                </Text>
-                <View style={detailModalStyles.infoValueContainer}>
-                  <Text style={detailModalStyles.infoValue}>
-                    {formatTime(totalTestTime)}
+            ) : summaryToShow ? (
+              <ScrollView
+                contentContainerStyle={detailModalStyles.contentScroll}>
+                <View style={detailModalStyles.infoItem}>
+                  <Text style={detailModalStyles.infoLabel}>
+                    Tỷ lệ đúng ({sectionTitle}):
                   </Text>
+                  <View style={detailModalStyles.infoValueContainer}>
+                    <Text style={detailModalStyles.infoValue}>
+                      {summaryToShow?.accuracyPercent?.toFixed(2) ?? 'N/A'}%
+                    </Text>
+                  </View>
                 </View>
-              </View>
-
-              <View style={detailModalStyles.infoItem}>
+                <View style={detailModalStyles.infoItem}>
+                  <Text style={detailModalStyles.infoLabel}>
+                    Tỷ lệ hoàn thành ({sectionTitle}):
+                  </Text>
+                  <View style={detailModalStyles.infoValueContainer}>
+                    <Text style={detailModalStyles.infoValue}>
+                      {summaryToShow?.completionAverage?.toFixed(2) ?? 'N/A'}%
+                    </Text>
+                  </View>
+                </View>
+                <View style={detailModalStyles.infoItem}>
+                  <Text style={detailModalStyles.infoLabel}>
+                    Tổng thời gian {timeLabel}:
+                  </Text>
+                  <View style={detailModalStyles.infoValueContainer}>
+                    <Text style={detailModalStyles.infoValue}>
+                      {formatTime(summaryToShow?.totalStudyTime)}
+                    </Text>
+                  </View>
+                </View>
+                {/* Đã loại bỏ phần "Tổng cộng thời gian" */}
+              </ScrollView>
+            ) : (
+              <View
+                style={{
+                  padding: 20,
+                  alignItems: 'center',
+                  height: 150,
+                  justifyContent: 'center',
+                }}>
                 <Text
-                  style={[detailModalStyles.infoLabel, {fontWeight: 'bold'}]}>
-                  Tổng cộng:
+                  style={{
+                    fontSize: 16,
+                    color: COLORS.darkGray,
+                    textAlign: 'center',
+                  }}>
+                  Không có dữ liệu thống kê để hiển thị cho{' '}
+                  {sectionTitle.toLowerCase()}.
                 </Text>
-                <View style={detailModalStyles.infoValueContainer}>
-                  <Text
-                    style={[detailModalStyles.infoValue, {fontWeight: 'bold'}]}>
-                    {formatTime(totalLessonTime + totalTestTime)}
-                  </Text>
-                </View>
               </View>
-            </View>
-
+            )}
             <TouchableOpacity
               style={detailModalStyles.closeButton}
               onPress={onClose}>
@@ -549,108 +386,8 @@ const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
     </Modal>
   );
 };
+// --- END: MODALS ---
 
-const detailModalStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalViewContainer: {
-    width: '90%', // Có thể chỉnh '85%' hoặc '90%' tùy độ rộng mong muốn
-    maxHeight: '85%', // Giới hạn chiều cao tối đa
-    backgroundColor: COLORS.white || '#FFFFFF', // Nền trắng cho modal
-    borderRadius: 12, // Bo góc cho modal
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  modalViewContent: {
-    // Không cần backgroundColor riêng nếu modalViewContainer đã có
-    borderRadius: 12, // Đảm bảo bo tròn nội dung bên trong
-    paddingBottom: 20, // Padding dưới cho nút "Đóng"
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 1,
-    paddingHorizontal: 15,
-    marginTop: 10,
-
-    borderBottomColor: COLORS.lightGray || '#EEEEEE',
-  },
-  backButton: {
-    padding: 5, // Vùng chạm cho nút back
-  },
-  backIcon: {
-    width: 22, // Kích thước icon
-    height: 22,
-    tintColor: COLORS.black || '#000000', // Màu icon
-  },
-  headerTitle: {
-    fontSize: 17, // Cỡ chữ tiêu đề
-    fontWeight: '600', // Độ đậm tiêu đề (semi-bold)
-    color: COLORS.black || '#000000',
-    textAlign: 'left',
-    flex: 1, // Để tiêu đề chiếm không gian và căn giữa
-    marginBottom: 10,
-  },
-  headerSpacer: {
-    // Dùng để căn giữa tiêu đề khi có nút back
-    width: 22 + 5 * 2, // Bằng kích thước icon + padding của backButton
-  },
-  contentScroll: {
-    paddingHorizontal: 20,
-    paddingTop: 20, // Padding trên cho nội dung
-    paddingBottom: 10, // Padding dưới trước nút Đóng
-  },
-  infoItem: {
-    // Mỗi mục thông tin (label + value box)
-    marginBottom: 18, // Khoảng cách giữa các mục
-  },
-  infoLabel: {
-    fontSize: 15,
-    color: COLORS.darkGray || '#555555', // Màu chữ label
-    fontWeight: '500', // Độ đậm label
-    marginBottom: 8, // Khoảng cách từ label đến value box
-  },
-  infoValueContainer: {
-    width: '100%',
-    backgroundColor: COLORS.white || '#FFFFFF', // Nền của value box
-    borderWidth: 1,
-    borderColor: COLORS.lightGray || '#E0E0E0', // Viền của value box
-    borderRadius: 6, // Bo góc value box
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    justifyContent: 'center', // Căn giữa text bên trong nếu chỉ có 1 dòng
-  },
-  infoValue: {
-    fontSize: 15,
-    color: COLORS.black || '#000000', // Màu chữ value
-    textAlign: 'left', // Giá trị căn trái
-  },
-  closeButton: {
-    backgroundColor: COLORS.primary || '#FFBF00', // Màu nút Đóng
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 15, // Khoảng cách từ content đến nút Đóng
-  },
-  closeButtonText: {
-    color: COLORS.white || '#FFFFFF', // Màu chữ nút Đóng
-    fontSize: 16,
-    fontWeight: '600', // Độ đậm chữ nút Đóng
-  },
-});
-// --- END: CẬP NHẬT MODALS ---
-
-// --- BEGIN: Component TienDoDetailScreen (PHẦN CÒN LẠI GIỮ NGUYÊN) ---
 type TienDoDetailScreenRouteProp = RouteProp<
   RootStackParamList,
   'TienDoDetail'
@@ -660,117 +397,315 @@ type TienDoDetailScreenNavigationProp = StackNavigationProp<
   'TienDoDetail'
 >;
 
+const API_ADMIN_BASE_URL = 'http://10.0.2.2:8080/api/admin/result';
+
+const getAdminTokenFromStorage = async (): Promise<string | null> => {
+  try {
+    const token = await AsyncStorage.getItem('token');
+    return token;
+  } catch (e) {
+    console.error('Lỗi khi lấy token từ AsyncStorage:', e);
+    return null;
+  }
+};
+
 const TienDoDetailScreen = () => {
   const route = useRoute<TienDoDetailScreenRouteProp>();
   const navigation = useNavigation<TienDoDetailScreenNavigationProp>();
   const {logout} = useAuth();
 
-  const {userId, username} = route.params;
+  const userIdFromParam = route.params?.userId;
+  const usernameFromParam = route.params?.username;
 
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'lessons' | 'tests'>('lessons');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [lessonsWithProgress, setLessonsWithProgress] = useState<
-    DisplayLessonProgress[]
+  const [allLessonResults, setAllLessonResults] = useState<ApiLessonResult[]>(
+    [],
+  );
+  const [allExamResults, setAllExamResults] = useState<ApiExamResult[]>([]);
+  const [displayedLessonResults, setDisplayedLessonResults] = useState<
+    ApiLessonResult[]
   >([]);
-  const [testsWithProgress, setTestsWithProgress] = useState<
-    DisplayTestProgress[]
+  const [displayedExamResults, setDisplayedExamResults] = useState<
+    ApiExamResult[]
   >([]);
 
-  const [filteredLessons, setFilteredLessons] = useState<
-    DisplayLessonProgress[]
-  >([]);
-  const [filteredTests, setFilteredTests] = useState<DisplayTestProgress[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [isLessonDetailModalVisible, setIsLessonDetailModalVisible] =
     useState(false);
   const [selectedLessonDetail, setSelectedLessonDetail] =
-    useState<DisplayLessonProgress | null>(null); // const [selectedLessonTopicInfo, setSelectedLessonTopicInfo] = useState<TopicInfo | null>(null);
-  // Bỏ selectedLessonTopicInfo nếu không dùng trong modal nữa
+    useState<ApiLessonResult | null>(null);
   const [isTestDetailModalVisible, setIsTestDetailModalVisible] =
     useState(false);
   const [selectedTestDetail, setSelectedTestDetail] =
-    useState<DisplayTestProgress | null>(null); // const [selectedTestTopicInfo, setSelectedTestTopicInfo] = useState<TopicInfo | null>(null);
-  // Bỏ selectedTestTopicInfo nếu không dùng trong modal nữa
+    useState<ApiExamResult | null>(null);
+
   const [isOverallStatsModalVisible, setIsOverallStatsModalVisible] =
     useState(false);
+  const [overallLessonSummary, setOverallLessonSummary] =
+    useState<ApiOverallStatsSummary | null>(null);
+  const [overallExamSummary, setOverallExamSummary] =
+    useState<ApiOverallStatsSummary | null>(null);
+  const [isLoadingOverallStats, setIsLoadingOverallStats] = useState(false);
+
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
 
-  useEffect(() => {
-    const user = initialUsersData.find(u => u.user_id === userId);
-    setCurrentUser(user || null);
+  const filterValidLessonResults = (
+    results: ApiLessonResult[],
+  ): ApiLessonResult[] => {
+    return results.filter(
+      item =>
+        item.studyTime !== null &&
+        item.completionPercent !== null &&
+        item.totalQuestions !== null &&
+        item.correctAnswers !== null,
+    );
+  };
 
-    const lessonsProg = allLessonsData.map(lesson => {
-      const progress = allUserLessonProgressData.find(
-        p => p.user_id === userId && p.lesson_code === lesson.lesson_code,
-      );
-      return {...lesson, ...progress};
-    });
-    setLessonsWithProgress(lessonsProg);
-    setFilteredLessons(lessonsProg);
+  const filterValidExamResults = (
+    results: ApiExamResult[],
+  ): ApiExamResult[] => {
+    return results.filter(
+      item =>
+        item.examTime !== null &&
+        item.scorePercent !== null &&
+        item.totalQuestions !== null &&
+        item.correctAnswers !== null,
+    );
+  };
 
-    const testsProg = allTestData.map(test => {
-      const progress = allUserTestProgressData.find(
-        p => p.user_id === userId && p.test_id === test.test_id,
-      );
-      return {...test, ...progress};
-    });
-    setTestsWithProgress(testsProg);
-    setFilteredTests(testsProg);
-  }, [userId]);
-
-  useEffect(() => {
-    const lowerCaseQuery = searchQuery.toLowerCase().trim();
-    if (activeTab === 'lessons') {
-      if (lowerCaseQuery === '') {
-        setFilteredLessons(lessonsWithProgress);
-      } else {
-        setFilteredLessons(
-          lessonsWithProgress.filter(lp =>
-            lp.lesson_name.toLowerCase().includes(lowerCaseQuery),
-          ),
-        );
+  const fetchLessonProgressInternal = useCallback(
+    async (
+      userId: string,
+      token: string,
+      lessonName?: string,
+    ): Promise<ApiLessonResult[]> => {
+      try {
+        const url = lessonName
+          ? `${API_ADMIN_BASE_URL}/lesson-result/search?userId=${userId}&lessonName=${encodeURIComponent(
+              lessonName,
+            )}`
+          : `${API_ADMIN_BASE_URL}/lesson-result?userId=${userId}`;
+        const response = await axios.get<ApiLessonResult[]>(url, {
+          headers: {Authorization: `Bearer ${token}`},
+        });
+        return filterValidLessonResults(response.data || []);
+      } catch (err) {
+        console.error('API Error: Lỗi khi tải/tìm kiếm tiến độ bài học:', err);
+        throw err;
       }
-    } else {
-      if (lowerCaseQuery === '') {
-        setFilteredTests(testsWithProgress);
-      } else {
-        setFilteredTests(
-          testsWithProgress.filter(tp =>
-            tp.test_name.toLowerCase().includes(lowerCaseQuery),
-          ),
+    },
+    [],
+  );
+
+  const fetchExamProgressInternalAPI = useCallback(
+    async (
+      userId: string,
+      token: string,
+      topicName?: string,
+    ): Promise<ApiExamResult[]> => {
+      try {
+        const url = topicName
+          ? `${API_ADMIN_BASE_URL}/exam-result/search?userId=${userId}&topicName=${encodeURIComponent(
+              topicName,
+            )}`
+          : `${API_ADMIN_BASE_URL}/exam-result?userId=${userId}`;
+        const response = await axios.get<ApiExamResult[]>(url, {
+          headers: {Authorization: `Bearer ${token}`},
+        });
+        return filterValidExamResults(response.data || []);
+      } catch (err) {
+        console.error(
+          'API Error: Lỗi khi tải/tìm kiếm tiến độ bài kiểm tra:',
+          err,
         );
+        throw err;
       }
+    },
+    [],
+  );
+
+  const loadAllProgressDataForUser = useCallback(
+    async (currentUserId: string) => {
+      if (!currentUserId) {
+        Alert.alert('Lỗi', 'Không có User ID để tải dữ liệu.');
+        setError('Không có User ID để tải dữ liệu.');
+        return;
+      }
+      setIsLoading(true);
+      setError(null);
+      const token = await getAdminTokenFromStorage();
+      if (!token) {
+        Alert.alert('Lỗi', 'Không thể lấy token xác thực. Vui lòng thử lại.');
+        setError('Lỗi xác thực. Không thể tải dữ liệu.');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const [lessons, exams] = await Promise.all([
+          fetchLessonProgressInternal(currentUserId, token),
+          fetchExamProgressInternalAPI(currentUserId, token),
+        ]);
+
+        setAllLessonResults(lessons);
+        setDisplayedLessonResults(lessons);
+        setAllExamResults(exams);
+        setDisplayedExamResults(exams);
+      } catch (err) {
+        const errorMessage =
+          axios.isAxiosError(err) && err.response?.data?.message
+            ? err.response.data.message
+            : 'Đã xảy ra lỗi khi tải dữ liệu tiến độ.';
+        setError(errorMessage);
+        Alert.alert('Lỗi tải dữ liệu', errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [fetchLessonProgressInternal, fetchExamProgressInternalAPI],
+  );
+
+  useEffect(() => {
+    if (userIdFromParam) {
+      loadAllProgressDataForUser(userIdFromParam);
     }
-  }, [searchQuery, lessonsWithProgress, testsWithProgress, activeTab]);
+  }, [userIdFromParam, loadAllProgressDataForUser]);
 
-  const handleOpenLessonDetail = (item: DisplayLessonProgress) => {
+  useEffect(() => {
+    if (!userIdFromParam) return;
+    const lowerCaseQuery = searchQuery.toLowerCase().trim();
+
+    const applyFiltersAndSearch = async () => {
+      const token = await getAdminTokenFromStorage();
+      if (!token && lowerCaseQuery !== '') {
+        // Chỉ kiểm tra token nếu có query
+        Alert.alert('Lỗi', 'Lỗi xác thực khi tìm kiếm.');
+        return;
+      }
+
+      if (activeTab === 'lessons') {
+        if (lowerCaseQuery === '') {
+          setDisplayedLessonResults(allLessonResults);
+        } else {
+          if (!token) {
+            // Cần token để search API
+            Alert.alert('Lỗi', 'Lỗi xác thực khi tìm kiếm bài học.');
+            return;
+          }
+          setIsLoading(true);
+          try {
+            const searchResults = await fetchLessonProgressInternal(
+              userIdFromParam,
+              token, // Đã kiểm tra token ở trên
+              lowerCaseQuery,
+            );
+            setDisplayedLessonResults(searchResults);
+          } catch (searchError) {
+            Alert.alert(
+              'Lỗi tìm kiếm',
+              'Không thể thực hiện tìm kiếm bài học.',
+            );
+            setDisplayedLessonResults(allLessonResults); // Fallback to all results
+          } finally {
+            setIsLoading(false);
+          }
+        }
+      } else {
+        // activeTab === 'tests'
+        if (lowerCaseQuery === '') {
+          setDisplayedExamResults(allExamResults);
+        } else {
+          if (!token) {
+            // Cần token để search API
+            Alert.alert('Lỗi', 'Lỗi xác thực khi tìm kiếm bài kiểm tra.');
+            setIsLoading(false);
+            return;
+          }
+          setIsLoading(true);
+          try {
+            const searchResults = await fetchExamProgressInternalAPI(
+              userIdFromParam,
+              token, // Đã kiểm tra token ở trên
+              lowerCaseQuery,
+            );
+            setDisplayedExamResults(searchResults);
+          } catch (searchError) {
+            Alert.alert(
+              'Lỗi tìm kiếm',
+              'Không thể thực hiện tìm kiếm bài kiểm tra.',
+            );
+            setDisplayedExamResults(allExamResults); // Fallback to all results
+          } finally {
+            setIsLoading(false);
+          }
+        }
+      }
+    };
+    applyFiltersAndSearch();
+  }, [
+    searchQuery,
+    activeTab,
+    userIdFromParam,
+    allLessonResults,
+    allExamResults,
+    fetchLessonProgressInternal,
+    fetchExamProgressInternalAPI,
+  ]);
+
+  const handleOpenLessonDetail = (item: ApiLessonResult) => {
     setSelectedLessonDetail(item);
-    // const topic = allTopicsData.find(t => t.topic_code === item.topic_code); // Không cần nếu không dùng
-    // setSelectedLessonTopicInfo(topic || null);
     setIsLessonDetailModalVisible(true);
   };
 
-  const handleOpenTestDetail = (item: DisplayTestProgress) => {
+  const handleOpenTestDetail = (item: ApiExamResult) => {
     setSelectedTestDetail(item);
-    // const topic = allTopicsData.find(t => t.topic_code === item.topic_code); // Không cần nếu không dùng
-    // setSelectedTestTopicInfo(topic || null);
     setIsTestDetailModalVisible(true);
   };
 
-  const handleOpenOverallStats = () => {
+  const handleOpenOverallStats = useCallback(async () => {
+    if (!userIdFromParam) return;
+    setIsLoadingOverallStats(true);
     setIsOverallStatsModalVisible(true);
-  };
+    // Reset cả hai summary trước khi fetch để đảm bảo modal không hiển thị dữ liệu cũ nếu API fail 1 cái
+    setOverallLessonSummary(null);
+    setOverallExamSummary(null);
 
-  const totalLessonTime = lessonsWithProgress.reduce(
-    (sum, item) => sum + (item.time_spent_seconds || 0),
-    0,
-  );
-  const totalTestTime = testsWithProgress.reduce(
-    (sum, item) => sum + (item.time_spent_seconds || 0),
-    0,
-  );
+    const token = await getAdminTokenFromStorage();
+    if (!token) {
+      Alert.alert('Lỗi', 'Không thể lấy token để tải thống kê.');
+      setIsLoadingOverallStats(false);
+      return;
+    }
+    try {
+      // Vẫn fetch cả hai, modal sẽ quyết định hiển thị cái nào
+      const lessonSummaryUrl = `${API_ADMIN_BASE_URL}/lesson/summary/${userIdFromParam}`;
+      const examSummaryUrl = `${API_ADMIN_BASE_URL}/exam-result/summary/${userIdFromParam}`;
+
+      const [lessonSummaryRes, examSummaryRes] = await Promise.all([
+        axios.get<ApiOverallStatsSummary>(lessonSummaryUrl, {
+          headers: {Authorization: `Bearer ${token}`},
+        }),
+        axios.get<ApiOverallStatsSummary>(examSummaryUrl, {
+          headers: {Authorization: `Bearer ${token}`},
+        }),
+      ]);
+
+      setOverallLessonSummary(lessonSummaryRes.data);
+      setOverallExamSummary(examSummaryRes.data);
+    } catch (err) {
+      console.error('Lỗi khi tải dữ liệu thống kê tổng quan:', err);
+      Alert.alert('Lỗi', 'Không thể tải dữ liệu thống kê.');
+      // Nếu lỗi, đảm bảo cả hai summary đều null
+      setOverallLessonSummary(null);
+      setOverallExamSummary(null);
+    } finally {
+      setIsLoadingOverallStats(false);
+    }
+  }, [userIdFromParam]); // activeTab không cần là dependency ở đây vì logic fetch không đổi
 
   const handleLogoutFromMenu = useCallback(async () => {
     setIsProfileMenuVisible(false);
@@ -791,37 +726,83 @@ const TienDoDetailScreen = () => {
     );
   }, [logout]);
 
-  const renderListItem = ({
-    item,
-  }: {
-    item: DisplayLessonProgress | DisplayTestProgress;
-  }) => {
-    const isLesson = 'lesson_code' in item;
+  const renderListItem = ({item}: {item: ApiLessonResult | ApiExamResult}) => {
+    const isLesson = 'lessonId' in item;
     const name = isLesson
-      ? (item as DisplayLessonProgress).lesson_name
-      : (item as DisplayTestProgress).test_name;
-    // Bỏ phần hiển thị % hoàn thành và progress bar khỏi list item nếu không có trong ảnh
-    //   const completion = item.completion_percentage ?? 0;
+      ? (item as ApiLessonResult).name
+      : (item as ApiExamResult).topicName;
     const icon = isLesson ? LESSON_LIST_ICON : TEST_LIST_ICON;
-
     return (
       <TouchableOpacity
         style={mainStyles.listItem}
         onPress={() =>
           isLesson
-            ? handleOpenLessonDetail(item as DisplayLessonProgress)
-            : handleOpenTestDetail(item as DisplayTestProgress)
+            ? handleOpenLessonDetail(item as ApiLessonResult)
+            : handleOpenTestDetail(item as ApiExamResult)
         }>
         <Image source={icon} style={mainStyles.itemIcon} />
         <View style={mainStyles.itemTextContainer}>
           <Text style={mainStyles.itemNameText} numberOfLines={1}>
             {name}
           </Text>
-          {/* Bỏ itemDetailText và progressBarContainer nếu không cần */}
         </View>
       </TouchableOpacity>
     );
   };
+
+  if (
+    isLoading &&
+    allLessonResults.length === 0 &&
+    allExamResults.length === 0
+  ) {
+    return (
+      <SafeAreaView
+        style={[
+          mainStyles.safeArea,
+          {justifyContent: 'center', alignItems: 'center'},
+        ]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{marginTop: 10, fontSize: 16, color: COLORS.darkGray}}>
+          Đang tải dữ liệu...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+  if (
+    error &&
+    !isLoading &&
+    allLessonResults.length === 0 &&
+    allExamResults.length === 0
+  ) {
+    return (
+      <SafeAreaView
+        style={[
+          mainStyles.safeArea,
+          {
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+          },
+        ]}>
+        <Text style={{fontSize: 16, color: COLORS.error, textAlign: 'center'}}>
+          {error}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            if (userIdFromParam) loadAllProgressDataForUser(userIdFromParam);
+          }}
+          style={{
+            marginTop: 20,
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            backgroundColor: COLORS.primary,
+            borderRadius: 5,
+          }}>
+          <Text style={{color: COLORS.white, fontWeight: 'bold'}}>Thử lại</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={mainStyles.safeArea}>
@@ -830,9 +811,7 @@ const TienDoDetailScreen = () => {
         backgroundColor={COLORS.primary}
       />
       <View style={mainStyles.mainHeader}>
-        <TouchableOpacity
-          style={mainStyles.headerButton}
-          onPress={() => console.log('Logo pressed')}>
+        <TouchableOpacity style={mainStyles.headerButton}>
           <Image
             source={LOGO_ICON}
             style={mainStyles.headerIconMain}
@@ -850,6 +829,7 @@ const TienDoDetailScreen = () => {
           />
         </TouchableOpacity>
       </View>
+
       <View style={mainStyles.subHeader}>
         <TouchableOpacity
           style={mainStyles.backButtonSubHeader}
@@ -860,20 +840,18 @@ const TienDoDetailScreen = () => {
             resizeMode="contain"
           />
         </TouchableOpacity>
-        {/* Screen title bị ẩn đi trong ảnh fullManHinhKhiCoThognBaso.png khi modal hiển thị, 
-            nhưng nó thuộc subHeader, không phải modal nên giữ nguyên logic hiển thị */}
-
+        <Text style={mainStyles.screenTitleStyle}>{`Tiến Độ: ${
+          usernameFromParam || 'Người dùng'
+        }`}</Text>
         <View
           style={{
             width:
               mainStyles.backIconSubHeader.width +
-              (mainStyles.backButtonSubHeader.padding ||
-                mainStyles.backButtonSubHeader.padding ||
-                0) *
-                2,
+              (mainStyles.backButtonSubHeader.paddingHorizontal || 5) * 2,
           }}
         />
       </View>
+
       <View style={mainStyles.tabsContainer}>
         <TouchableOpacity
           style={[
@@ -904,6 +882,7 @@ const TienDoDetailScreen = () => {
           </Text>
         </TouchableOpacity>
       </View>
+
       <View style={mainStyles.searchAndFilterContainer}>
         <View style={mainStyles.searchBar}>
           <Image
@@ -911,7 +890,6 @@ const TienDoDetailScreen = () => {
             style={mainStyles.searchIcon}
             resizeMode="contain"
           />
-
           <TextInput
             style={mainStyles.searchInput}
             placeholder={`Tìm ${
@@ -922,7 +900,6 @@ const TienDoDetailScreen = () => {
             onChangeText={setSearchQuery}
           />
         </View>
-
         <TouchableOpacity
           style={mainStyles.statsButton}
           onPress={handleOpenOverallStats}>
@@ -933,24 +910,48 @@ const TienDoDetailScreen = () => {
           />
         </TouchableOpacity>
       </View>
+
+      {isLoading &&
+        (displayedLessonResults.length > 0 ||
+          displayedExamResults.length > 0) && ( // Chỉ hiện loading nhỏ khi đã có list data
+          <View style={{paddingVertical: 10, alignItems: 'center'}}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          </View>
+        )}
+
       <FlatList
-        data={activeTab === 'lessons' ? filteredLessons : filteredTests}
+        data={
+          activeTab === 'lessons'
+            ? displayedLessonResults
+            : displayedExamResults
+        }
         renderItem={renderListItem}
         keyExtractor={item =>
-          'lesson_code' in item
-            ? `lesson-${(item as Lesson).lesson_code}`
-            : `test-${(item as TestItem).test_id}`
+          'lessonId' in item
+            ? `lesson-${(item as ApiLessonResult).lessonId}-${
+                item.id || Math.random().toString() // Thêm fallback key
+              }`
+            : `exam-${(item as ApiExamResult).topicId}-${
+                item.id || Math.random().toString() // Thêm fallback key
+              }`
         }
         style={mainStyles.listContainer}
         contentContainerStyle={mainStyles.listContentContainer}
         ListEmptyComponent={
-          <View style={mainStyles.emptyListContainer}>
-            <Text style={mainStyles.emptyListText}>
-              Không có dữ liệu tiến độ.
-            </Text>
-          </View>
+          !isLoading ? ( // Chỉ hiện empty text khi không loading
+            <View style={mainStyles.emptyListContainer}>
+              <Text style={mainStyles.emptyListText}>
+                {searchQuery
+                  ? `Không tìm thấy kết quả cho "${searchQuery}".`
+                  : `Không có dữ liệu ${
+                      activeTab === 'lessons' ? 'bài học' : 'kiểm tra'
+                    } để hiển thị.`}
+              </Text>
+            </View>
+          ) : null
         }
       />
+
       <LessonProgressDetailModal
         visible={isLessonDetailModalVisible}
         onClose={() => setIsLessonDetailModalVisible(false)}
@@ -963,10 +964,17 @@ const TienDoDetailScreen = () => {
       />
       <OverallStatsModal
         visible={isOverallStatsModalVisible}
-        onClose={() => setIsOverallStatsModalVisible(false)}
-        totalLessonTime={totalLessonTime}
-        totalTestTime={totalTestTime}
-        username={username || currentUser?.username || ''}
+        onClose={() => {
+          setIsOverallStatsModalVisible(false);
+          // Reset cả hai summary khi đóng để đảm bảo sạch sẽ cho lần mở tiếp theo
+          setOverallLessonSummary(null);
+          setOverallExamSummary(null);
+        }}
+        lessonSummary={overallLessonSummary}
+        examSummary={overallExamSummary}
+        username={usernameFromParam || ''}
+        isLoading={isLoadingOverallStats}
+        activeTab={activeTab} // Truyền activeTab vào đây
       />
       <Modal
         animationType="fade"
@@ -977,15 +985,12 @@ const TienDoDetailScreen = () => {
           style={profileMenuStyles.backdrop}
           onPress={() => setIsProfileMenuVisible(false)}>
           <View style={profileMenuStyles.menuContainer}>
-            {/* Nội dung Profile Menu Modal (ví dụ: nút Đăng xuất) có thể thêm ở đây */}
             <TouchableOpacity
               style={profileMenuStyles.menuItem}
               onPress={handleLogoutFromMenu}>
               <Image
                 source={require('../../assets/images/logout.png')}
-                /* Thay thế bằng LOGOUT_ICON nếu đã define */ style={
-                  profileMenuStyles.menuIcon
-                }
+                style={profileMenuStyles.menuIcon}
               />
               <Text style={profileMenuStyles.menuText}>Đăng xuất</Text>
             </TouchableOpacity>
@@ -995,9 +1000,111 @@ const TienDoDetailScreen = () => {
     </SafeAreaView>
   );
 };
-// --- END: Component TienDoDetailScreen ---
 
-// --- BEGIN: STYLES (mainStyles và profileMenuStyles giữ nguyên như bạn đã cung cấp) ---
+// --- STYLES (GIỮ NGUYÊN) ---
+const detailModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalViewContainer: {
+    width: '90%',
+    maxHeight: '85%',
+    backgroundColor: COLORS.white || '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalViewContent: {
+    borderRadius: 12,
+    paddingBottom: 20,
+    overflow: 'hidden', // Đảm bảo content không tràn ra ngoài borderRadius
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between', // Để spacer hoạt động đúng
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray || '#EEEEEE',
+  },
+  backButton: {
+    padding: 5,
+    // Không cần paddingHorizontal cố định ở đây nếu dùng spacer
+  },
+  backIcon: {
+    width: 22,
+    height: 22,
+  },
+  headerTitleInModal: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.black || '#000000',
+    textAlign: 'center',
+    flex: 1, // Để tiêu đề chiếm không gian còn lại và tự căn giữa
+  },
+  headerSpacer: {
+    // Dùng để căn giữa tiêu đề khi có nút đóng ở một bên
+    width: 22 + 5 * 2, // Chiều rộng của icon + padding của nút đóng
+  },
+  contentScroll: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10, // Giảm padding bottom nếu cần thêm không gian cho nút Đóng
+  },
+  infoItem: {
+    marginBottom: 18,
+  },
+  infoLabel: {
+    fontSize: 15,
+    color: COLORS.darkGray || '#555555',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  infoValueContainer: {
+    width: '100%',
+    backgroundColor: COLORS.white || '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.lightGray || '#E0E0E0',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: 'center', // Căn giữa text bên trong nếu cần
+  },
+  infoValue: {
+    fontSize: 15,
+    color: COLORS.black || '#000000',
+    textAlign: 'left',
+  },
+  closeButton: {
+    backgroundColor: COLORS.primary || '#FFBF00',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 15, // Đảm bảo có khoảng cách với content
+  },
+  closeButtonText: {
+    color: COLORS.white || '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  summarySectionTitle: {
+    // Giữ lại style này nếu bạn muốn dùng lại ở đâu đó, dù hiện tại không dùng trong OverallStatsModal
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text || COLORS.black,
+    marginBottom: 10,
+    marginTop: 10,
+  },
+});
+
 const mainStyles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.background || '#FFFFFF'},
   mainHeader: {
@@ -1012,35 +1119,34 @@ const mainStyles = StyleSheet.create({
       Platform.OS === 'android' ? 56 + (StatusBar.currentHeight || 0) : 90,
   },
   headerButton: {padding: 5},
-  headerIconMain: {width: 30, height: 30}, // Thêm tintColor nếu cần
+  headerIconMain: {width: 30, height: 30},
   mainHeaderTitle: {fontSize: 20, fontWeight: 'bold', color: COLORS.white},
   subHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Để căn đều title và spacer
+    justifyContent: 'space-between',
     paddingHorizontal: 15,
-    paddingVertical: 10, // Giảm paddingVertical nếu cần
-    backgroundColor: COLORS.white, // borderBottomWidth: 1, // Bỏ border nếu không có trong ảnh // borderBottomColor: COLORS.lightGray || '#ECECEC',
+    paddingVertical: 10,
+    backgroundColor: COLORS.white,
   },
-  backButtonSubHeader: {padding: 5 /* marginRight: 10, */}, // Bỏ marginRight nếu dùng spacer
+  backButtonSubHeader: {padding: 5, paddingHorizontal: 5},
   backIconSubHeader: {
     width: 20,
     height: 20,
-    tintColor: COLORS.black || '#333333',
   },
   screenTitleStyle: {
-    // flex: 1, // Bỏ flex:1 để title không chiếm hết không gian nếu không cần
     fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.black || '#000000',
-    textAlign: 'center', // Căn giữa nếu muốn
-    marginHorizontal: 10, // Thêm margin nếu cần để không sát nút back/spacer
+    textAlign: 'center',
+    flex: 1,
+    marginHorizontal: 5,
   },
   searchAndFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15, // Thay đổi từ 10 thành 15
-    paddingVertical: 10, // Thay đổi từ 1 thành 10
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     marginBottom: 10,
     backgroundColor: COLORS.white,
   },
@@ -1049,7 +1155,7 @@ const mainStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.lightGray2 || '#f0f0f0',
-    borderRadius: 20, // Giữ nguyên bo tròn
+    borderRadius: 20,
     paddingHorizontal: 12,
     height: 40,
   },
@@ -1057,27 +1163,25 @@ const mainStyles = StyleSheet.create({
     width: 16,
     height: 16,
     marginRight: 8,
-    tintColor: COLORS.darkGray,
   },
   searchInput: {flex: 1, fontSize: 15, color: COLORS.black, paddingVertical: 0},
   statsButton: {
-    padding: 0, // Bỏ padding mặc định của TouchableOpacity
+    padding: 0,
     marginLeft: 10,
-    // backgroundColor: COLORS.lightGray2, // Bỏ nền nếu icon đã đủ rõ
-    borderRadius: 20, // Giữ bo tròn cho vùng chạm
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 40, // Set width height cho nút bấm
+    width: 40,
     height: 40,
   },
-  statsIcon: {width: 28, height: 28 /* tintColor: COLORS.primary */}, // Kích thước icon huy hiệu, bỏ tint nếu icon gốc đã có màu
+  statsIcon: {width: 28, height: 28},
   tabsContainer: {
     flexDirection: 'row',
     marginHorizontal: 15,
-    marginTop: 0, // Bỏ marginTop nếu subHeader không có borderBottom
+    marginTop: 0,
     marginBottom: 10,
     backgroundColor: COLORS.lightGray || '#F0F0F0',
-    borderRadius: 8, // Tăng bo tròn cho tab
+    borderRadius: 8,
     overflow: 'hidden',
     height: 45,
   },
@@ -1086,33 +1190,31 @@ const mainStyles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    // borderBottomWidth: 3, // Bỏ border bottom
-    // borderBottomColor: 'transparent',
   },
   tabButtonActive: {
-    backgroundColor: COLORS.nenItemDam || '#E0E0E0', // Màu cho tab active (cần định nghĩa COLORS.nenItemDam)
-    borderRadius: 8, // Bo tròn cho tab active khớp với container
+    backgroundColor: COLORS.nenItemDam || '#E0E0E0',
+    borderRadius: 8,
   },
   tabText: {
     fontSize: 16,
     color: COLORS.darkGray || '#A0A0A0',
     fontWeight: '500',
-  }, // Màu chữ tab thường
-  tabTextActive: {color: COLORS.black || '#000000', fontWeight: 'bold'}, // Màu chữ tab active
-  listContainer: {flex: 1, backgroundColor: COLORS.background || '#F5F5F5'}, // Nền cho list
+  },
+  tabTextActive: {color: COLORS.black || '#000000', fontWeight: 'bold'},
+  listContainer: {flex: 1, backgroundColor: COLORS.background || '#F5F5F5'},
   listContentContainer: {
     paddingHorizontal: 15,
     paddingBottom: 20,
     paddingTop: 5,
-  }, // Thêm paddingTop
+  },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.nenItem || '#FFF9E6', // Màu nền item
-    paddingVertical: 12, // Tăng padding dọc
+    backgroundColor: COLORS.nenItem || '#FFF9E6',
+    paddingVertical: 12,
     paddingHorizontal: 15,
     borderRadius: 10,
-    marginBottom: 12, // Tăng khoảng cách item
+    marginBottom: 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
@@ -1123,15 +1225,13 @@ const mainStyles = StyleSheet.create({
     width: 24,
     height: 24,
     marginRight: 12,
-    tintColor: COLORS.gray || '#888888',
-  }, // Kích thước và màu icon
+  },
   itemTextContainer: {flex: 1},
   itemNameText: {
     fontSize: 16,
     color: COLORS.black || '#333333',
     fontWeight: '500',
-  }, // Bỏ marginBottom, fontWeight
-  // itemDetailText và progressBarContainer đã được comment/xóa ở renderListItem nếu không cần
+  },
   emptyListContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1164,7 +1264,7 @@ const profileMenuStyles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
   },
-  menuIcon: {width: 20, height: 20, marginRight: 12, tintColor: '#555'},
+  menuIcon: {width: 20, height: 20, marginRight: 12},
   menuText: {fontSize: 16, color: '#333'},
 });
 // --- END: STYLES ---

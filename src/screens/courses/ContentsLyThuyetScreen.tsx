@@ -1,201 +1,56 @@
-// src/screens/lessons/ContentsLyThuyetScreen.tsx (Ví dụ đường dẫn)
-import React, {useState, useMemo} from 'react';
+// src/screens/lessons/ContentsLyThuyetScreen.tsx
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   FlatList,
   TouchableOpacity,
   ImageBackground,
   StatusBar,
   Alert,
-  // Alert, // Bỏ Alert nếu không dùng
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {Audio} from 'expo-av';
-import Sound from 'react-native-sound';
+import {
+  Video,
+  VideoRef,
+  OnLoadData,
+  OnBufferData,
+  OnProgressData,
+} from 'react-native-video'; // Thêm các type cho callback
 
-// Giả sử màn hình này được gọi từ CourseDetailScreen, và cả hai thuộc CoursesStackParamList
-// Hoặc bạn có thể tạo một LessonStackParamList riêng
 import {CoursesStackParamList, RootStackParamList} from '../../navigation';
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
-import {Image} from 'react-native'; // Import Image đã có sẵn
-// import SoundPlayer from 'react-native-sound-player'; // Ví dụ thư viện âm thanh
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-// --- BEGIN DATA (Như đã định nghĩa ở Bước 1) ---
-interface LessonContentItem {
-  content_code: number;
-  content_type: 'Từ vựng' | 'Ngữ pháp';
-  title: string | null;
-  content_detail: string;
-  audio_url: number | null; // Hoặc any nếu bạn muốn linh hoạt hơn
-  image_url: string | null;
-  display_order: number;
-  lesson_code: number;
-  skill_code: number;
+// --- Định nghĩa kiểu dữ liệu ---
+interface VocabularyItemAPI {
+  id: number;
+  word: string;
+  meaning: string;
+  pronunciation: string;
+  vocabularyUrl: string | null;
 }
 
-const allLessonContents: LessonContentItem[] = [
-  // ... (Dán toàn bộ mảng dữ liệu bạn cung cấp vào đây)
-  {
-    content_code: 1,
-    content_type: 'Từ vựng',
-    title: 'こんにちは',
-    content_detail: 'Xin chào (Konnichiwa)',
-    audio_url: require('./sounds/chaoanhtrai.mp3'),
-    image_url: 'https://example.com/images/konnichiwa.png',
-    display_order: 1,
-    lesson_code: 2,
-    skill_code: 1,
-  },
-  {
-    content_code: 2,
-    content_type: 'Từ vựng',
-    title: 'さようなら',
-    content_detail: 'Tạm biệt (Sayounara)',
-    audio_url: require('./sounds/chaoanhtrai.mp3'),
-    image_url: 'https://example.com/images/sayounara.png',
-    display_order: 2,
-    lesson_code: 2,
-    skill_code: 1,
-  },
-  {
-    content_code: 3,
-    content_type: 'Ngữ pháp',
-    title: 'Cách dùng こんにちは',
-    content_detail:
-      'こんにちは dùng để chào hỏi vào buổi chiều hoặc ban ngày.\nNó thể hiện sự lịch sự cơ bản và có thể dùng trong nhiều tình huống khác nhau.\nKhông nên dùng với người rất thân thiết vào buổi sáng sớm (khi đó dùng Ohayou).',
-    audio_url: require('./sounds/chaoanhtrai.mp3'),
-    image_url: null,
-    display_order: 3,
-    lesson_code: 2,
-    skill_code: 1,
-  },
-  {
-    content_code: 4,
-    content_type: 'Ngữ pháp',
-    title: 'Mẫu câu ～です',
-    content_detail:
-      "～です (desu) dùng để kết thúc câu một cách lịch sự, khẳng định một điều gì đó. Tương đương với 'là' trong tiếng Việt.\nVí dụ: わたしは学生です。(Watashi wa gakusei desu) - Tôi là học sinh.\nこれは本です。(Kore wa hon desu) - Đây là quyển sách.",
-    audio_url: require('./sounds/chaoanhtrai.mp3'),
-    image_url: null,
-    display_order: 4,
-    lesson_code: 2,
-    skill_code: 1,
-  },
-  {
-    content_code: 5,
-    content_type: 'Từ vựng',
-    title: 'ありがとう',
-    content_detail: 'Cảm ơn (Arigatou)',
-    audio_url: require('./sounds/chaoanhtrai.mp3'),
-    image_url: 'https://example.com/images/arigatou.png',
-    display_order: 5,
-    lesson_code: 2,
-    skill_code: 1,
-  },
-  {
-    content_code: 6,
-    content_type: 'Ngữ pháp',
-    title: 'Cách dùng ありがとう',
-    content_detail:
-      'ありがとう dùng để cảm ơn người khác. ありがとうございます (arigatou gozaimasu) là cách nói lịch sự hơn, thường dùng với người lớn tuổi hơn hoặc người không thân quen.',
-    audio_url: null,
-    image_url: null,
-    display_order: 6,
-    lesson_code: 14,
-    skill_code: 1,
-  },
-  {
-    content_code: 7,
-    content_type: 'Từ vựng',
-    title: 'こんにちは',
-    content_detail: 'Xin chào (Konnichiwa)',
-    audio_url:
-      'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
-    image_url: 'https://example.com/images/konnichiwa.png',
-    display_order: 1,
-    lesson_code: 14,
-    skill_code: 1,
-  },
-  {
-    content_code: 8,
-    content_type: 'Từ vựng',
-    title: 'さようなら',
-    content_detail: 'Tạm biệt (Sayounara)',
-    audio_url:
-      'https://dl.dropboxusercontent.com/scl/fi/f885u2twoe44vs2i9txxb/chucNn.mp3',
-    image_url: 'https://example.com/images/sayounara.png',
-    display_order: 8,
-    lesson_code: 14,
-    skill_code: 1,
-  },
-  {
-    content_code: 9,
-    content_type: 'Ngữ pháp',
-    title: 'Cách dùng こんにちは',
-    content_detail:
-      'こんにちは dùng để chào hỏi vào buổi chiều hoặc ban ngày.\nNó thể hiện sự lịch sự cơ bản và có thể dùng trong nhiều tình huống khác nhau.\nKhông nên dùng với người rất thân thiết vào buổi sáng sớm (khi đó dùng Ohayou).',
-    audio_url: null,
-    image_url: null,
-    display_order: 3,
-    lesson_code: 14,
-    skill_code: 1,
-  },
-  {
-    content_code: 10,
-    content_type: 'Ngữ pháp',
-    title: 'Mẫu câu ～です',
-    content_detail:
-      "～です (desu) dùng để kết thúc câu một cách lịch sự, khẳng định một điều gì đó. Tương đương với 'là' trong tiếng Việt.\nVí dụ: わたしは学生です。(Watashi wa gakusei desu) - Tôi là học sinh.\nこれは本です。(Kore wa hon desu) - Đây là quyển sách.",
-    audio_url: require('./sounds/chaoanhtrai.mp3'),
-    image_url: null,
-    display_order: 4,
-    lesson_code: 14,
-    skill_code: 1,
-  },
-  {
-    content_code: 11,
-    content_type: 'Từ vựng',
-    title: 'ありがとう',
-    content_detail: 'Cảm ơn (Arigatou)',
-    audio_url: require('./sounds/chaoanhtrai.mp3'),
-    image_url: 'https://example.com/images/arigatou.png',
-    display_order: 5,
-    lesson_code: 14,
-    skill_code: 1,
-  },
-  {
-    content_code: 12,
-    content_type: 'Ngữ pháp',
-    title: 'Cách dùng ありがとう',
-    content_detail:
-      'ありがとう dùng để cảm ơn người khác. ありがとうございます (arigatou gozaimasu) là cách nói lịch sự hơn, thường dùng với người lớn tuổi hơn hoặc người không thân quen.',
-    audio_url: null,
-    image_url: null,
-    display_order: 6,
-    lesson_code: 14,
-    skill_code: 1,
-  },
-];
-// --- END DATA ---
+interface GrammarItemAPI {
+  id: number;
+  structure: string;
+  explanation: string;
+  example: string;
+  urlAudio: string | null;
+}
+// --- END Định nghĩa kiểu dữ liệu ---
 
-// Type cho route params khi điều hướng đến màn hình này
-// Giả sử màn hình này tên là 'LessonContentDetails' trong navigator
-// và nhận lessonId và lessonTitle
-// Type cho route params của màn hình này
 type ContentsLyThuyetScreenRouteProp = RouteProp<
   CoursesStackParamList,
-  'ContentsLyThuyetScreen' // Tên route của màn hình này như đã đăng ký trong Navigator
+  'ContentsLyThuyetScreen'
 >;
 
-// Để đơn giản, nếu bạn navigate từ LessonScreen trong CoursesStackParamList:
-// type ContentsLyThuyetScreenRouteProp = RouteProp<CoursesStackParamList, 'Lesson'>;
-
-// Sửa lại type cho navigation prop
 type ContentsLyThuyetScreenNavigationProp =
   StackNavigationProp<RootStackParamList>;
 
@@ -203,100 +58,208 @@ const ContentsLyThuyetScreen: React.FC = () => {
   const route = useRoute<ContentsLyThuyetScreenRouteProp>();
   const navigation = useNavigation<ContentsLyThuyetScreenNavigationProp>();
 
-  // Lấy lessonId và lessonTitle từ route.params
-  // Đảm bảo rằng khi navigate đến màn hình này, bạn truyền đúng các params này
-  const lessonCodeFromParam = route.params?.lessonCode;
+  const topicIdFromParam = route.params?.topicId;
   const lessonNameFromParam = route.params?.lessonName;
-
-  const currentLessonId = parseInt(lessonCodeFromParam || '0', 10);
 
   const [activeContentType, setActiveContentType] = useState<
     'Từ vựng' | 'Ngữ pháp'
   >('Từ vựng');
 
-  const lessonContents = useMemo(() => {
-    return allLessonContents.filter(
-      content => content.lesson_code === currentLessonId,
-    );
-  }, [currentLessonId]);
+  const [vocabularyData, setVocabularyData] = useState<VocabularyItemAPI[]>([]);
+  const [grammarData, setGrammarData] = useState<GrammarItemAPI[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const vocabularyItems = useMemo(() => {
-    return lessonContents.filter(content => content.content_type === 'Từ vựng');
-  }, [lessonContents]);
+  const audioRef = useRef<VideoRef>(null);
+  const [audioURLToPlay, setAudioUrlToPlayState] = useState<string | null>(
+    null,
+  );
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [audioPlayerError, setAudioPlayerError] = useState('');
+  const audioUrlToPlayRef = useRef<string | null>(null);
 
-  const grammarContent = useMemo(() => {
-    return lessonContents
-      .filter(content => content.content_type === 'Ngữ pháp')
-      .map(content => {
-        let text = '';
-        if (content.title) {
-          // Thêm tiêu đề ngữ pháp nếu có
-          text += `## ${content.title}\n\n`;
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!topicIdFromParam) {
+        setError('Không tìm thấy ID chủ đề.');
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+          setError('Không tìm thấy token xác thực.');
+          setLoading(false);
+          Alert.alert('Lỗi', 'Bạn cần đăng nhập để xem nội dung này.');
+          return;
         }
-        text += content.content_detail;
-        return text;
-      })
-      .join('\n\n'); // Gộp các đoạn content_detail, phân cách bằng đường kẻ
-  }, [lessonContents]);
+        const requestHttpHeaders = {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        };
+        let parsedTopicId: number;
+        try {
+          parsedTopicId =
+            typeof topicIdFromParam === 'string'
+              ? parseInt(topicIdFromParam, 10)
+              : topicIdFromParam;
+          if (isNaN(parsedTopicId)) {
+            throw new Error('topicId không phải là số hợp lệ');
+          }
+        } catch (e: any) {
+          setError('ID chủ đề không hợp lệ.');
+          setLoading(false);
+          return;
+        }
+        const vocabularyApiUrl = `http://10.0.2.2:8080/api/user/theory/vocabulary?topicId=${parsedTopicId}`;
+        const grammarApiUrl = `http://10.0.2.2:8080/api/user/theory/grammar?topicId=${parsedTopicId}`;
 
-  const playSound = async (audioSource: string | number | null) => {
-    if (!audioSource) {
-      Alert.alert('Lỗi', 'Không có âm thanh cho mục này.');
+        console.log('Fetching vocab from:', vocabularyApiUrl);
+        console.log('Fetching grammar from:', grammarApiUrl);
+
+        const [vocabResponse, grammarResponse] = await Promise.all([
+          axios.get(vocabularyApiUrl, {headers: requestHttpHeaders}),
+          axios.get(grammarApiUrl, {headers: requestHttpHeaders}),
+        ]);
+
+        console.log('Vocab data received:', vocabResponse.data);
+        console.log('Grammar data received:', grammarResponse.data);
+
+        if (vocabResponse.data) setVocabularyData(vocabResponse.data);
+        if (grammarResponse.data) setGrammarData(grammarResponse.data);
+      } catch (err: any) {
+        const errorMessage =
+          err.isAxiosError && err.message === 'Network Error'
+            ? 'Lỗi mạng. Vui lòng kiểm tra kết nối, server, và cài đặt `usesCleartextTraffic` cho Android.'
+            : `Lỗi ${err.response?.status || 'không xác định'}: ${
+                err.response?.data?.message || err.message
+              }`;
+        setError(`Không thể tải dữ liệu. (${errorMessage})`);
+        Alert.alert('Lỗi', `Không thể tải dữ liệu. (${errorMessage})`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (topicIdFromParam) fetchData();
+    else {
+      setError('Không tìm thấy ID chủ đề.');
+      setLoading(false);
+    }
+  }, [topicIdFromParam]);
+
+  const playSound = (audioUrlToPlayParam: string | null) => {
+    console.log('[playSound] Called with URL:', audioUrlToPlayParam);
+    if (!audioUrlToPlayParam) {
+      console.log('[playSound] URL is null, resetting states.');
+      setAudioUrlToPlayState(null);
+      setIsAudioPlaying(false);
+      setIsAudioLoading(false);
       return;
     }
-
-    try {
-      let soundObject = new Audio.Sound();
-
-      if (typeof audioSource === 'string') {
-        // Trường hợp là URL
-        console.log('Playing sound from URL:', audioSource);
-        await soundObject.loadAsync({uri: audioSource});
-      } else {
-        // Trường hợp là local require(...)
-        console.log('Playing local sound');
-        await soundObject.loadAsync(audioSource);
-      }
-
-      await soundObject.playAsync();
-
-      // Optional: Unload sound sau khi phát xong
-      soundObject.setOnPlaybackStatusUpdate(status => {
-        if (status.isLoaded && status.didJustFinish) {
-          soundObject.unloadAsync();
-        }
-      });
-    } catch (error) {
-      console.error('Error playing sound:', error);
-      Alert.alert('Lỗi phát âm thanh', 'Không thể phát âm thanh.');
+    if (
+      audioRef.current &&
+      isAudioPlaying &&
+      audioUrlToPlayRef.current === audioUrlToPlayParam
+    ) {
+      console.log(
+        '[playSound] Audio is currently playing and same URL clicked. Pausing.',
+      );
+      audioRef.current.pause();
+      setIsAudioPlaying(false);
+      return;
     }
+    console.log(
+      '[playSound] Setting new audio or replaying. Current requested URL:',
+      audioUrlToPlayParam,
+    );
+    setAudioUrlToPlayState(null); // Reset để đảm bảo Video nhận source mới
+    audioUrlToPlayRef.current = audioUrlToPlayParam;
+    setTimeout(() => {
+      console.log(
+        '[playSound] setTimeout: Setting audioURLToPlay to:',
+        audioUrlToPlayParam,
+      );
+      setAudioUrlToPlayState(audioUrlToPlayParam);
+    }, 50);
   };
 
-  const renderVocabularyItem = ({item}: {item: LessonContentItem}) => (
+  const renderVocabularyItem = ({item}: {item: VocabularyItemAPI}) => (
     <View style={styles.vocabItemContainer}>
       <View style={styles.vocabTextContainer}>
-        <Text style={styles.vocabJapanese}>{item.title}</Text>
-        <Text style={styles.vocabMeaning}>{item.content_detail}</Text>
+        <Text style={styles.vocabJapanese}>{item.word}</Text>
+        <View style={styles.vocabDetailRow}>
+          <Text style={styles.vocabPronunciation}>{item.pronunciation}</Text>
+          <Text style={styles.vocabMeaningInRow}> ({item.meaning})</Text>
+        </View>
       </View>
-      {item.audio_url && ( // Chỉ hiển thị nút loa nếu có audio_url
-        <TouchableOpacity onPress={() => playSound(item.audio_url)}>
+      {item.vocabularyUrl && (
+        <TouchableOpacity
+          onPress={() => {
+            console.log(
+              `Play button clicked for vocab ID ${item.id}, URL: ${item.vocabularyUrl}`,
+            );
+            playSound(item.vocabularyUrl);
+          }}
+          style={styles.audioButton}>
           <Image
-            source={require('../../assets/images/phatAmThanh.png')} // Đường dẫn icon hoàn thành của bạn
-            style={styles.lessonStatusImage} // Style riêng cho ảnh icon
+            source={require('../../assets/images/audioInconten.png')}
+            style={styles.audioPlayIconStyle}
+            resizeMode="contain"
           />
         </TouchableOpacity>
       )}
     </View>
   );
 
-  // Lấy tiêu đề cho header, ưu tiên từ param truyền vào, nếu không có thì lấy từ tên bài học đầu tiên (nếu có)
-  const headerDisplayTitle =
-    lessonNameFromParam || lessonContents[0]?.title || 'Nội dung bài học';
+  const renderGrammarItem = ({item}: {item: GrammarItemAPI}) => (
+    <View style={styles.grammarItemContainer}>
+      <View style={{flex: 1}}>
+        <Text style={styles.grammarStructure}>{item.structure}</Text>
+        <Text style={styles.grammarExplanation}>
+          <Text style={styles.grammarLabel}>Giải thích: </Text>
+          {item.explanation}
+        </Text>
+        <Text style={styles.grammarExample}>
+          <Text style={styles.grammarLabel}>Ví dụ: </Text>
+          {item.example}
+        </Text>
+      </View>
+    </View>
+  );
 
-  if (!lessonNameFromParam) {
+  const headerDisplayTitle = lessonNameFromParam || 'Nội dung chủ đề';
+
+  if (!topicIdFromParam || !lessonNameFromParam) {
     return (
       <SafeAreaView style={styles.errorContainer}>
-        <Text style={styles.errorText}>Không có thông tin bài học.</Text>
+        <Text style={styles.errorText}>
+          Không có thông tin chủ đề để hiển thị.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButtonError}>
+          <Text style={styles.backButtonTextError}>Quay lại</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButtonError}>
@@ -310,7 +273,7 @@ const ContentsLyThuyetScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ImageBackground
-        source={require('../../assets/images/nen3.jpg')} // Thay bằng ảnh nền của bạn
+        source={require('../../assets/images/nen3.jpg')}
         style={StyleSheet.absoluteFillObject}
         imageStyle={{opacity: 0.1}}
         resizeMode="cover">
@@ -362,46 +325,109 @@ const ContentsLyThuyetScreen: React.FC = () => {
           </View>
 
           {activeContentType === 'Từ vựng' ? (
-            vocabularyItems.length > 0 ? (
+            vocabularyData.length > 0 ? (
               <FlatList
-                data={vocabularyItems}
+                data={vocabularyData}
                 renderItem={renderVocabularyItem}
-                keyExtractor={item => item.content_code.toString()}
+                keyExtractor={item => `vocab-${item.id.toString()}`}
                 style={styles.contentList}
                 contentContainerStyle={styles.contentListContent}
               />
             ) : (
               <View style={styles.emptyContentContainer}>
                 <Text style={styles.emptyContentText}>
-                  Chưa có từ vựng cho bài học này.
+                  Chưa có từ vựng cho chủ đề này.
                 </Text>
               </View>
             )
-          ) : grammarContent ? ( // Kiểm tra grammarContent có nội dung không
-            <ScrollView
-              style={styles.contentScroll}
-              contentContainerStyle={styles.grammarContentContainer}>
-              {/* Để hiển thị Markdown, bạn cần một thư viện như react-native-markdown-display */}
-              {/* Tạm thời hiển thị Text thường, đã loại bỏ ký tự Markdown cơ bản */}
-              <Text style={styles.grammarText}>
-                {grammarContent.replace(/## |---|(\*\*)|(\*)/g, '')}
-              </Text>
-            </ScrollView>
+          ) : grammarData.length > 0 ? (
+            <FlatList
+              data={grammarData}
+              renderItem={renderGrammarItem}
+              keyExtractor={item => `grammar-${item.id.toString()}`}
+              style={styles.contentList}
+              contentContainerStyle={styles.contentListContent}
+            />
           ) : (
             <View style={styles.emptyContentContainer}>
               <Text style={styles.emptyContentText}>
-                Chưa có nội dung ngữ pháp cho bài học này.
+                Chưa có nội dung ngữ pháp cho chủ đề này.
               </Text>
             </View>
           )}
+
+          {audioURLToPlay && (
+            <Video
+              ref={audioRef}
+              source={{uri: audioURLToPlay}}
+              paused={!isAudioPlaying}
+              volume={1.0}
+              muted={false}
+              playInBackground={false}
+              playWhenInactive={false}
+              ignoreSilentSwitch={'ignore'}
+              onLoadStart={() => {
+                console.log('[Video] onLoadStart - URL:', audioURLToPlay);
+                setIsAudioLoading(true);
+                setAudioPlayerError('');
+              }}
+              onLoad={(data: OnLoadData) => {
+                console.log(
+                  '[Video] onLoad - Duration:',
+                  data.duration,
+                  'URL:',
+                  audioURLToPlay,
+                );
+                setIsAudioLoading(false);
+                setIsAudioPlaying(true); // Bắt đầu phát khi đã tải xong
+              }}
+              onEnd={() => {
+                console.log('[Video] onEnd - URL:', audioURLToPlay);
+                setIsAudioPlaying(false);
+              }}
+              onError={(errorData: any) => {
+                // `any` vì cấu trúc lỗi có thể đa dạng
+                console.error(
+                  '[Video] onError - URL:',
+                  audioURLToPlay,
+                  'Error:',
+                  JSON.stringify(errorData),
+                );
+                setAudioPlayerError('Lỗi khi phát audio.');
+                setIsAudioLoading(false);
+                setIsAudioPlaying(false);
+              }}
+              onBuffer={(bufferData: OnBufferData) => {
+                console.log(
+                  '[Video] onBuffer - Is Buffering:',
+                  bufferData.isBuffering,
+                  'URL:',
+                  audioURLToPlay,
+                );
+                setIsAudioLoading(bufferData.isBuffering);
+              }}
+              onProgress={(progressData: OnProgressData) => {
+                // Log này có thể rất nhiều, chỉ bật khi cần debug chi tiết
+                // console.log('[Video] onProgress - Current Time:', progressData.currentTime, 'Playable Duration:', progressData.playableDuration);
+              }}
+              style={{height: 0, width: 0}} // Ẩn component
+            />
+          )}
+          {isAudioLoading && (
+            <ActivityIndicator
+              style={styles.audioStatusIndicator}
+              color={COLORS.primary}
+            />
+          )}
+          {audioPlayerError ? (
+            <Text style={styles.audioStatusErrorText}>{audioPlayerError}</Text>
+          ) : null}
         </View>
       </ImageBackground>
     </SafeAreaView>
   );
 };
 
-// Styles được tham khảo và điều chỉnh từ CourseDetailScreen và FollowScreen
-// Bạn cần đảm bảo các hằng số COLORS, FONTS, SIZES đã được định nghĩa
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -413,18 +439,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    // justifyContent: 'space-between', // Bỏ cái này để headerTitleContainer có thể flex và đẩy segment ra xa
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.padding * 0.5,
-    marginTop: StatusBar.currentHeight || 20,
+    marginTop: 40,
     backgroundColor: COLORS.white,
-    borderBottomColor: COLORS.gray,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
   },
   backButton: {
-    fontSize: SIZES.xLarge * 2.5,
-    color: COLORS.darkGray,
-    fontWeight: '600',
-    marginBottom: 10,
+    paddingRight: SIZES.padding,
+    paddingLeft: 15,
+    paddingVertical: SIZES.padding * 0.5,
+    marginBottom: 4,
   },
   backButtonText: {
     fontSize: SIZES.xLarge * 2,
@@ -434,17 +460,16 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flex: 1,
     alignItems: 'center',
-    marginHorizontal: SIZES.medium,
+    marginHorizontal: SIZES.base,
   },
   headerTitle: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
     fontSize: SIZES.h2 * 1.1,
     fontWeight: 'bold',
     color: COLORS.text,
+    textAlign: 'center',
   },
-
   segmentControlContainer: {
-    // Style giống CourseDetailScreen
     flexDirection: 'row',
     backgroundColor: COLORS.white,
     borderRadius: 5,
@@ -455,11 +480,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.padding * 1.2,
     paddingVertical: SIZES.padding * 0.6,
     backgroundColor: COLORS.white,
-    // borderRadius: 5, // Bo góc bên trong segment, có thể không cần nếu container đã bo
   },
   segmentButtonActive: {
     backgroundColor: COLORS.primary,
-    // shadow có thể giữ nếu muốn
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.1,
@@ -484,21 +507,7 @@ const styles = StyleSheet.create({
     paddingTop: SIZES.padding * 1.5,
     paddingBottom: SIZES.padding * 2,
   },
-  contentScroll: {
-    flex: 1,
-  },
-  grammarContentContainer: {
-    paddingHorizontal: SIZES.padding * 1.5,
-    paddingTop: SIZES.padding,
-    paddingBottom: SIZES.padding * 2,
-    backgroundColor: COLORS.nenItem, // Nền kem cho ngữ pháp
-    margin: SIZES.padding,
-    borderRadius: SIZES.radius,
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
-  },
   vocabItemContainer: {
-    // Style cho mỗi item từ vựng
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -513,36 +522,69 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: SIZES.medium,
   },
-  vocabFurigana: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.small * 0.9, // Chữ furigana nhỏ hơn
-    color: COLORS.gray,
-    marginBottom: 1,
-  },
   vocabJapanese: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.medium * 1.3, // Chữ Nhật to vừa
+    fontSize: SIZES.medium * 1.3,
     color: COLORS.black,
     marginBottom: 3,
     fontWeight: '900',
   },
-  vocabMeaning: {
-    // content_detail của Từ vựng sẽ là nghĩa tiếng Việt
+  vocabDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  vocabPronunciation: {
+    fontFamily: FONTS.regular?.fontFamily || 'System',
+    fontSize: SIZES.font * 0.9,
+    color: COLORS.darkGray,
+    marginRight: SIZES.base,
+  },
+  vocabMeaningInRow: {
     fontFamily: FONTS.regular?.fontFamily || 'System',
     fontSize: SIZES.font * 0.9,
     color: COLORS.black,
+    flexShrink: 1,
   },
-  audioIcon: {
-    fontSize: SIZES.large * 0.8,
-    color: COLORS.primary, // Màu icon loa
+  grammarItemContainer: {
+    backgroundColor: COLORS.nenItem,
+    padding: SIZES.padding * 1.5,
+    borderRadius: SIZES.radius,
+    marginBottom: SIZES.margin,
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
   },
-  grammarText: {
-    // Style cho nội dung ngữ pháp gộp lại
+  grammarStructure: {
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontSize: SIZES.medium * 1.2,
+    color: COLORS.black,
+    marginBottom: SIZES.base,
+    fontWeight: '700',
+  },
+  grammarLabel: {
+    fontFamily: FONTS.semiBold?.fontFamily || 'System',
+    color: COLORS.darkGray,
+    fontWeight: '600',
+  },
+  grammarExplanation: {
     fontFamily: FONTS.regular?.fontFamily || 'System',
     fontSize: SIZES.font,
-    color: COLORS.black,
-    lineHeight: SIZES.font * 1.2, // Giãn dòng cho dễ đọc
+    color: COLORS.text,
+    lineHeight: SIZES.font * 1.4,
+    marginBottom: SIZES.base * 0.5,
     textAlign: 'justify',
+  },
+  grammarExample: {
+    fontStyle: 'italic',
+    fontSize: SIZES.font,
+    color: COLORS.text,
+    lineHeight: SIZES.font * 1.4,
+    textAlign: 'justify',
+  },
+  lessonStatusImage: {
+    width: 25,
+    height: 25,
+    resizeMode: 'contain',
+    marginLeft: 8,
   },
   emptyContentContainer: {
     flex: 1,
@@ -556,18 +598,23 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     textAlign: 'center',
   },
-  lessonStatusImage: {
-    width: 25, // Tùy kích thước bạn muốn
-    height: 25,
-    resizeMode: 'contain', // Đảm bảo không bị crop
-    marginLeft: 8, // Tạo khoảng cách với text
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+  },
+  loadingText: {
+    marginTop: SIZES.base,
+    fontSize: SIZES.font,
+    color: COLORS.text,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SIZES.padding,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.white,
   },
   errorText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
@@ -586,6 +633,31 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold?.fontFamily || 'System',
     color: COLORS.white,
     fontSize: SIZES.medium,
+  },
+  audioButton: {
+    padding: SIZES.base / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  audioPlayIconStyle: {
+    width: 28,
+    height: 28,
+  },
+  audioStatusIndicator: {
+    position: 'absolute',
+    bottom: SIZES.padding,
+    alignSelf: 'center',
+  },
+  audioStatusErrorText: {
+    position: 'absolute',
+    bottom: SIZES.padding,
+    alignSelf: 'center',
+    color: COLORS.white,
+    backgroundColor: COLORS.red,
+    paddingHorizontal: SIZES.base,
+    paddingVertical: SIZES.base / 2,
+    borderRadius: SIZES.radius,
+    fontSize: SIZES.font * 0.9,
   },
 });
 

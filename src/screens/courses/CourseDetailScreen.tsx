@@ -333,7 +333,12 @@ const CourseDetailScreen: React.FC = () => {
 
     if (lessonNameLower.includes('lý thuyết')) {
       navigation.navigate('ContentsLyThuyetScreen', {
-        lessonCode: targetLessonId,
+        topicId: item.topic_code.toString(), // Sử dụng topic_code thay vì lessonCode
+        lessonName: targetLessonName,
+      });
+    } else if (lessonNameLower.includes('kiểm tra')) {
+      navigation.navigate('ContentExam', {
+        topicId: item.topic_code.toString(), // Sử dụng topic_code thay vì lessonCode
         lessonName: targetLessonName,
       });
     } else {
@@ -567,7 +572,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.padding * 0.5,
-    marginTop: StatusBar.currentHeight || 20,
+    marginTop: 15,
     backgroundColor: COLORS.white,
     borderBottomColor: COLORS.gray,
   },

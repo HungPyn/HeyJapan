@@ -10,110 +10,262 @@ import {
   ImageBackground,
   StatusBar,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {COLORS, FONTS, SIZES} from '../../constants/theme'; // Giả định theme đã có COLORS.nenItem
+import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import {RootStackParamList} from '../../navigation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-// (Bỏ các hằng số màu cục bộ - sử dụng từ theme)
-// const ACTIVE_GREEN = '#A0D995';
-// const INACTIVE_TAB_BG = '#F0F0F0';
-// const TAB_TEXT_COLOR = '#555555';
-// const CARD_BEIGE_BG = '#FFF7E6';
+// --- Định nghĩa kiểu dữ liệu cho API Response ---
+interface LessonResultApiResponse {
+  id: number | null;
+  userId: string | null;
+  lessonId: number;
+  name: string;
+  total_attempts: number | null;
+  studyTime: number | null;
+  completionPercent: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+}
+
+interface ExamResultApiResponse {
+  id: number | null;
+  userId: string | null;
+  topicId: number | null;
+  total_attempts: number | null;
+  examTime: number | null;
+  topicName: string | null;
+  scorePercent: number | null;
+  totalQuestions: number | null;
+  correctAnswers: number | null;
+}
+// --- END Định nghĩa kiểu dữ liệu API ---
 
 type TienDoScreenRouteProp = RouteProp<RootStackParamList, 'TienDoScreen'>;
 type TienDoScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
-  'TienDoScreen' // Hoặc màn hình khác nếu bạn điều hướng từ đây
+  'TienDoScreen'
 >;
 
 interface ProgressItem {
   id: string;
   title: string;
-  correctRatio?: string; // ví dụ: '11/15'
-  completion?: number; // ví dụ: 73 (%)
-  speed?: string; // ví dụ: '1:52 phút'
+  correctRatio?: string;
+  completion?: number;
+  speed?: string;
   type: 'lesson' | 'test';
 }
 
-// Dữ liệu mẫu (giữ nguyên)
-const mockProgressData: {[topicId: string]: ProgressItem[]} = {
-  '1': [
-    {
-      id: 'lesson_1_1',
-      title: 'Bài 1: Chào hỏi',
-      type: 'lesson',
-      correctRatio: '11/15',
-      completion: 73,
-      speed: '1:52 phút',
-    },
-    {
-      id: 'lesson_1_2',
-      title: 'Bài 2: Giới thiệu bản thân',
-      type: 'lesson',
-      correctRatio: '10/15',
-      completion: 60,
-      speed: '2:10 phút',
-    },
-    {
-      id: 'test_1_1',
-      title: 'Bài 10: Kiểm tra cơ bản 1',
-      type: 'test',
-      correctRatio: '11/15',
-      completion: 73,
-      speed: '1:52 phút',
-    },
-  ],
-  '2': [
-    {
-      id: 'lesson_2_1',
-      title: 'Bài 1: Gia đình',
-      type: 'lesson',
-      correctRatio: '14/15',
-      completion: 90,
-      speed: '1:30 phút',
-    },
-    {
-      id: 'test_2_1',
-      title: 'Bài 8: Kiểm tra cơ bản 2',
-      type: 'test',
-      correctRatio: '12/15',
-      completion: 80,
-      speed: '1:45 phút',
-    },
-  ],
-  // Thêm topic '3' để test trường hợp không có dữ liệu
-  '3': [],
+// Hàm format thời gian từ giây sang "X:YY phút"
+// Sẽ trả về undefined nếu totalSeconds là null, undefined, hoặc <= 0
+// để logic lọc item hoạt động đúng
+const formatTimeDisplay = (
+  totalSeconds: number | null | undefined,
+): string | undefined => {
+  if (
+    totalSeconds === null ||
+    totalSeconds === undefined ||
+    totalSeconds <= 0
+  ) {
+    return undefined;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds < 10 ? '0' : ''}${seconds} phút`;
 };
 
 const TienDoScreen: React.FC = () => {
   const route = useRoute<TienDoScreenRouteProp>();
   const navigation = useNavigation<TienDoScreenNavigationProp>();
 
-  const {topic_code = 'unknown', title: topicTitle = 'Tiến độ học tập'} =
-    route.params || {};
+  const {
+    topic_code = 'unknown',
+    title: topicTitleFromParam = 'Tiến độ học tập',
+  } = route.params || {};
 
   const [activeTab, setActiveTab] = useState<'lessons' | 'tests'>('lessons');
+  const [lessonProgressItems, setLessonProgressItems] = useState<
+    ProgressItem[]
+  >([]);
+  const [examProgressItem, setExamProgressItem] = useState<ProgressItem | null>(
+    null,
+  );
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Sử dụng useMemo để lọc dữ liệu, tương tự CourseDetailScreen
-  const progressItems = useMemo(() => {
-    const allItemsForTopic = mockProgressData[topic_code] || [];
+  useEffect(() => {
+    const fetchProgressData = async () => {
+      if (topic_code === 'unknown') {
+        setError('Không tìm thấy thông tin chủ đề.');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const userId = await AsyncStorage.getItem('UserId');
+        const token = await AsyncStorage.getItem('token');
+
+        if (!userId || !token) {
+          setError(
+            'Thông tin người dùng hoặc token không hợp lệ. Vui lòng đăng nhập lại.',
+          );
+          setLoading(false);
+          return;
+        }
+
+        const API_BASE_URL = 'http://10.0.2.2:8080/api/user/result';
+        const requestHeaders = {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        };
+
+        const lessonApiUrl = `${API_BASE_URL}/lesson-result?userId=${userId}&topicId=${topic_code}`;
+        const examApiUrl = `${API_BASE_URL}/exam-result?userId=${userId}&topicId=${topic_code}`;
+
+        console.log('Gọi API Bài học:', lessonApiUrl);
+        const lessonResponse = await axios.get<LessonResultApiResponse[]>(
+          lessonApiUrl,
+          {headers: requestHeaders},
+        );
+
+        console.log('Gọi API Kiểm tra:', examApiUrl);
+        const examResponse = await axios.get<ExamResultApiResponse>(
+          examApiUrl,
+          {headers: requestHeaders},
+        );
+
+        // Xử lý và lọc dữ liệu bài học
+        const filteredLessonItems: ProgressItem[] = [];
+        if (lessonResponse.data && Array.isArray(lessonResponse.data)) {
+          lessonResponse.data.forEach(item => {
+            // Bước 1: Kiểm tra các trường dữ liệu thô từ API không được null
+            if (
+              item.studyTime !== null &&
+              item.completionPercent !== null &&
+              item.totalQuestions !== null &&
+              item.correctAnswers !== null &&
+              item.lessonId !== null && // lessonId cũng cần thiết để làm ID
+              item.name !== null // name cần thiết cho title
+            ) {
+              // Bước 2: Tính toán các giá trị hiển thị
+              const calculatedCorrectRatio =
+                item.totalQuestions > 0
+                  ? `${item.correctAnswers}/${item.totalQuestions}`
+                  : undefined;
+              const calculatedCompletion = item.completionPercent; // Giá trị này đã được đảm bảo không null
+              const calculatedSpeed = formatTimeDisplay(item.studyTime); // formatTimeDisplay trả về undefined nếu studyTime <= 0
+
+              // Bước 3: Lọc item dựa trên 3 thông tin chính đã tính toán
+              if (
+                calculatedCorrectRatio !== undefined &&
+                calculatedCompletion !== undefined && // (completionPercent đã non-null)
+                calculatedSpeed !== undefined
+              ) {
+                filteredLessonItems.push({
+                  id: `lesson_${item.lessonId}`,
+                  title: item.name,
+                  correctRatio: calculatedCorrectRatio,
+                  completion: calculatedCompletion,
+                  speed: calculatedSpeed,
+                  type: 'lesson',
+                });
+              }
+            }
+          });
+        }
+        setLessonProgressItems(filteredLessonItems);
+
+        // Xử lý và lọc dữ liệu kiểm tra
+        let finalExamItem: ProgressItem | null = null;
+        if (examResponse.data) {
+          const examItemApi = examResponse.data;
+          // Bước 1: Kiểm tra các trường dữ liệu thô từ API không được null
+          if (
+            examItemApi.examTime !== null &&
+            examItemApi.scorePercent !== null &&
+            examItemApi.totalQuestions !== null &&
+            examItemApi.correctAnswers !== null
+          ) {
+            // Bước 2: Tính toán các giá trị hiển thị
+            const calculatedCorrectRatio =
+              examItemApi.totalQuestions > 0
+                ? `${examItemApi.correctAnswers}/${examItemApi.totalQuestions}`
+                : undefined;
+            const calculatedCompletion = examItemApi.scorePercent; // Giá trị này đã được đảm bảo không null
+            const calculatedSpeed = formatTimeDisplay(examItemApi.examTime);
+
+            // Bước 3: Lọc item dựa trên 3 thông tin chính đã tính toán
+            if (
+              calculatedCorrectRatio !== undefined &&
+              calculatedCompletion !== undefined && // (scorePercent đã non-null)
+              calculatedSpeed !== undefined
+            ) {
+              finalExamItem = {
+                id: `exam_${topic_code}`,
+                title: `Bài kiểm tra: ${topicTitleFromParam}`,
+                correctRatio: calculatedCorrectRatio,
+                completion: calculatedCompletion,
+                speed: calculatedSpeed,
+                type: 'test',
+              };
+            }
+          }
+        }
+        setExamProgressItem(finalExamItem);
+      } catch (err: any) {
+        console.error('Lỗi khi tải dữ liệu tiến độ:', err);
+        let errorMessage = 'Không thể tải dữ liệu tiến độ. Vui lòng thử lại.';
+        if (err.response) {
+          console.error('Error Data:', err.response.data);
+          console.error('Error Status:', err.response.status);
+          errorMessage = `Lỗi ${err.response.status}: ${
+            err.response.data?.message ||
+            err.response.data?.error ||
+            'Lỗi từ server'
+          }`;
+        } else if (err.request) {
+          errorMessage =
+            'Không nhận được phản hồi từ server. Vui lòng kiểm tra kết nối mạng.';
+        } else {
+          errorMessage = err.message || errorMessage;
+        }
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProgressData();
+  }, [topic_code, topicTitleFromParam]);
+
+  const progressItemsToDisplay = useMemo(() => {
     if (activeTab === 'lessons') {
-      return allItemsForTopic.filter(item => item.type === 'lesson');
+      return lessonProgressItems;
     } else {
-      return allItemsForTopic.filter(item => item.type === 'test');
+      return examProgressItem ? [examProgressItem] : [];
     }
-  }, [topic_code, activeTab]);
+  }, [activeTab, lessonProgressItems, examProgressItem]);
 
-  // Hàm render một dòng thông tin tiến độ (thay thế renderProgressCard)
   const renderProgressDetail = (
     iconSource: any,
     label: string,
     value?: string | number,
     unit?: string,
   ) => {
-    if (value === undefined || value === null) return null;
+    // Hàm này đã đúng: tự ẩn nếu value là undefined hoặc null
+    if (
+      value === undefined ||
+      value === null ||
+      (typeof value === 'number' && isNaN(value))
+    )
+      return null;
     return (
       <View style={styles.progressDetailRow}>
         <Image source={iconSource} style={styles.progressDetailIcon} />
@@ -128,7 +280,6 @@ const TienDoScreen: React.FC = () => {
     );
   };
 
-  // Hàm render mỗi item trong FlatList (đã thiết kế lại)
   const renderItem = ({item}: {item: ProgressItem}) => (
     <View style={styles.progressItemContainer}>
       <Text style={styles.progressItemTitle} numberOfLines={2}>
@@ -136,40 +287,57 @@ const TienDoScreen: React.FC = () => {
       </Text>
       <View style={styles.progressDetailsContainer}>
         {renderProgressDetail(
-          require('../../assets/images/tiLeDung.png'), // Thay icon phù hợp
-          'Tỷ lệ đúng',
+          require('../../assets/images/tiLeDung.png'),
+          'Tỷ lệ đúng', // Correct Ratio
           item.correctRatio,
         )}
         {renderProgressDetail(
-          require('../../assets/images/TiLeHoanThanh.png'), // Thay icon phù hợp
-          'Hoàn thành',
+          require('../../assets/images/TiLeHoanThanh.png'),
+          'Hoàn thành', // Completion
           item.completion,
           '%',
         )}
         {renderProgressDetail(
-          require('../../assets/images/tocDo.png'), // Thay icon phù hợp
-          'Tốc độ',
+          require('../../assets/images/tocDo.png'),
+          'Thời gian', // Speed / Study Time
           item.speed,
         )}
       </View>
-      {/* Có thể thêm nút "Xem chi tiết" hoặc tương tự nếu cần */}
-      {/* <TouchableOpacity style={styles.detailButton}>
-        <Text style={styles.detailButtonText}>Xem chi tiết</Text>
-      </TouchableOpacity> */}
     </View>
   );
 
+  // ... (Phần JSX còn lại và styles giữ nguyên như phiên bản trước)
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, styles.centeredContainer]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Đang tải tiến độ...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.safeArea, styles.centeredContainer]}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.errorButton}>
+          <Text style={styles.errorButtonText}>Quay lại</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* StatusBar giống CourseDetailScreen */}
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ImageBackground
-        source={require('../../assets/images/nen3.jpg')} // Giữ nền của bạn
+        source={require('../../assets/images/nen3.jpg')}
         style={StyleSheet.absoluteFillObject}
-        imageStyle={{opacity: 0.15}} // Giữ opacity
+        imageStyle={{opacity: 0.15}}
         resizeMode="cover">
         <View style={styles.container}>
-          {/* Header chuẩn hóa theo CourseDetailScreen */}
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
@@ -178,14 +346,12 @@ const TienDoScreen: React.FC = () => {
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
               <Text style={styles.headerTitle} numberOfLines={1}>
-                {topicTitle}
+                {topicTitleFromParam}
               </Text>
             </View>
-            {/* Placeholder để giữ title ở giữa, tương tự CourseDetailScreen */}
             <View style={{width: SIZES.padding * 4}} />
           </View>
 
-          {/* Tabs được thiết kế lại giống Segment Control */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={[
@@ -217,18 +383,16 @@ const TienDoScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Content List */}
-          {progressItems.length > 0 ? (
+          {progressItemsToDisplay.length > 0 ? (
             <FlatList
-              data={progressItems}
+              data={progressItemsToDisplay}
               renderItem={renderItem}
               keyExtractor={item => item.id}
-              style={styles.list} // Đổi tên style cho nhất quán
-              contentContainerStyle={styles.listContent} // Đổi tên style cho nhất quán
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
             />
           ) : (
-            // Empty state giống CourseDetailScreen
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 Chưa có dữ liệu tiến độ cho mục này.
@@ -241,24 +405,22 @@ const TienDoScreen: React.FC = () => {
   );
 };
 
-// Gộp tất cả style vào một StyleSheet, đổi tên và sử dụng theme
+// Styles (Giữ nguyên như phiên bản trước)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.white, // Màu nền mặc định
+    backgroundColor: COLORS.white,
   },
   container: {
     flex: 1,
-    // Bỏ paddingTop ở đây, header sẽ tự xử lý
   },
-  // --- Header Styles (Lấy từ CourseDetailScreen) ---
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SIZES.padding,
     paddingVertical: SIZES.padding * 0.5,
-    marginTop: StatusBar.currentHeight || 20, // Đảm bảo không bị che bởi status bar
-    backgroundColor: COLORS.white, // Nền trắng cho header
+    marginTop: 15,
+    backgroundColor: COLORS.white,
   },
   backButton: {
     paddingRight: SIZES.padding,
@@ -269,155 +431,148 @@ const styles = StyleSheet.create({
     fontSize: SIZES.xLarge * 2.5,
     color: COLORS.darkGray,
     fontWeight: '600',
-    marginBottom: 10, // Căn chỉnh vị trí dấu '<'
+    marginBottom: 10,
   },
   headerTitleContainer: {
-    flex: 1, // Cho phép tiêu đề chiếm không gian
-    alignItems: 'flex-start', // Căn giữa tiêu đề
-    marginHorizontal: SIZES.base, // Khoảng cách nhỏ với nút back/placeholder
+    flex: 1,
+    alignItems: 'flex-start',
+    marginHorizontal: SIZES.base,
   },
   headerTitle: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.h2 * 1.1, // Kích thước giống CourseDetailScreen
+    fontSize: SIZES.h2 * 1.1,
     fontWeight: 'bold',
-    color: COLORS.text, // Màu text từ theme
+    color: COLORS.text,
   },
-  // --- Tab Styles (Thiết kế lại giống Segment Control) ---
   tabContainer: {
     flexDirection: 'row',
     marginHorizontal: SIZES.padding,
-    marginVertical: SIZES.padding * 1.5, // Khoảng cách trên dưới cho tabs
+    marginVertical: SIZES.padding * 1.5,
     backgroundColor: 'transparent',
-    borderRadius: 5, // Bo góc vừa phải
-    borderWidth: 1, // Viền mỏng
-    borderColor: COLORS.primary, // Màu viền
-    overflow: 'hidden', // Đảm bảo bo góc áp dụng cho cả button bên trong
-    width: '90%', // Chiếm 90% chiều rộng
-    alignSelf: 'center', // Thêm dòng này để căn giữa theo chiều ngang
-    marginTop: 0, // Khoảng cách từ header
-    height: SIZES.padding * 3, // Chiều cao tab
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    overflow: 'hidden',
+    width: '90%',
+    alignSelf: 'center',
+    marginTop: 0,
+    height: SIZES.padding * 3,
   },
   tabButton: {
-    flex: 1, // Chia đều không gian
-    paddingVertical: SIZES.padding * 0.8, // Chiều cao nút tab
+    flex: 1,
+    paddingVertical: SIZES.padding * 0.8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent', // Nền trong suốt cho nút inactive
+    backgroundColor: 'transparent',
   },
   tabButtonActive: {
-    backgroundColor: COLORS.primary, // Nền màu chính cho nút active
-    // Có thể thêm shadow nhẹ nếu muốn
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 1 },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 2.0,
-    // elevation: 2,
+    backgroundColor: COLORS.primary,
   },
   tabButtonText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
     fontSize: SIZES.large,
-    color: COLORS.primary, // Màu chữ cho nút inactive
+    color: COLORS.primary,
     fontWeight: '600',
   },
   tabButtonTextActive: {
-    color: COLORS.white, // Màu chữ trắng cho nút active
+    color: COLORS.white,
     fontWeight: 'bold',
-    fontSize: SIZES.large, // Kích thước chữ lớn hơn cho nút active
+    fontSize: SIZES.large,
   },
-  // --- List Styles ---
   list: {
     flex: 1,
   },
   listContent: {
     paddingHorizontal: SIZES.padding,
-    paddingBottom: SIZES.padding * 3, // Tăng padding dưới
+    paddingBottom: SIZES.padding * 3,
   },
   progressItemContainer: {
-    // backgroundColor: COLORS.nenItem, // Giữ comment nếu muốn
-    backgroundColor: COLORS.nenItem, // Giữ màu nền này
-    borderRadius: SIZES.radius * 1.5, // Giữ bo góc này
-    padding: SIZES.padding, // Giữ padding này
-    marginBottom: SIZES.margin * 1.5, // Giữ margin này
-    // Các dòng comment về border cũ có thể xóa đi cho gọn
-    // elevation: 2, // <<== Xóa dòng này để bỏ bóng (Android)
-    // shadowRadius: 2, // <<== Xóa dòng này và các dòng shadow khác nếu có (iOS)
-    borderBottomWidth: 2, // <<== Chỉ giữ lại viền dưới
-    borderBottomColor: COLORS.primary, // <<== Chỉ giữ lại màu viền dưới
+    backgroundColor: COLORS.nenItem,
+    borderRadius: SIZES.radius * 1.5,
+    padding: SIZES.padding,
+    marginBottom: SIZES.margin * 1.5,
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
   },
   progressItemTitle: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.h3, // Có thể chỉnh SIZES.large nếu muốn to hơn chút
-    color: COLORS.black, // Màu đen cho tiêu đề "Bài X"
-    marginBottom: SIZES.padding, // Tăng khoảng cách dưới tiêu đề
-    fontWeight: 'bold', // Đảm bảo đậm
+    fontSize: SIZES.h3,
+    color: COLORS.black,
+    marginBottom: SIZES.padding,
+    fontWeight: 'bold',
   },
   progressDetailsContainer: {
-    // Container này không cần style đặc biệt nữa
+    // không cần style
   },
   progressDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white, // Nền trắng cho mỗi dòng chi tiết
-    borderRadius: SIZES.radius, // Bo góc cho thẻ trắng
-    paddingVertical: SIZES.padding * 0.75, // Padding dọc bên trong thẻ trắng
-    paddingHorizontal: SIZES.padding, // Padding ngang bên trong thẻ trắng
-    marginBottom: SIZES.padding * 0.75, // Khoảng cách giữa các thẻ trắng
-    elevation: 1, // Độ nổi nhẹ cho thẻ trắng
+    backgroundColor: COLORS.white,
+    borderRadius: SIZES.radius,
+    paddingVertical: SIZES.padding * 0.75,
+    paddingHorizontal: SIZES.padding,
+    marginBottom: SIZES.padding * 0.75,
+    elevation: 1,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.1,
     shadowRadius: 1.5,
   },
-  // Loại bỏ margin bottom cho phần tử cuối cùng để không thừa khoảng trống
-  // (Bạn có thể cần logic trong renderItem để áp dụng style này cho thẻ cuối)
-  // progressDetailRowLast: {
-  //   marginBottom: 0,
-  // },
   progressDetailIcon: {
-    width: 22, // Kích thước icon
+    width: 22,
     height: 22,
-    marginRight: SIZES.padding, // Khoảng cách icon tới text
-    // tintColor: COLORS.darkGray, // Bỏ dòng này để icon có màu gốc
+    marginRight: SIZES.padding,
   },
   progressDetailText: {
     fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font, // Cỡ chữ vừa phải
-    color: COLORS.darkGray, // Màu chữ label (có thể dùng COLORS.text nếu muốn đen hơn)
+    fontSize: SIZES.font,
+    color: COLORS.darkGray,
     flex: 1,
   },
   progressDetailValue: {
     fontFamily: FONTS.semiBold?.fontFamily || 'System',
-    color: COLORS.text, // Màu chữ value đậm hơn
+    color: COLORS.text,
     fontWeight: '600',
   },
-  // --- Progress Item Styles (Thiết kế lại hoàn toàn) ---
-
-  // (Optional) Style cho nút "Xem chi tiết" nếu bạn thêm vào
-  // detailButton: {
-  //   marginTop: SIZES.base,
-  //   alignSelf: 'flex-end',
-  //   paddingVertical: SIZES.base * 0.5,
-  //   paddingHorizontal: SIZES.base,
-  // },
-  // detailButtonText: {
-  //   fontFamily: FONTS.medium?.fontFamily || 'System',
-  //   fontSize: SIZES.small,
-  //   color: COLORS.primary,
-  //   textDecorationLine: 'underline',
-  // },
-  // --- Empty State Styles (Lấy từ CourseDetailScreen) ---
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SIZES.padding,
-    marginTop: -SIZES.padding * 5, // Đẩy lên một chút để cân đối hơn khi có tab
+    marginTop: -SIZES.padding * 5,
   },
   emptyText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
     fontSize: SIZES.font,
     color: COLORS.gray,
     textAlign: 'center',
+  },
+  centeredContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: SIZES.base,
+    fontSize: SIZES.font,
+    color: COLORS.text,
+  },
+  errorText: {
+    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontSize: SIZES.large,
+    color: COLORS.error,
+    textAlign: 'center',
+    marginBottom: SIZES.padding,
+  },
+  errorButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SIZES.padding * 0.8,
+    paddingHorizontal: SIZES.padding * 2,
+    borderRadius: SIZES.radius,
+  },
+  errorButtonText: {
+    color: COLORS.white,
+    fontFamily: FONTS.semiBold?.fontFamily || 'System',
+    fontSize: SIZES.medium,
   },
 });
 

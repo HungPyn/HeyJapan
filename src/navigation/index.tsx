@@ -26,6 +26,7 @@ import {AuthProvider, useAuth} from '../screens/auth/AuthContext';
 import SelectionScreen from '../screens/courses/SelectionScreen';
 import {ActivityIndicator} from 'react-native-paper';
 import ContentsLyThuyetScreen from '../screens/courses/ContentsLyThuyetScreen';
+import ContentExam from '../screens/courses/ContensExamScreen';
 import ContentsScreen from '../screens/courses/ContentsScreen';
 import HomeAdminScreen from '../screens/admin/HomeAdminScreen';
 import LessonAdminScreen from '../screens/admin/LessonAdminScreen';
@@ -67,11 +68,20 @@ export type CoursesStackParamList = {
   CourseList: {levelId: number}; // Đã đúng
   CourseDetail: {courseId: string; title: string}; // << Mong đợi cả title
   Lesson: {lessonId: string; courseId: string};
-  ContentsLyThuyetScreen: {lessonCode: string; lessonName?: string};
+  ContentsLyThuyetScreen: {
+    topicId?: string;
+    lessonCode?: string;
+    lessonName: string;
+  };
   ContentsScreen: {
     lessonCode: string;
     lessonName?: string;
     idLesson?: number; // Thêm idLesson với kiểu number (hoặc kiểu bạn mong muốn)
+  };
+  ContentExam: {
+    topicId?: string;
+    lessonCode?: string;
+    lessonName: string;
   };
 };
 
@@ -109,6 +119,7 @@ const CoursesNavigator = () => (
       name="ContentsLyThuyetScreen"
       component={ContentsLyThuyetScreen}
     />
+    <CoursesStack.Screen name="ContentExam" component={ContentExam} />
     <CoursesStack.Screen name="ContentsScreen" component={ContentsScreen} />
   </CoursesStack.Navigator>
 );
@@ -120,6 +131,7 @@ const getTabBarVisibility = (route: any) => {
     'ContentsScreen',
     'CourseDetail',
     'ContentsLyThuyetScreen',
+    'ContentExam',
   ];
   return routeName ? !hiddenScreens.includes(routeName) : true;
 };
