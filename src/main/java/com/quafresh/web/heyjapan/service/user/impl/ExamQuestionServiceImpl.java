@@ -24,22 +24,11 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
     private final UserMapper userMapper;
     private final TopicRepository topicRepository;
 
-    private ResponseExamDTO convertToDTO(ExamQuestion examQuestion){
-        ResponseExamDTO responseExamDTO = new ResponseExamDTO();
-        responseExamDTO.setTopicID(examQuestion.getTopic().getId());
-        responseExamDTO.setAudioUrlExam(examQuestion.getAudioUrlExam());
-        responseExamDTO.setOptionsLanguageCode(examQuestion.getOptionsLanguageCode());
-        responseExamDTO.setTargetWordNative(examQuestion.getTargetWordNative());
-        responseExamDTO.setQuestionType(String.valueOf(examQuestion.getQuestionType()));
-        responseExamDTO.setPromptTextTemplate(examQuestion.getPromptTextTemplate());
-        responseExamDTO.setTargetLanguageCode(examQuestion.getTargetLanguageCode());
-        return responseExamDTO;
-    }
     @Override
     public List<?> getExamQuesWithTopicId(Integer topicID) {
-        Topic topic = topicRepository.findById(topicID).orElseThrow(()-> new RuntimeException("Loi khon tim thay topic"));
+        Topic topic = topicRepository.findById(topicID).orElseThrow(()-> new RuntimeException("Loi khong tim thay topic"));
         List<ExamQuestion> list = examQuestionRepository.findAllByTopic(topic);
-        return list.stream().map(this::convertToDTO).collect(Collectors.toList());
+        return list.stream().map(userMapper::toResponseExamQuesDTO).collect(Collectors.toList());
     }
 
     @Override
