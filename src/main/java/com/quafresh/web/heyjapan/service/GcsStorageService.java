@@ -53,7 +53,8 @@ public class GcsStorageService {
         if (blobInfo == null) {
             throw new StorageException(404, "File not found: " + objectName);
         }
-        return storage.signUrl(blobInfo, duration, timeUnit, Storage.SignUrlOption.httpMethod(HttpMethod.GET), Storage.SignUrlOption.withV4Signature());
+        return storage.signUrl(blobInfo, duration, timeUnit, Storage.SignUrlOption.httpMethod(com.google.cloud.storage.HttpMethod.GET)
+                , Storage.SignUrlOption.withV4Signature());
     }
 
     public boolean deleteFile(String objectName) throws StorageException {

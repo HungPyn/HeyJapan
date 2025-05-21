@@ -2,6 +2,7 @@ package com.quafresh.web.heyjapan.service.user.impl;
 
 import com.quafresh.web.heyjapan.dto.user.result.RequestLessonResultDTO;
 import com.quafresh.web.heyjapan.dto.user.result.ResponseLessonResultDTO;
+import com.quafresh.web.heyjapan.dto.user.result.SummaryDTO;
 import com.quafresh.web.heyjapan.entity.Lesson;
 import com.quafresh.web.heyjapan.entity.LessonResult;
 import com.quafresh.web.heyjapan.entity.User;
@@ -9,6 +10,7 @@ import com.quafresh.web.heyjapan.repository.LessonRepository;
 import com.quafresh.web.heyjapan.repository.LessonResultRepository;
 import com.quafresh.web.heyjapan.repository.UserRepository;
 import com.quafresh.web.heyjapan.service.user.LessonResultService;
+import com.quafresh.web.heyjapan.service.user.SummaryHelper;
 import com.quafresh.web.heyjapan.util.ErrorMessages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +31,7 @@ public class LessonResultServiceImpl implements LessonResultService {
     private final LessonRepository lessonRepository;
     private final UserRepository userRepository;
     private final LessonResultRepository lessonResultRepository;
+
     @Override
     public String create(RequestLessonResultDTO requestLessonResultDTO) {
         Lesson lesson = lessonRepository.findById(requestLessonResultDTO.getLessonId())
@@ -101,6 +105,7 @@ public class LessonResultServiceImpl implements LessonResultService {
     }
 
 
+
     // Phần admin
     @Override
     public List<ResponseLessonResultDTO> getAllLessonResultByuserId(String userId) {
@@ -110,6 +115,26 @@ public class LessonResultServiceImpl implements LessonResultService {
         }
         return list;
     }
+
+    @Override
+    public SummaryDTO getLessonResultSummary(String userId) {
+            List<ResponseLessonResultDTO> list = getAllLessonResultByuserId(userId).stream()
+                    .filter(dto -> dto.getStudyTime() != null && dto.getStudyTime() > 0)
+                    .toList();
+
+            return SummaryHelper.calculateSummary(
+                    list,
+                    dto -> {
+                        int totalQuestions = dto.getTotalQuestions();
+                        int correctAnswers = Optional.ofNullable(dto.getCorrectAnswers()).orElse(0);
+                        return totalQuestions > 0
+                                ? BigDecimal.valueOf((double) correctAnswers * 100 / totalQuestions).setScale(2, RoundingMode.HALF_UP)
+                                : BigDecimal.ZERO;
+                    },
+                    dto -> Optional.ofNullable(dto.getCompletionPercent()).orElse(BigDecimal.ZERO),
+                    dto -> Optional.ofNullable(dto.getStudyTime()).orElse(0)
+            );
+        }
 
     @Override
     public ResponseLessonResultDTO getLessonResultByLessonId(String userId, Integer lessonId) {

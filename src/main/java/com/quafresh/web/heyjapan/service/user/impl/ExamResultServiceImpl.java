@@ -2,6 +2,7 @@ package com.quafresh.web.heyjapan.service.user.impl;
 
 import com.quafresh.web.heyjapan.dto.user.result.RequestExamResultDTO;
 import com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO;
+import com.quafresh.web.heyjapan.dto.user.result.SummaryDTO;
 import com.quafresh.web.heyjapan.entity.ExamResult;
 import com.quafresh.web.heyjapan.entity.Topic;
 import com.quafresh.web.heyjapan.entity.User;
@@ -9,14 +10,17 @@ import com.quafresh.web.heyjapan.repository.ExamResultRepository;
 import com.quafresh.web.heyjapan.repository.TopicRepository;
 import com.quafresh.web.heyjapan.repository.UserRepository;
 import com.quafresh.web.heyjapan.service.user.ExamResultService;
+import com.quafresh.web.heyjapan.service.user.SummaryHelper;
 import com.quafresh.web.heyjapan.util.ErrorMessages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -74,6 +78,26 @@ public class ExamResultServiceImpl implements ExamResultService {
             throw new RuntimeException(ErrorMessages.INVALID_ACCOUNT.getMessage());
         }
         return list;
+    }
+
+    @Override
+    public SummaryDTO getExamResultSummary(String userId) {
+        List<ResponseExamResultDTO> results = getAllById(userId).stream()
+                .filter(dto -> dto.getExamTime() != null && dto.getExamTime() > 0)
+                .toList();
+
+        return SummaryHelper.calculateSummary(
+                results,
+                dto -> {
+                    int totalQuestions = dto.getTotalQuestions();
+                    int correctAnswers = Optional.ofNullable(dto.getCorrectAnswers()).orElse(0);
+                    return totalQuestions > 0
+                            ? BigDecimal.valueOf((double) correctAnswers * 100 / totalQuestions).setScale(2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO;
+                },
+                dto -> Optional.ofNullable(dto.getScorePercent()).orElse(BigDecimal.ZERO),
+                dto -> Optional.ofNullable(dto.getExamTime()).orElse(0)
+        );
     }
 
     @Override
