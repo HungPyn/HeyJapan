@@ -26,7 +26,7 @@ public class QuestionController {
     private final ExamQuestionService examQuestionService;
     private final QuestionChoiceRepository questionChoiceRepository;
     @GetMapping("/lesson-question")
-    public ResponseEntity<List<ResponseLessonQuesDTO>> getLessonQuestion(@RequestParam("lessonID") Integer lessonID) {
+    public ResponseEntity<List<?>> getLessonQuestion(@RequestParam("lessonID") Integer lessonID) {
         return ResponseEntity.ok(lessonQuestionService.getQuestionsAndChoicesForLesson(lessonID));
     }
 

@@ -1,8 +1,13 @@
 package com.quafresh.web.heyjapan.dto.user.exam;
 
+import com.quafresh.web.heyjapan.dto.user.question.QuestionChoiceDTO;
+import com.quafresh.web.heyjapan.entity.QuestionChoice;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -15,4 +20,5 @@ public class ResponseExamDTO {
     private String targetLanguageCode;
     private String optionsLanguageCode;
     private String audioUrlExam;
+    private List<QuestionChoiceDTO> questionChoices;
 }

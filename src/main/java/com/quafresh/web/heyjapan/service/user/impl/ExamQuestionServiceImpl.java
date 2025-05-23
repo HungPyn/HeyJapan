@@ -2,8 +2,10 @@ package com.quafresh.web.heyjapan.service.user.impl;
 
 import com.quafresh.web.heyjapan.dto.user.exam.RequestExamQuestion;
 import com.quafresh.web.heyjapan.dto.user.exam.ResponseExamDTO;
+import com.quafresh.web.heyjapan.dto.user.question.QuestionChoiceDTO;
 import com.quafresh.web.heyjapan.dto.user.question.ResponseExamQuesDTO;
 import com.quafresh.web.heyjapan.entity.ExamQuestion;
+import com.quafresh.web.heyjapan.entity.QuestionChoice;
 import com.quafresh.web.heyjapan.entity.Topic;
 import com.quafresh.web.heyjapan.entity.enums.QuestionType;
 import com.quafresh.web.heyjapan.repository.ExamQuestionRepository;
@@ -24,7 +26,7 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
     private final UserMapper userMapper;
     private final TopicRepository topicRepository;
 
-    private ResponseExamDTO convertToDTO(ExamQuestion examQuestion){
+    private ResponseExamDTO convertToDTO(ExamQuestion examQuestion) {
         ResponseExamDTO responseExamDTO = new ResponseExamDTO();
         responseExamDTO.setTopicID(examQuestion.getTopic().getId());
         responseExamDTO.setAudioUrlExam(examQuestion.getAudioUrlExam());
@@ -33,7 +35,23 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
         responseExamDTO.setQuestionType(String.valueOf(examQuestion.getQuestionType()));
         responseExamDTO.setPromptTextTemplate(examQuestion.getPromptTextTemplate());
         responseExamDTO.setTargetLanguageCode(examQuestion.getTargetLanguageCode());
+        responseExamDTO.setQuestionChoices(
+                examQuestion.getQuestionChoices().stream()
+                        .map(this::convertToQuestionChoiceDTO)
+                        .collect(Collectors.toList())
+        );
         return responseExamDTO;
+    }
+
+    private QuestionChoiceDTO convertToQuestionChoiceDTO(QuestionChoice questionChoice) {
+        QuestionChoiceDTO dto = new QuestionChoiceDTO();
+        dto.setId(questionChoice.getId());
+        dto.setTextForeign(questionChoice.getTextForeign());
+        dto.setTextRomaji(questionChoice.getTextRomaji());
+        dto.setImageUrl(questionChoice.getImageUrl());
+        dto.setAudioUrlForeign(questionChoice.getAudioUrlForeign());
+        dto.setIsCorrect(questionChoice.getIsCorrect());
+        return dto;
     }
     @Override
     public List<?> getExamQuesWithTopicId(Integer topicID) {
