@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.controller.admin;
 
+import com.quafresh.web.heyjapan.dto.user.lesson.RequestLessonQuestionDTO;
 import com.quafresh.web.heyjapan.entity.QuestionChoice;
 import com.quafresh.web.heyjapan.repository.QuestionChoiceRepository;
 import com.quafresh.web.heyjapan.service.user.LessonQuestionService;
@@ -44,5 +45,15 @@ public class LessonQuestionController {
     private ResponseEntity<?> deleteByQuestionChoices(@RequestParam Integer id){
         questionChoicesService.deleteByID(id);
         return ResponseEntity.ok("Xoa thanh cong questionsChoices co id la "+id);
+    }
+
+    @PostMapping("/updateFull")
+    private ResponseEntity<?> updateFullQuestionChoices(@RequestBody RequestLessonQuestionDTO questionChoice){
+        return  questionChoicesService.updateFullLesson(questionChoice);
+    }
+
+    @PostMapping("/createFull")
+    private ResponseEntity<?> createFullQuestionChoices(@RequestBody RequestLessonQuestionDTO questionChoice){
+        return  questionChoicesService.createFullQuestion(questionChoice);
     }
 }

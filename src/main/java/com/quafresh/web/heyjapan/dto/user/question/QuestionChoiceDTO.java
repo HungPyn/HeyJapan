@@ -26,4 +26,8 @@ public class QuestionChoiceDTO {
         private String textBlock;
 
         private Boolean isCorrect;
+
+        private Integer lessonQuestion;
+
+        private Integer examQuestion;
 }

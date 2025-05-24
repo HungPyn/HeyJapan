@@ -28,7 +28,7 @@ public class TopicAdminController {
 
     @PostMapping(value = "/create", consumes = {"multipart/form-data"})
     public ResponseEntity<?> create(
-            @Valid @RequestPart("topicMetaData") RequestTopicDTO topicMetaData,
+            @RequestPart("topicMetaData") RequestTopicDTO topicMetaData,
             @RequestPart("avatarFile") MultipartFile avatarFile
     ) {
         if (avatarFile.isEmpty()) {
@@ -40,7 +40,7 @@ public class TopicAdminController {
     }
     @PutMapping(value = "/update",consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<?> update(
-            @Valid  @RequestPart("topicMetaData") RequestTopicDTO requestTopicDTO,
+            @RequestPart("topicMetaData") RequestTopicDTO requestTopicDTO,
             @RequestPart("avatarFile") MultipartFile avatarFile) {
         if (avatarFile.isEmpty()) {
             return ResponseEntity.badRequest().body("Ảnh không được để trống");
