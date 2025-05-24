@@ -26,12 +26,12 @@ public class QuestionController {
     private final ExamQuestionService examQuestionService;
     private final QuestionChoiceRepository questionChoiceRepository;
     @GetMapping("/lesson-question")
-    public ResponseEntity<List<ResponseLessonQuesDTO>> getLessonQuestion(@RequestParam("lessonID") Integer lessonID) {
+    public ResponseEntity<List<?>> getLessonQuestion(@RequestParam("lessonID") Integer lessonID) {
         return ResponseEntity.ok(lessonQuestionService.getQuestionsAndChoicesForLesson(lessonID));
     }
 
     @GetMapping("/exam-question")
-    public ResponseEntity<List<ResponseExamQuesDTO>> getExamQuestion(@RequestParam("topicId") Integer topicId) {
+    public ResponseEntity<List<?>> getExamQuestion(@RequestParam("topicId") Integer topicId) {
         return ResponseEntity.ok(examQuestionService.getExamQuesWithTopicId(topicId));
     }
 

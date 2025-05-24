@@ -14,4 +14,6 @@ public interface VocabularyService {
     void update(RequestVocabularyDTO requestVocabularyDTO);
     void delete(Long id);
     ResponseVocabularyDTO getById(Long id);
+
+    List<?> getAll();
 }
