@@ -90,30 +90,27 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     public ResponseTopicDTO create(RequestTopicDTO topicMetaData, MultipartFile avatarFile) {
+        Level level = levelRepository.findById(topicMetaData.getLevelId()).get();
         Topic topic = new Topic();
         topic.setName(topicMetaData.getName());
         topic.setDayCreation(Instant.now());
+        topic.setLevel(level);
         if (avatarFile == null || avatarFile.isEmpty()) {
             throw new RuntimeException("File avatar không được để trống.");
         }
-
         String originalFilename = avatarFile.getOriginalFilename();
         String fileExtension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
             fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
-
         String objectName = UUID.randomUUID().toString() + fileExtension;
-
         try {
             gcsStorageService.uploadFileToPublicBucket(avatarFile, objectName);
         } catch (IOException e) {
-
             throw new RuntimeException("Cập nhật file thất bại", e);
         }
         String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
         topic.setAvatarUrl(publicUrl);
-
         topicRepository.save(topic);
         Integer levelIdResponse = (topic.getLevel() != null) ? topic.getLevel().getId() : null;
         return new ResponseTopicDTO(topic.getId(), levelIdResponse, topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
@@ -121,7 +118,7 @@ public class TopicServiceImpl implements TopicService {
 
     @Override
     public ResponseTopicDTO update(RequestTopicDTO requestTopicDTO, MultipartFile avatarFile) {
-        Topic topic = topicRepository.findById(requestTopicDTO.getLevelId())
+        Topic topic = topicRepository.findById(requestTopicDTO.getTopicID())
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_LEVEL.getMessage()));
         String oldAvatarUrl = topic.getAvatarUrl();
         topic.setName(requestTopicDTO.getName());
@@ -130,12 +127,10 @@ public class TopicServiceImpl implements TopicService {
         if (originalFilename != null && originalFilename.contains(".")) {
             fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
-
         String objectName = UUID.randomUUID().toString() + fileExtension;
         try {
             gcsStorageService.uploadFileToPublicBucket(avatarFile, objectName);
         } catch (IOException e) {
-
             throw new RuntimeException("Cập nhật file thất bại", e);
         }
         String publicUrl = gcsStorageService.getPublicFileUrl(objectName);

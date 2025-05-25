@@ -34,7 +34,6 @@ public class TopicAdminController {
         if (avatarFile.isEmpty()) {
             return ResponseEntity.badRequest().body("Ảnh không được để trống");
         }
-
         ResponseTopicDTO response = topicService.create(topicMetaData, avatarFile);
         return ResponseEntity.ok(response);
     }
