@@ -8,5 +8,5 @@ import org.springframework.data.repository.Repository;
 import java.util.List;
 
 public interface AlphabetsRepository extends JpaRepository<Alphabets,Integer> {
-    List<Alphabets> findAllByTopic (Topic topic);
+    List<Alphabets> findAllByTopic_IdOrderByIdDesc(Integer topic);
 }
