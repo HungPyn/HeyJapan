@@ -17,7 +17,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import axios from 'axios';
+import axios, {AxiosRequestConfig} from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import {useAuth} from '../auth/AuthContext';
@@ -32,7 +32,7 @@ import {
   ImageLibraryOptions,
 } from 'react-native-image-picker';
 
-// --- BEGIN: Định nghĩa Type và API ---
+// --- Types & Interfaces (Giữ nguyên) ---
 interface ApiAdminTopic {
   id: number;
   levelId: number;
@@ -40,28 +40,28 @@ interface ApiAdminTopic {
   avatarUrl: string;
   dayCreation: string;
 }
+interface ClientRequestTopicDTO {
+  name: string;
+  levelId: number;
+  topicID?: number;
+}
 type Course = {
-  // Dùng cho hiển thị danh sách
-  topic_code: string; // id từ API (string)
+  topic_code: string;
   title: string;
   imageUrl: string;
-  levelCode: string; // Ví dụ: "Cấp độ 1"
-  quantityLesson: number; // Sẽ không còn trong form, nhưng giữ lại trong type nếu list item vẫn dùng
+  levelCode: string;
+  quantityLesson: number;
   originalLevelId?: number;
 };
-
 interface LevelOption {
-  // Dùng cho Picker và để lấy levelId số
   id: number;
   name: string;
 }
 
-const API_ADMIN_TOPIC_URL = 'http://10.0.2.2:8080/api/admin/topic';
-const API_LEVEL_LIST_URL = 'http://10.0.2.2:8080/api/public/level'; // Hoặc admin endpoint nếu có
+const API_ADMIN_BASE_URL = 'http://10.0.2.2:8080/api/admin';
+const API_ADMIN_TOPIC_URL = `${API_ADMIN_BASE_URL}/topic`;
+const API_PUBLIC_LEVEL_URL = 'http://10.0.2.2:8080/api/public/level';
 
-// --- END: Định nghĩa Type và API ---
-
-// --- BEGIN: Đường dẫn tới ảnh ---
 const LOGO_ICON = require('../../assets/images/Logo.png');
 const PROFILE_ICON_HEADER = require('../../assets/images/IconUserHeader.png');
 const SEARCH_ICON = require('../../assets/images/IconTimKiem.png');
@@ -71,9 +71,8 @@ const EDIT_ICON_ACTION = require('../../assets/images/chinhSua.png');
 const COURSE_LIST_ITEM_ICON = require('../../assets/images/ngoiSao.png');
 const BACK_ARROW_ICON = require('../../assets/images/IconBack.png');
 const UPLOAD_ICON = require('../../assets/images/upAnh.png');
-// --- END: Đường dẫn tới ảnh ---
 
-// --- ConfirmDeleteModal và modalStyles (Giữ nguyên) ---
+// --- ConfirmDeleteModal (Giữ nguyên) ---
 interface ConfirmDeleteModalProps {
   visible: boolean;
   onClose: () => void;
@@ -87,8 +86,8 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   itemName,
 }) => {
   if (!visible) return null;
-  const confirmationMessage = itemName
-    ? `Bạn có chắc chắn muốn xóa "${itemName}" không?`
+  const msg = itemName
+    ? `Bạn có chắc chắn muốn xóa chủ đề "${itemName}" không?`
     : 'Bạn có chắc chắn muốn xóa không?';
   return (
     <Modal
@@ -98,7 +97,7 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
       onRequestClose={onClose}>
       <Pressable style={modalStyles.backdrop} onPress={onClose}>
         <Pressable onPress={() => {}} style={modalStyles.modalContainer}>
-          <Text style={modalStyles.messageText}>{confirmationMessage}</Text>
+          <Text style={modalStyles.messageText}>{msg}</Text>
           <View style={modalStyles.buttonContainer}>
             <TouchableOpacity
               style={[modalStyles.button, modalStyles.cancelButton]}
@@ -123,6 +122,7 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   );
 };
 const modalStyles = StyleSheet.create({
+  /* ... Giữ nguyên styles ... */
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -181,10 +181,10 @@ interface AddEditCourseModalProps {
   mode: 'add' | 'edit';
   initialData?: Course | null;
   onClose: () => void;
-  onSubmit: (formData: FormData, topicIdToUpdate?: string) => Promise<void>; // Sửa lại để nhận FormData và topicId nếu sửa
-  availableLevels: LevelOption[]; // Danh sách level cho Picker
+  onSubmit: (formData: FormData) => Promise<void>;
+  availableLevels: LevelOption[];
+  isSubmitting: boolean; // << Thêm prop isSubmitting
 }
-
 const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
   visible,
   mode,
@@ -192,38 +192,35 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
   onClose,
   onSubmit,
   availableLevels,
+  isSubmitting, // << Nhận prop isSubmitting
 }) => {
   const [title, setTitle] = useState('');
   const [selectedLevelIdValue, setSelectedLevelIdValue] = useState<
     string | undefined
-  >(undefined); // Lưu ID của level (string)
-
-  const [selectedImage, setSelectedImage] = useState<Asset | null>(null);
+  >(undefined);
+  const [selectedImageFile, setSelectedImageFile] = useState<Asset | null>(
+    null,
+  );
   const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
-  // quantityLesson không còn trong form này vì API create/update không có
 
   useEffect(() => {
     if (visible) {
       if (mode === 'edit' && initialData) {
         setTitle(initialData.title);
-        setPreviewImageUri(initialData.imageUrl || null); // Ảnh hiện tại để preview
-        setSelectedImage(null); // Reset ảnh mới chọn
-        // originalLevelId là ID số, cần tìm và set value cho Picker
-        const currentLevel = availableLevels.find(
-          lvl => lvl.id === initialData.originalLevelId,
+        setPreviewImageUri(
+          initialData.imageUrl.startsWith('http') ? initialData.imageUrl : null,
         );
-        setSelectedLevelIdValue(
-          currentLevel
-            ? String(currentLevel.id)
-            : availableLevels[0]?.id
-            ? String(availableLevels[0].id)
-            : undefined,
-        );
+        setSelectedImageFile(null);
+        const currentLevelId = initialData.originalLevelId
+          ? String(initialData.originalLevelId)
+          : availableLevels[0]?.id
+          ? String(availableLevels[0].id)
+          : undefined;
+        setSelectedLevelIdValue(currentLevelId);
       } else {
-        // Chế độ add
         setTitle('');
         setPreviewImageUri(null);
-        setSelectedImage(null);
+        setSelectedImageFile(null);
         setSelectedLevelIdValue(
           availableLevels[0]?.id ? String(availableLevels[0].id) : undefined,
         );
@@ -231,78 +228,79 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
     }
   }, [visible, mode, initialData, availableLevels]);
 
-  const handleChoosePhoto = () => {
+  const handleChoosePhoto = useCallback(() => {
     const options: ImageLibraryOptions = {mediaType: 'photo', quality: 0.7};
     launchImageLibrary(options, response => {
       if (response.didCancel) {
-        console.log('User cancelled image picker');
       } else if (response.errorCode) {
-        console.log('ImagePicker Error: ', response.errorMessage);
         showMessage({
-          message: `Lỗi chọn ảnh: ${response.errorMessage}`,
+          message: `Lỗi chọn ảnh: ${response.errorMessage || 'Không rõ lỗi'}`,
           type: 'danger',
         });
       } else if (response.assets && response.assets[0]) {
-        setSelectedImage(response.assets[0]);
-        setPreviewImageUri(response.assets[0].uri || null);
+        const imageAsset = response.assets[0];
+        setSelectedImageFile(imageAsset);
+        setPreviewImageUri(imageAsset.uri || null);
       }
     });
-  };
+  }, []);
 
   const handleSubmit = async () => {
+    if (isSubmitting) return; // Chặn submit nếu đang xử lý
     if (!title.trim() || !selectedLevelIdValue) {
-      Alert.alert('Lỗi', 'Vui lòng điền tên chủ đề và chọn cấp độ.');
+      Alert.alert(
+        'Thiếu thông tin',
+        'Vui lòng điền tên chủ đề và chọn cấp độ.',
+      );
       return;
     }
-    if (mode === 'add' && !selectedImage) {
-      Alert.alert('Lỗi', 'Vui lòng chọn hình đại diện cho chủ đề mới.');
+    const levelIdNumber = parseInt(selectedLevelIdValue, 10);
+    if (isNaN(levelIdNumber)) {
+      Alert.alert('Lỗi', 'Cấp độ đã chọn không hợp lệ.');
       return;
     }
-
+    const topicMetaData: ClientRequestTopicDTO = {
+      name: title.trim(),
+      levelId: levelIdNumber,
+    };
+    if (mode === 'edit' && initialData?.topic_code) {
+      const topicIdParsed = parseInt(initialData.topic_code, 10);
+      if (!isNaN(topicIdParsed)) {
+        topicMetaData.topicID = topicIdParsed;
+      } else {
+        Alert.alert('Lỗi', 'ID chủ đề không hợp lệ để cập nhật.');
+        return;
+      }
+    }
     const formData = new FormData();
-    formData.append('name', title.trim());
-    formData.append('levelId', selectedLevelIdValue); // Gửi levelId dạng số (API yêu cầu Integer)
-
+    formData.append('topicMetaData', JSON.stringify(topicMetaData));
     if (
-      selectedImage &&
-      selectedImage.uri &&
-      selectedImage.fileName &&
-      selectedImage.type
+      selectedImageFile &&
+      selectedImageFile.uri &&
+      selectedImageFile.fileName &&
+      selectedImageFile.type
     ) {
-      formData.append('avatar', {
-        uri: selectedImage.uri,
-        type: selectedImage.type,
-        name: selectedImage.fileName,
-      } as any); // Ép kiểu nếu TypeScript báo lỗi với cấu trúc file
-    } else if (mode === 'edit' && initialData?.imageUrl && !selectedImage) {
-      // Nếu là edit và không chọn ảnh mới, nhưng có ảnh cũ,
-      // backend của bạn cần xử lý việc không nhận file avatar mới thì giữ lại cái cũ.
-      // Hoặc, bạn có thể cần gửi imageUrl cũ như một trường riêng nếu API hỗ trợ.
-      // Hiện tại, nếu không có selectedImage, trường 'avatar' sẽ không được gửi.
-      // Hoặc bạn có thể gửi imageUrl cũ như một field khác nếu API update cho phép, ví dụ:
-      // formData.append('existingAvatarUrl', initialData.imageUrl);
+      formData.append('avatarFile', {
+        uri: selectedImageFile.uri,
+        type: selectedImageFile.type,
+        name: selectedImageFile.fileName,
+      } as any);
+    } else if (mode === 'add') {
+      Alert.alert(
+        'Thiếu thông tin',
+        'Vui lòng chọn hình đại diện cho chủ đề mới.',
+      );
+      return;
     }
-
-    // Đối với chế độ sửa, bạn cần gửi topic_id
-    const topicIdToUpdate =
-      mode === 'edit' && initialData ? initialData.topic_code : undefined;
-
-    await onSubmit(formData, topicIdToUpdate); // Gọi hàm onSubmit từ props
+    await onSubmit(formData);
   };
-
-  const handleAttemptCloseModal = () => {
-    onClose();
-  };
-
   return (
     <Modal
       animationType="slide"
       transparent={true}
       visible={visible}
-      onRequestClose={handleAttemptCloseModal}>
-      <Pressable
-        style={addEditModalStyles.backdrop}
-        onPress={handleAttemptCloseModal}>
+      onRequestClose={onClose}>
+      <Pressable style={addEditModalStyles.backdrop} onPress={onClose}>
         <Pressable
           style={[
             addEditModalStyles.modalViewContainer,
@@ -315,7 +313,7 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
             onStartShouldSetResponder={() => true}>
             <View style={addEditModalStyles.header}>
               <TouchableOpacity
-                onPress={handleAttemptCloseModal}
+                onPress={onClose}
                 style={addEditModalStyles.backButton}>
                 <Image
                   source={BACK_ARROW_ICON}
@@ -331,9 +329,10 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
               style={[addEditModalStyles.formContainer, {flex: 1}]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled">
+              {/* ... các input fields ... */}
               <View style={addEditModalStyles.inputGroup}>
                 <Text style={addEditModalStyles.label}>
-                  Tên chủ đề
+                  Tên chủ đề{' '}
                   <Text style={addEditModalStyles.requiredStar}>*</Text>
                 </Text>
                 <TextInput
@@ -341,12 +340,12 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
                   placeholder="Nhập tên chủ đề"
                   value={title}
                   onChangeText={setTitle}
+                  editable={!isSubmitting}
                 />
               </View>
-
               <View style={addEditModalStyles.inputGroup}>
                 <Text style={addEditModalStyles.label}>
-                  Hình đại diện
+                  Hình đại diện{' '}
                   {mode === 'add' && (
                     <Text style={addEditModalStyles.requiredStar}>*</Text>
                   )}
@@ -354,13 +353,16 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <TouchableOpacity
                     style={addEditModalStyles.uploadButton}
-                    onPress={handleChoosePhoto}>
+                    onPress={handleChoosePhoto}
+                    disabled={isSubmitting}>
                     <Image
                       source={UPLOAD_ICON}
                       style={addEditModalStyles.uploadIcon}
                     />
                     <Text style={addEditModalStyles.uploadButtonText}>
-                      {selectedImage ? 'Đổi ảnh khác' : 'Tải lên hình ảnh'}
+                      {previewImageUri || selectedImageFile
+                        ? 'Đổi ảnh khác'
+                        : 'Tải lên hình ảnh'}
                     </Text>
                   </TouchableOpacity>
                   {previewImageUri && (
@@ -371,9 +373,6 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
                   )}
                 </View>
               </View>
-
-              {/* Trường số lượng bài học đã bị bỏ theo DTO */}
-
               <View style={addEditModalStyles.inputGroup}>
                 <Text style={addEditModalStyles.label}>
                   Cấp độ<Text style={addEditModalStyles.requiredStar}>*</Text>
@@ -387,7 +386,7 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
                     style={addEditModalStyles.picker}
                     itemStyle={addEditModalStyles.pickerItem}
                     mode="dropdown"
-                    enabled={availableLevels.length > 0}>
+                    enabled={availableLevels.length > 0 && !isSubmitting}>
                     {availableLevels.length === 0 && (
                       <Picker.Item
                         label="Đang tải cấp độ..."
@@ -404,12 +403,21 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
                   </Picker>
                 </View>
               </View>
+
               <TouchableOpacity
-                style={addEditModalStyles.submitButton}
-                onPress={handleSubmit}>
-                <Text style={addEditModalStyles.submitButtonText}>
-                  {mode === 'add' ? 'Thêm' : 'Lưu thay đổi'}
-                </Text>
+                style={[
+                  addEditModalStyles.submitButton,
+                  isSubmitting && addEditModalStyles.submitButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={addEditModalStyles.submitButtonText}>
+                    {mode === 'add' ? 'Thêm' : 'Lưu thay đổi'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -418,149 +426,61 @@ const AddEditCourseModal: React.FC<AddEditCourseModalProps> = ({
     </Modal>
   );
 };
-const addEditModalStyles = StyleSheet.create({
-  // ... (styles cũ cho modal, backdrop, header, form, input, submit button)
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  modalViewContainer: {width: '100%', backgroundColor: 'transparent'},
-  modalViewContent: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === 'ios' ? SIZES.padding * 2 : SIZES.padding,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  backButton: {padding: 5},
-  backIcon: {width: 22, height: 22, tintColor: '#555'},
-  headerTitle: {fontSize: 18, fontWeight: 'bold', color: '#333'},
-  formContainer: {paddingHorizontal: 20, paddingTop: 10},
-  inputGroup: {marginBottom: 20},
-  label: {fontSize: 15, color: '#444', marginBottom: 8, fontWeight: '500'},
-  requiredStar: {color: 'red'},
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white || '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.orange,
-    marginRight: 10 /* Khoảng cách với preview */,
-  },
-  uploadIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 8,
-    tintColor: COLORS.orange || '#007bff',
-  },
-  uploadButtonText: {
-    fontSize: 16,
-    color: COLORS.gray || '#007bff',
-    fontWeight: '500',
-  },
-  previewImage: {
-    // Style cho ảnh preview
-    width: 50,
-    height: 50,
-    borderRadius: 5,
-    borderColor: COLORS.lightGray,
-    borderWidth: 1,
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#f9f9f9',
-    overflow: Platform.OS === 'android' ? 'hidden' : undefined,
-  },
-  picker: {height: Platform.OS === 'ios' ? undefined : 50, width: '100%'},
-  pickerItem: {},
-  submitButton: {
-    backgroundColor: COLORS.primary || '#28a745',
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 30,
-  },
-  submitButtonText: {color: 'white', fontSize: 17, fontWeight: 'bold'},
-});
 
-// --- Component HocTapScreen ---
 const HocTapScreen = () => {
   const {logout} = useAuth();
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-
   const [courses, setCourses] = useState<Course[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false); // Loading chung cho danh sách
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // << Loading cho Thêm/Sửa
+  const [deletingCourseCode, setDeletingCourseCode] = useState<string | null>(
+    null,
+  ); // << Loading cho Xóa
 
   const [isCourseFormModalVisible, setIsCourseFormModalVisible] =
     useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [currentEditingCourse, setCurrentEditingCourse] =
     useState<Course | null>(null);
-
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
     id: string;
     name: string;
   } | null>(null);
-  const [deletingCourseCode, setDeletingCourseCode] = useState<string | null>(
-    null,
-  );
-
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
-  const [availableLevels, setAvailableLevels] = useState<LevelOption[]>([]); // State cho danh sách level từ API
+  const [availableLevels, setAvailableLevels] = useState<LevelOption[]>([]);
 
-  const getToken = async () => {
-    /* ... giữ nguyên ... */ const token = await AsyncStorage.getItem('token');
+  const getToken = useCallback(async () => {
+    const token = await AsyncStorage.getItem('token');
     if (!token) {
-      Alert.alert('Lỗi', 'Token không tồn tại.');
+      showMessage({
+        message: 'Token không tồn tại. Vui lòng đăng nhập lại.',
+        type: 'danger',
+      });
       logout();
       throw new Error('Token not found');
     }
     return token;
-  };
-  const mapApiTopicToCourse = (apiTopic: ApiAdminTopic): Course => ({
-    /* ... giữ nguyên ... */ topic_code: String(apiTopic.id),
-    title: apiTopic.name,
-    imageUrl: apiTopic.avatarUrl || COURSE_LIST_ITEM_ICON,
-    levelCode: `Cấp độ ${apiTopic.levelId}`,
-    quantityLesson: 0,
-    originalLevelId: apiTopic.levelId,
-  });
-
+  }, [logout]);
+  const mapApiTopicToCourse = useCallback(
+    (apiTopic: ApiAdminTopic): Course => {
+      const level = availableLevels.find(l => l.id === apiTopic.levelId);
+      return {
+        topic_code: String(apiTopic.id),
+        title: apiTopic.name,
+        imageUrl: apiTopic.avatarUrl || (COURSE_LIST_ITEM_ICON as any),
+        levelCode: level ? level.name : `Cấp độ ${apiTopic.levelId}`,
+        quantityLesson: 0,
+        originalLevelId: apiTopic.levelId,
+      };
+    },
+    [availableLevels],
+  );
   const fetchTopics = useCallback(
     async (keyword?: string) => {
-      /* ... giữ nguyên ... */
       setIsLoading(true);
-      setError(null);
       try {
         const token = await getToken();
         const url = keyword
@@ -572,35 +492,34 @@ const HocTapScreen = () => {
           headers: {Authorization: `Bearer ${token}`},
         });
         const mappedCourses = (response.data || []).map(mapApiTopicToCourse);
-        if (!keyword) setCourses(mappedCourses);
+        if (!keyword) {
+          setCourses(mappedCourses);
+        }
         setFilteredCourses(mappedCourses);
       } catch (apiError: any) {
         const errorMessage =
-          apiError.response?.data?.message || 'Không thể tải danh sách chủ đề.';
-        setError(errorMessage);
-        if (!keyword) setCourses([]);
+          apiError.response?.data?.message ||
+          apiError.response?.data ||
+          'Không thể tải danh sách chủ đề.';
+        showMessage({message: errorMessage, type: 'danger'});
+        if (!keyword) {
+          setCourses([]);
+        }
         setFilteredCourses([]);
       } finally {
         setIsLoading(false);
       }
     },
-    [logout],
+    [getToken, mapApiTopicToCourse],
   );
-
-  // Fetch danh sách tất cả level để truyền vào modal
   const fetchAllAvailableLevels = useCallback(async () => {
     try {
-      const token = await getToken();
-      const response = await axios.get<LevelOption[]>(API_LEVEL_LIST_URL, {
-        // API lấy danh sách level
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const response = await axios.get<LevelOption[]>(API_PUBLIC_LEVEL_URL);
       if (response.data && Array.isArray(response.data)) {
         setAvailableLevels(
-          response.data.map(level => ({
-            id: Number(level.id),
-            name: level.name,
-          })),
+          response.data
+            .map(level => ({id: Number(level.id), name: level.name}))
+            .sort((a, b) => a.id - b.id),
         );
       } else {
         setAvailableLevels([]);
@@ -609,139 +528,179 @@ const HocTapScreen = () => {
           type: 'warning',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('HocTapScreen: Lỗi fetchAllAvailableLevels:', error);
       setAvailableLevels([]);
-      showMessage({message: 'Lỗi tải danh sách cấp độ.', type: 'danger'});
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        'Lỗi tải danh sách cấp độ.';
+      showMessage({message: message, type: 'danger'});
     }
-  }, [logout]);
-
+  }, []);
+  useEffect(() => {
+    fetchAllAvailableLevels();
+  }, [fetchAllAvailableLevels]);
   useEffect(() => {
     fetchTopics();
-    fetchAllAvailableLevels(); // Gọi khi component mount
-  }, [fetchTopics, fetchAllAvailableLevels]);
-
+  }, [fetchTopics]);
   useEffect(() => {
-    /* ... useEffect cho search giữ nguyên ... */
     const timerId = setTimeout(() => {
-      if (searchQuery.trim() === '') setFilteredCourses(courses);
-      else fetchTopics(searchQuery.trim());
+      if (searchQuery.trim() === '') {
+        setFilteredCourses(courses);
+      } else {
+        if (searchQuery.trim()) {
+          fetchTopics(searchQuery.trim());
+        }
+      }
     }, 500);
     return () => clearTimeout(timerId);
   }, [searchQuery, courses, fetchTopics]);
-
-  const handleAddNewCourse = () => {
+  const handleAddNewCourse = useCallback(() => {
     setModalMode('add');
     setCurrentEditingCourse(null);
-    // Đảm bảo đã fetch availableLevels trước khi mở modal
-    if (availableLevels.length === 0) fetchAllAvailableLevels();
+    if (availableLevels.length === 0) {
+      fetchAllAvailableLevels();
+    }
     setIsCourseFormModalVisible(true);
-  };
-  const handleEditCourse = (course: Course) => {
-    setModalMode('edit');
-    setCurrentEditingCourse(course);
-    if (availableLevels.length === 0) fetchAllAvailableLevels();
-    setIsCourseFormModalVisible(true);
-  };
+  }, [availableLevels, fetchAllAvailableLevels]);
+  const handleEditCourse = useCallback(
+    (course: Course) => {
+      setModalMode('edit');
+      setCurrentEditingCourse(course);
+      if (availableLevels.length === 0) {
+        fetchAllAvailableLevels();
+      }
+      setIsCourseFormModalVisible(true);
+    },
+    [availableLevels, fetchAllAvailableLevels],
+  );
 
-  // <<<<< SỬA ĐỔI HÀM NÀY ĐỂ GỌI API THÊM/SỬA TOPIC >>>>>
   const handleCourseFormSubmit = useCallback(
-    async (formDataWithFile: FormData, topicIdToUpdate?: string) => {
-      setIsLoading(true); // Có thể thêm state isLoading cho modal submit
+    async (formData: FormData) => {
+      setIsSubmittingForm(true); // << Bắt đầu loading cho form
+      let url = '';
+      let httpMethod: 'POST' | 'PUT' = 'POST';
+      let successMessage = '';
+
       try {
         const token = await getToken();
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const fetchOptions: RequestInit = {
+          method: httpMethod,
+          headers: {Authorization: `Bearer ${token}`},
+          body: formData,
         };
-        let response;
 
         if (modalMode === 'add') {
-          console.log('HocTapScreen: Gọi API Create Topic', formDataWithFile);
-          response = await axios.post(
-            `${API_ADMIN_TOPIC_URL}/create`,
-            formDataWithFile,
-            config,
-          );
-          showMessage({message: `Đã thêm chủ đề thành công!`, type: 'success'});
-        } else if (modalMode === 'edit' && topicIdToUpdate) {
-          // API update của bạn là .../update, không có id trong path
-          // Giả định ID của topic cần update đã được thêm vào FormData với key 'id'
-          // Nếu không, bạn cần gửi ID qua query param hoặc backend phải có cách nhận diện
-          formDataWithFile.append('id', topicIdToUpdate); // Gửi ID topic để update
-          console.log(
-            'HocTapScreen: Gọi API Update Topic ID:',
-            topicIdToUpdate,
-            formDataWithFile,
-          );
-          response = await axios.put(
-            `${API_ADMIN_TOPIC_URL}/update`,
-            formDataWithFile,
-            config,
-          );
-          showMessage({
-            message: `Đã cập nhật chủ đề thành công!`,
-            type: 'success',
-          });
+          url = `${API_ADMIN_TOPIC_URL}/create`;
+          fetchOptions.method = 'POST';
+          successMessage = 'Thêm chủ đề thành công!';
         } else {
-          throw new Error(
-            'Chế độ không hợp lệ hoặc thiếu ID chủ đề để cập nhật.',
-          );
+          url = `${API_ADMIN_TOPIC_URL}/update`;
+          fetchOptions.method = 'PUT';
+          successMessage = 'Cập nhật chủ đề thành công!';
         }
 
-        console.log(
-          'HocTapScreen: Phản hồi từ API Create/Update:',
-          response.data,
-        );
-        fetchTopics(); // Tải lại danh sách topics
+        console.log(`Gọi API (fetch): ${fetchOptions.method} ${url}`);
+        const httpResponse = await fetch(url, fetchOptions);
+
+        if (!httpResponse.ok) {
+          let errorDataText = `Lỗi server: ${httpResponse.status}`;
+          try {
+            const errorText = await httpResponse.text();
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorDataText = errorJson.message || errorJson.error || errorText;
+            } catch (e) {
+              errorDataText = errorText || errorDataText;
+            }
+          } catch (e) {
+            console.error('Không thể đọc body lỗi từ response', e);
+          }
+          console.error(
+            `Lỗi HTTP từ server (fetch): ${httpResponse.status}`,
+            errorDataText,
+          );
+          throw new Error(errorDataText);
+        }
+
+        const responseData = await httpResponse.json();
+        console.log('Phản hồi API (fetch):', responseData);
+        showMessage({message: successMessage, type: 'success'});
+        fetchTopics();
         setIsCourseFormModalVisible(false);
         setCurrentEditingCourse(null);
-      } catch (apiError: any) {
+      } catch (error: any) {
         console.error(
-          'HocTapScreen: Lỗi khi thêm/sửa chủ đề:',
-          apiError.response?.data || apiError.message || apiError,
+          `HocTapScreen: Lỗi khi ${
+            modalMode === 'add' ? 'thêm' : 'sửa'
+          } chủ đề (fetch):`,
+          error,
         );
-        const errorMessage =
-          apiError.response?.data?.message ||
-          `Không thể ${modalMode === 'add' ? 'thêm' : 'cập nhật'} chủ đề.`;
-        Alert.alert(
-          `Lỗi ${modalMode === 'add' ? 'thêm' : 'cập nhật'}`,
-          errorMessage,
-        );
+        let errorMessage = `Lỗi ${
+          modalMode === 'add' ? 'thêm' : 'cập nhật'
+        } chủ đề.`;
+        if (error.message) {
+          if (
+            error.message.toLowerCase().includes('network request failed') ||
+            error.message.toLowerCase().includes('failed to connect') ||
+            error.message
+              .toLowerCase()
+              .includes('typeerror: network request failed')
+          ) {
+            errorMessage =
+              'Lỗi mạng hoặc không thể kết nối đến server. Vui lòng kiểm tra kết nối và thử lại.';
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        showMessage({message: errorMessage, type: 'danger', duration: 7000});
       } finally {
-        setIsLoading(false); // Tắt loading của modal submit nếu có
+        setIsSubmittingForm(false); // << Kết thúc loading cho form
       }
     },
-    [modalMode, getToken, fetchTopics, logout],
+    [modalMode, getToken, fetchTopics],
   );
 
   const performDeleteCourse = useCallback(
-    async (courseCode: string) => {
-      /* ... giữ nguyên ... */
-      setDeletingCourseCode(courseCode);
-      setError(null);
+    async (topicId: string) => {
+      setDeletingCourseCode(topicId); // << Bắt đầu loading cho item này
       try {
         const token = await getToken();
-        const topicIdToDelete = courseCode;
-        await axios.delete(
-          `${API_ADMIN_TOPIC_URL}/delete?id=${topicIdToDelete}`,
-          {headers: {Authorization: `Bearer ${token}`}},
+        const response = await axios.delete(
+          `${API_ADMIN_TOPIC_URL}/delete?id=${topicId}`,
+          {headers: {Authorization: `Bearer ${token}`}, responseType: 'text'},
         );
-        setCourses(prev => prev.filter(c => c.topic_code !== courseCode));
-        setFilteredCourses(prev =>
-          prev.filter(c => c.topic_code !== courseCode),
-        );
-        showMessage({message: 'Đã xóa chủ đề thành công!', type: 'success'});
+        showMessage({
+          message: response.data || 'Xóa chủ đề thành công!',
+          type: 'success',
+        });
+        fetchTopics();
       } catch (apiError: any) {
-        const errorMessage =
-          apiError.response?.data?.message || 'Không thể xóa chủ đề.';
-        Alert.alert('Lỗi xóa chủ đề', errorMessage);
+        console.error(
+          'HocTapScreen: Lỗi khi xóa chủ đề:',
+          apiError.response?.data || apiError.message,
+        );
+        let errorMessage = 'Không thể xóa chủ đề. Vui lòng thử lại.';
+        if (apiError.response) {
+          if (typeof apiError.response.data === 'string') {
+            errorMessage = apiError.response.data;
+          } else if (
+            apiError.response.data &&
+            (apiError.response.data.message || apiError.response.data.error)
+          ) {
+            errorMessage =
+              apiError.response.data.message || apiError.response.data.error;
+          }
+        } else {
+          errorMessage = apiError.message || errorMessage;
+        }
+        showMessage({message: errorMessage, type: 'danger'});
       } finally {
-        setDeletingCourseCode(null);
+        setDeletingCourseCode(null); // << Kết thúc loading cho item này
       }
     },
-    [getToken, logout],
+    [getToken, fetchTopics],
   );
 
   const handleDeleteModalClose = useCallback(() => {
@@ -749,7 +708,9 @@ const HocTapScreen = () => {
     setItemToDelete(null);
   }, []);
   const handleDeleteModalConfirm = useCallback(() => {
-    if (itemToDelete) performDeleteCourse(itemToDelete.id);
+    if (itemToDelete) {
+      performDeleteCourse(itemToDelete.id);
+    }
     handleDeleteModalClose();
   }, [itemToDelete, performDeleteCourse, handleDeleteModalClose]);
   const handleDeleteCoursePress = useCallback(
@@ -761,7 +722,7 @@ const HocTapScreen = () => {
     [],
   );
   const handleLogout = useCallback(async () => {
-    /* ... */ setIsProfileMenuVisible(false);
+    setIsProfileMenuVisible(false);
     Alert.alert(
       'Xác nhận đăng xuất',
       'Bạn có chắc chắn muốn đăng xuất?',
@@ -778,8 +739,9 @@ const HocTapScreen = () => {
       {cancelable: true},
     );
   }, [logout]);
+
   const renderCourseItem = useCallback(
-    /* ... giữ nguyên ... */ ({item}: {item: Course}) => (
+    ({item}: {item: Course}) => (
       <TouchableOpacity
         style={styles.courseItem}
         onPress={() => {
@@ -790,8 +752,21 @@ const HocTapScreen = () => {
         }}
         activeOpacity={0.7}>
         <Image
-          source={item.imageUrl ? {uri: item.imageUrl} : COURSE_LIST_ITEM_ICON}
+          source={
+            item.imageUrl &&
+            item.imageUrl !== (COURSE_LIST_ITEM_ICON as any) &&
+            item.imageUrl.startsWith('http')
+              ? {uri: item.imageUrl}
+              : COURSE_LIST_ITEM_ICON
+          }
           style={styles.courseItemIcon}
+          onError={e =>
+            console.log(
+              'Lỗi tải ảnh chủ đề:',
+              item.imageUrl,
+              e.nativeEvent.error,
+            )
+          }
         />
         <View style={styles.courseTextContainer}>
           <Text style={styles.courseTitleText} numberOfLines={1}>
@@ -816,8 +791,9 @@ const HocTapScreen = () => {
               e.stopPropagation();
               handleDeleteCoursePress(item.topic_code, item.title);
             }}
-            disabled={deletingCourseCode === item.topic_code}>
-            {deletingCourseCode === item.topic_code ? (
+            disabled={deletingCourseCode === item.topic_code} // << Sử dụng deletingCourseCode
+          >
+            {deletingCourseCode === item.topic_code ? ( // << Hiển thị loading cho item đang xóa
               <ActivityIndicator
                 size="small"
                 color={COLORS.primary || '#007bff'}
@@ -829,12 +805,12 @@ const HocTapScreen = () => {
         </View>
       </TouchableOpacity>
     ),
-    [handleDeleteCoursePress, deletingCourseCode, handleEditCourse, navigation],
+    [deletingCourseCode, handleEditCourse, handleDeleteCoursePress, navigation], // << Thêm deletingCourseCode
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header, SearchBar, Nút Thêm Mới, List, Modals giữ nguyên */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} disabled>
           <Image
@@ -854,6 +830,7 @@ const HocTapScreen = () => {
           />
         </TouchableOpacity>
       </View>
+      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Image
           source={SEARCH_ICON}
@@ -862,7 +839,7 @@ const HocTapScreen = () => {
         />
         <TextInput
           style={styles.searchInput}
-          placeholder="Tìm chủ đề theo tên, cấp độ..."
+          placeholder="Tìm chủ đề theo tên..."
           placeholderTextColor="#999"
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -871,6 +848,7 @@ const HocTapScreen = () => {
           clearButtonMode="while-editing"
         />
       </View>
+      {/* Add New Button */}
       <View style={styles.addNewButtonContainer}>
         <TouchableOpacity
           style={styles.addNewButton}
@@ -879,23 +857,15 @@ const HocTapScreen = () => {
           <Text style={styles.addNewButtonText}>+ Thêm mới chủ đề</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Loading or Empty List */}
       {isLoading && filteredCourses.length === 0 && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Đang tải chủ đề...</Text>
         </View>
       )}
-      {!isLoading && error && filteredCourses.length === 0 && (
-        <View style={styles.emptyListContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            onPress={() => fetchTopics(searchQuery.trim() || undefined)}
-            style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Thử lại</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-      {!isLoading && !error && filteredCourses.length === 0 && (
+      {!isLoading && filteredCourses.length === 0 && (
         <View style={styles.emptyListContainer}>
           <Text style={styles.emptyListText}>
             {searchQuery.trim() !== ''
@@ -904,6 +874,8 @@ const HocTapScreen = () => {
           </Text>
         </View>
       )}
+
+      {/* Course List */}
       {filteredCourses.length > 0 && (
         <FlatList
           data={filteredCourses}
@@ -914,13 +886,8 @@ const HocTapScreen = () => {
           keyboardShouldPersistTaps="handled"
         />
       )}
-      {isLoading && filteredCourses.length > 0 && (
-        <ActivityIndicator
-          style={styles.inlineSpinner}
-          size="small"
-          color={COLORS.primary}
-        />
-      )}
+
+      {/* Modals */}
       <ConfirmDeleteModal
         visible={isDeleteModalVisible}
         onClose={handleDeleteModalClose}
@@ -962,24 +929,24 @@ const HocTapScreen = () => {
           setCurrentEditingCourse(null);
         }}
         onSubmit={handleCourseFormSubmit}
-        availableLevels={availableLevels} // << TRUYỀN DANH SÁCH LEVEL XUỐNG
+        availableLevels={availableLevels}
+        isSubmitting={isSubmittingForm} // << Truyền prop isSubmitting
       />
     </SafeAreaView>
   );
 };
 
-// --- Styles (styles, profileMenuStyles giữ nguyên) ---
+// --- Styles ---
 const styles = StyleSheet.create({
-  /* ... styles của HocTapScreen ... */
   safeArea: {flex: 1, backgroundColor: COLORS.background || '#FFFFFF'},
   header: {
-    paddingTop: 30,
+    paddingTop: 30, // Giữ nguyên
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.primary,
     paddingHorizontal: 15,
-    height: 90,
+    height: 90, // Giữ nguyên
   },
   headerButton: {padding: 5},
   headerIcon: {width: 30, height: 30},
@@ -1076,12 +1043,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {color: COLORS.white, fontSize: 16, fontWeight: 'bold'},
-  inlineSpinner: {marginVertical: 10},
 });
 const profileMenuStyles = StyleSheet.create({
-  /* ... styles của profileMenu ... */
   backdrop: {flex: 1, backgroundColor: 'transparent'},
-  menuViewWrapper: {position: 'absolute', top: 80, right: 15},
+  menuViewWrapper: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 50 : 80,
+    right: 15,
+  },
   menuContainer: {
     backgroundColor: 'white',
     borderRadius: 8,
@@ -1101,6 +1070,95 @@ const profileMenuStyles = StyleSheet.create({
   },
   menuIcon: {width: 20, height: 20, marginRight: 10, tintColor: '#555'},
   menuText: {fontSize: 16, color: '#333'},
+});
+const addEditModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  modalViewContainer: {width: '100%', backgroundColor: 'transparent'},
+  modalViewContent: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? SIZES.padding * 2 : SIZES.padding,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  backButton: {padding: 5},
+  backIcon: {width: 22, height: 22, tintColor: '#555'},
+  headerTitle: {fontSize: 18, fontWeight: 'bold', color: '#333'},
+  formContainer: {paddingHorizontal: 20, paddingTop: 10},
+  inputGroup: {marginBottom: 20},
+  label: {fontSize: 15, color: '#444', marginBottom: 8, fontWeight: '500'},
+  requiredStar: {color: 'red'},
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white || '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.orange,
+    marginRight: 10,
+  },
+  uploadIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
+    tintColor: COLORS.orange || '#007bff',
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    color: COLORS.gray || '#007bff',
+    fontWeight: '500',
+  },
+  previewImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 5,
+    borderColor: COLORS.lightGray,
+    borderWidth: 1,
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    overflow: Platform.OS === 'android' ? 'hidden' : undefined,
+  },
+  picker: {height: Platform.OS === 'ios' ? undefined : 50, width: '100%'},
+  pickerItem: {},
+  submitButton: {
+    backgroundColor: COLORS.primary || '#28a745',
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 30,
+  },
+  submitButtonText: {color: 'white', fontSize: 17, fontWeight: 'bold'},
+  submitButtonDisabled: {backgroundColor: COLORS.gray}, // << Thêm style cho nút bị vô hiệu hóa
 });
 
 export default HocTapScreen;

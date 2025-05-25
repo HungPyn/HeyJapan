@@ -30,6 +30,7 @@ import ContentExam from '../screens/courses/ContensExamScreen';
 import ContentsScreen from '../screens/courses/ContentsScreen';
 import HomeAdminScreen from '../screens/admin/HomeAdminScreen';
 import LessonAdminScreen from '../screens/admin/LessonAdminScreen';
+import TheoryAdmin from '../screens/admin/TheoryAdminScreen';
 import ContentAdminScreen from '../screens/admin/ContensAdminScreen';
 import TienDoDetailScreen from '../screens/admin/TienDoDetailScreen';
 
@@ -45,6 +46,7 @@ export type RootStackParamList = {
   TienDoScreen: {topic_code: string; title: string};
   HomeAdmin: undefined;
   LessonAdmin: {topic_code: string; title: string};
+  TheoryAdmin: {topic_code: string; title: string};
   ContentAdmin: {lesson_code: number; lesson_name: string};
   TienDoDetail: {userId: string; username: string};
   CourseListScreen: {levelId: number}; // Type này vẫn có thể dùng nếu có lúc bạn nav trực tiếp
@@ -281,6 +283,7 @@ const RootNavigator = () => {
         <>
           <RootStack.Screen name="HomeAdmin" component={HomeAdminScreen} />
           <RootStack.Screen name="LessonAdmin" component={LessonAdminScreen} />
+          <RootStack.Screen name="TheoryAdmin" component={TheoryAdmin} />
           <RootStack.Screen name="TienDoScreen" component={TienDoScreen} />
           <RootStack.Screen
             name="TienDoDetail"

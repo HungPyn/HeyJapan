@@ -28,7 +28,7 @@ import {showMessage} from 'react-native-flash-message';
 interface ApiQuestionChoice {
   id: number;
   textForeign: string | null;
-  textRomaji?: string | null; // Có thể là undefined, string, hoặc null
+  textRomaji?: string | null;
   imageUrl: string | null;
   audioUrlForeign: string | null;
   textBlock?: string;
@@ -63,7 +63,7 @@ interface LessonResultPayload {
 interface Option {
   id: string;
   text: string;
-  textRomaji?: string | null; // Đã thêm ở lượt trước
+  textRomaji?: string | null;
   imageUrl?: string | null;
   audioUrl?: string | null;
 }
@@ -84,7 +84,7 @@ interface MappedContentItem {
   options?: Option[];
   correct_answer?: string | string[];
   correct_answer_foreign?: string | null;
-  correct_answer_romaji?: string | null; // Thuộc tính này nên là string | null
+  correct_answer_romaji?: string | null;
   targetLanguageCode?: string;
   user_answer?: string | string[];
 }
@@ -133,7 +133,6 @@ const LessonSummaryScreen: React.FC<LessonSummaryProps> = ({
         style={summaryStyles.logo}
         resizeMode="contain"
       />
-
       <Text style={summaryStyles.title}>Kết quả hoàn thành</Text>
       <View style={summaryStyles.card}>
         <Image
@@ -221,7 +220,7 @@ const ContentsScreen: React.FC = () => {
 
   const getUserId = async (): Promise<string | null> => {
     try {
-      const userId = await AsyncStorage.getItem('UserId'); // Key "UserId"
+      const userId = await AsyncStorage.getItem('UserId');
       return userId;
     } catch (e) {
       console.error('Failed to fetch UserId:', e);
@@ -236,8 +235,7 @@ const ContentsScreen: React.FC = () => {
         let mappedOptions: Option[] | undefined = undefined;
         let correctAnswerIds: string | string[] | undefined = undefined;
         let correctAnswerForeign: string | null = null;
-        let correctAnswerRomaji: string | null = null; // Khai báo là string | null
-
+        let correctAnswerRomaji: string | null = null;
         const choicesFromApi = apiQuestion.questionChoices || [];
 
         switch (apiQuestion.questionType) {
@@ -250,7 +248,7 @@ const ContentsScreen: React.FC = () => {
             mappedOptions = choicesFromApi.map(qc => ({
               id: String(qc.id),
               text: qc.textForeign || '',
-              textRomaji: qc.textRomaji ?? null, // Đảm bảo là string | null
+              textRomaji: qc.textRomaji ?? null,
               audioUrl: qc.audioUrlForeign,
             }));
             const correctChoice = choicesFromApi.find(
@@ -259,18 +257,17 @@ const ContentsScreen: React.FC = () => {
             if (correctChoice) {
               correctAnswerIds = String(correctChoice.id);
               correctAnswerForeign = correctChoice.textForeign;
-              correctAnswerRomaji = correctChoice.textRomaji ?? null; // Sửa ở đây
+              correctAnswerRomaji = correctChoice.textRomaji ?? null;
             }
             break;
-
           case 'MULTIPLE_CHOICE_VOCAB_IMAGE':
             internalContentType = 'select_image';
             mappedOptions = choicesFromApi.map(qc => ({
               id: String(qc.id),
               text: `${qc.textForeign || ''}${
                 qc.textRomaji ? `\n(${qc.textRomaji})` : ''
-              }`, //Sửa lại như gốc
-              textRomaji: qc.textRomaji ?? null, // Đảm bảo là string | null
+              }`,
+              textRomaji: qc.textRomaji ?? null,
               imageUrl: qc.imageUrl,
               audioUrl: qc.audioUrlForeign,
             }));
@@ -280,7 +277,7 @@ const ContentsScreen: React.FC = () => {
             if (correctImageChoice) {
               correctAnswerIds = String(correctImageChoice.id);
               correctAnswerForeign = apiQuestion.targetWordNative;
-              correctAnswerRomaji = correctImageChoice.textRomaji ?? null; // Sửa ở đây
+              correctAnswerRomaji = correctImageChoice.textRomaji ?? null;
               if (
                 correctImageChoice.textForeign &&
                 correctImageChoice.textForeign.trim() !== ''
@@ -289,94 +286,55 @@ const ContentsScreen: React.FC = () => {
               }
             }
             break;
-
           case 'WORD_ORDER':
             internalContentType = 'sapXep';
-            mappedOptions = choicesFromApi.map(qc => ({
-              // Sử dụng choicesFromApi
-              id: String(qc.id),
-              text: qc.textForeign || '',
-              textRomaji: qc.textRomaji ?? null,
-              audioUrl: qc.audioUrlForeign,
-            }));
-
-            const sortedChoices = [...choicesFromApi]
-              .filter(
-                qc => typeof qc.isCorrect === 'number' && qc.isCorrect !== null,
-              )
-              .sort(
-                (a, b) => (a.isCorrect as number) - (b.isCorrect as number),
-              );
-
+            const firstChoiceWordOrder = apiQuestion.questionChoices[0];
             if (
-              sortedChoices.length > 0 &&
-              sortedChoices.length ===
-                choicesFromApi.filter(qc => typeof qc.isCorrect === 'number')
-                  .length
+              firstChoiceWordOrder &&
+              typeof firstChoiceWordOrder.textBlock === 'string'
             ) {
-              //Đảm bảo tất cả choice có isCorrect là số
-              correctAnswerIds = sortedChoices.map(qc => String(qc.id));
-              correctAnswerForeign = sortedChoices
-                .map(qc => qc.textForeign || '')
-                .join(' ')
-                .trim();
-              const romajiParts = sortedChoices
-                .map(qc => qc.textRomaji || qc.textForeign || '')
-                .filter(Boolean);
-              if (romajiParts.length > 0) {
-                correctAnswerRomaji = romajiParts.join(' ').trim();
-              } else {
-                correctAnswerRomaji = null;
+              try {
+                const wordsInTextBlock = JSON.parse(
+                  firstChoiceWordOrder.textBlock,
+                );
+                if (Array.isArray(wordsInTextBlock)) {
+                  mappedOptions = wordsInTextBlock.map((word, index) => ({
+                    id: `${apiQuestion.id}_choice${firstChoiceWordOrder.id}_word${index}`,
+                    text: String(word),
+                    textRomaji: null,
+                    audioUrl: null,
+                  }));
+                  correctAnswerForeign = firstChoiceWordOrder.textForeign;
+                  correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
+                  correctAnswerIds = [];
+                } else {
+                  console.warn(
+                    `WORD_ORDER (id: ${apiQuestion.id}): textBlock không phải là mảng JSON.`,
+                  );
+                  mappedOptions = [];
+                  correctAnswerForeign = firstChoiceWordOrder.textForeign;
+                  correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
+                  correctAnswerIds = [];
+                }
+              } catch (e) {
+                console.error(
+                  `WORD_ORDER (id: ${apiQuestion.id}): Lỗi parse textBlock JSON:`,
+                  e,
+                );
+                mappedOptions = [];
+                correctAnswerForeign =
+                  firstChoiceWordOrder?.textForeign ?? null;
+                correctAnswerRomaji = firstChoiceWordOrder?.textRomaji ?? null;
+                correctAnswerIds = [];
               }
             } else {
-              // Fallback nếu isCorrect không phải là số thứ tự hoặc không đầy đủ
-              // console.warn(`WORD_ORDER (id: ${apiQuestion.id}): Dữ liệu isCorrect không hợp lệ. Sẽ sử dụng logic fallback.`);
-              const promptText = apiQuestion.promptTextTemplate || '';
-              const blockRegex = /\[([^\]]+)\]/;
-              const blockMatch = promptText.match(blockRegex);
-              let wordBlocksForOptions: string[] = [];
-              if (blockMatch && blockMatch[1]) {
-                wordBlocksForOptions = blockMatch[1]
-                  .split('/')
-                  .map(block => block.trim())
-                  .filter(Boolean);
-              } else {
-                wordBlocksForOptions = (apiQuestion.targetWordNative || '')
-                  .split(' ')
-                  .map(s => s.trim())
-                  .filter(Boolean);
-              }
-              // Tạo lại mappedOptions nếu logic fallback được sử dụng và khác với logic isCorrect ở trên
-              mappedOptions = wordBlocksForOptions.map((block, idx) => ({
-                id: `${apiQuestion.id}_fb_${idx}`,
-                text: block,
-                textRomaji: null /* không có romaji cho từng block từ prompt */,
-              }));
-
-              if (apiQuestion.targetWordNative && mappedOptions.length > 0) {
-                const correctWords = apiQuestion.targetWordNative
-                  .split(' ')
-                  .map(s => s.trim())
-                  .filter(Boolean);
-                let tempIds: string[] = [];
-                let tempAvailableOptions = [...mappedOptions];
-                for (const cw of correctWords) {
-                  const fIdx = tempAvailableOptions.findIndex(
-                    opt => opt.text === cw,
-                  );
-                  if (fIdx !== -1) {
-                    tempIds.push(tempAvailableOptions[fIdx].id);
-                    tempAvailableOptions.splice(fIdx, 1);
-                  }
-                }
-                if (tempIds.length === correctWords.length)
-                  correctAnswerIds = tempIds;
-                else correctAnswerIds = mappedOptions.map(opt => opt.id);
-              } else {
-                correctAnswerIds = mappedOptions.map(opt => opt.id);
-              }
-              correctAnswerForeign = apiQuestion.targetWordNative;
+              console.warn(
+                `WORD_ORDER (id: ${apiQuestion.id}): Thiếu questionChoices[0] hoặc textBlock không hợp lệ.`,
+              );
+              mappedOptions = [];
+              correctAnswerForeign = null;
               correctAnswerRomaji = null;
+              correctAnswerIds = [];
             }
             break;
           default:
@@ -398,7 +356,6 @@ const ContentsScreen: React.FC = () => {
             }
             break;
         }
-
         return {
           content_code: apiQuestion.id,
           content_type: internalContentType,
@@ -410,6 +367,7 @@ const ContentsScreen: React.FC = () => {
           correct_answer: correctAnswerIds,
           correct_answer_foreign: correctAnswerForeign,
           correct_answer_romaji: correctAnswerRomaji,
+          targetLanguageCode: apiQuestion.targetLanguageCode,
         };
       });
     },
@@ -424,6 +382,17 @@ const ContentsScreen: React.FC = () => {
   }, [apiQuestions, mapApiQuestionsToMappedContent]);
 
   const currentItem = itemsForThisLesson[currentIndex];
+
+  const shuffledSapXepOptions = useMemo(() => {
+    if (
+      currentItem &&
+      currentItem.content_type === 'sapXep' &&
+      currentItem.options
+    ) {
+      return [...currentItem.options].sort(() => Math.random() - 0.5);
+    }
+    return null;
+  }, [currentItem]);
 
   useEffect(() => {
     const loadQuestions = async () => {
@@ -449,8 +418,6 @@ const ContentsScreen: React.FC = () => {
         if (response.data && Array.isArray(response.data)) {
           if (response.data.length > 0) {
             setApiQuestions(response.data);
-          } else {
-            setApiError('Không có câu hỏi nào cho bài học này.');
           }
         } else {
           setApiError('Dữ liệu câu hỏi không hợp lệ từ server.');
@@ -478,6 +445,7 @@ const ContentsScreen: React.FC = () => {
   }, [lessonId]);
 
   const handleSubmitResult = async () => {
+    // ... (Giữ nguyên logic handleSubmitResult)
     if (!startTime || !lessonId) {
       showMessage({
         message: 'Thiếu thông tin bài học để gửi kết quả.',
@@ -525,12 +493,9 @@ const ContentsScreen: React.FC = () => {
         setIsSubmittingResult(false);
         return;
       }
-      const response = await axios.post(
-        `${API_USER_BASE_URL}/result/lesson-result`,
-        payload,
-        {headers: {Authorization: `Bearer ${token}`}},
-      );
-
+      await axios.post(`${API_USER_BASE_URL}/result/lesson-result`, payload, {
+        headers: {Authorization: `Bearer ${token}`},
+      });
       showMessage({
         message: 'Đã lưu kết quả bài học!',
         type: 'success',
@@ -576,6 +541,7 @@ const ContentsScreen: React.FC = () => {
   }, [currentIndex]);
 
   const playSound = (audioUrlToPlayParam: string | null) => {
+    // ... (Giữ nguyên logic playSound)
     if (!audioUrlToPlayParam) {
       setAudioUrlToPlayState(null);
       setIsAudioPlaying(false);
@@ -599,6 +565,7 @@ const ContentsScreen: React.FC = () => {
   };
 
   const handleOptionSelect = (optionId: string) => {
+    // ... (Giữ nguyên logic handleOptionSelect)
     if (showAnswerFeedback === null) {
       setUserSelectedOptionId(optionId);
       const currentQ = itemsForThisLesson[currentIndex];
@@ -614,6 +581,7 @@ const ContentsScreen: React.FC = () => {
   };
 
   const handleWordBankPress = (wordOption: Option) => {
+    // ... (Giữ nguyên logic handleWordBankPress)
     if (showAnswerFeedback !== null) return;
     if (!arrangedWords.find(w => w.id === wordOption.id)) {
       setArrangedWords(prev => [...prev, wordOption]);
@@ -624,6 +592,7 @@ const ContentsScreen: React.FC = () => {
   };
 
   const handleArrangedWordPress = (wordOptionToRemove: Option) => {
+    // ... (Giữ nguyên logic handleArrangedWordPress)
     if (showAnswerFeedback !== null) return;
     setArrangedWords(prev =>
       prev.filter(word => word.id !== wordOptionToRemove.id),
@@ -631,10 +600,10 @@ const ContentsScreen: React.FC = () => {
   };
 
   const handleCheckAnswer = () => {
+    // ... (Giữ nguyên logic handleCheckAnswer đã sửa cho WORD_ORDER)
     if (!currentItem) return;
     let isCorrectUserAnswer = false;
     const type = currentItem.content_type;
-
     if (
       type === 'select' ||
       type === 'audio_choice' ||
@@ -653,12 +622,11 @@ const ContentsScreen: React.FC = () => {
         Alert.alert('Thông báo', 'Bạn chưa sắp xếp từ nào.');
         return;
       }
-      const userAnswerIds = arrangedWords.map(word => word.id);
-      const correctAnswerIds = currentItem.correct_answer;
+      const userAnswerString = arrangedWords.map(word => word.text).join('');
+      const correctAnswerString = currentItem.correct_answer_foreign;
       if (
-        Array.isArray(correctAnswerIds) &&
-        userAnswerIds.length === correctAnswerIds.length &&
-        userAnswerIds.every((val, index) => val === correctAnswerIds[index])
+        correctAnswerString !== null &&
+        userAnswerString === correctAnswerString
       ) {
         isCorrectUserAnswer = true;
       } else {
@@ -676,6 +644,7 @@ const ContentsScreen: React.FC = () => {
   };
 
   const handleContinue = () => {
+    // ... (Giữ nguyên logic handleContinue)
     if (!currentItem) return;
     const type = currentItem.content_type;
     const needsCheckAndNotChecked =
@@ -721,6 +690,7 @@ const ContentsScreen: React.FC = () => {
   };
 
   const formatTimeTaken = useCallback(() => {
+    // ... (Giữ nguyên logic formatTimeTaken)
     if (!startTime) return '0 phút 0 giây';
     const finalEndTime = endTime || new Date();
     const diffMs = finalEndTime.getTime() - startTime.getTime();
@@ -733,6 +703,7 @@ const ContentsScreen: React.FC = () => {
   }, [startTime, endTime]);
 
   const handleBackPress = () => {
+    // ... (Giữ nguyên logic handleBackPress)
     Alert.alert(
       'Thoát khỏi bài học?',
       'Tiến trình của bạn sẽ không được lưu lại. Bạn có chắc muốn thoát không?',
@@ -748,8 +719,10 @@ const ContentsScreen: React.FC = () => {
     );
   };
 
+  // Hàm renderContentItem sẽ sử dụng currentItem.options cho các loại không phải 'sapXep'
+  // và shuffledSapXepOptions (nếu có) cho 'sapXep'.
   const renderContentItem = () => {
-    if (!currentItem)
+    if (!currentItem) {
       return (
         <View style={styles.emptyContentContainer}>
           <Text style={styles.emptyContentText}>
@@ -757,11 +730,18 @@ const ContentsScreen: React.FC = () => {
           </Text>
         </View>
       );
+    }
+
+    // Sử dụng options gốc cho tất cả các loại, trừ sapXep sẽ dùng options đã xáo trộn (nếu có)
+    const currentOptions =
+      (currentItem.content_type === 'sapXep'
+        ? shuffledSapXepOptions || currentItem.options
+        : currentItem.options) || [];
 
     switch (currentItem.content_type) {
       case 'voice':
         return (
-          <View style={styles.contentCard}>
+          /* ... Giữ nguyên JSX ... */ <View style={styles.contentCard}>
             <Text style={styles.contentTitle}>
               {currentItem.title || 'Nói lại từ(câu) dưới đây:'}
             </Text>
@@ -794,6 +774,7 @@ const ContentsScreen: React.FC = () => {
         );
       case 'select_image':
         return (
+          /* ... Giữ nguyên JSX, dùng (currentItem.options || []) hoặc currentOptions ... */
           <View style={styles.contentCard}>
             <View style={styles.contentCardQuestion}>
               <View style={styles.questionSelectContainer}>
@@ -818,7 +799,7 @@ const ContentsScreen: React.FC = () => {
               </View>
             </View>
             <View style={styles.imageOptionsContainer}>
-              {currentItem.options?.map(option => {
+              {currentOptions.map(option => {
                 const isSelected = userSelectedOptionId === option.id;
                 const isCorrectOption =
                   currentItem.correct_answer === option.id;
@@ -849,11 +830,9 @@ const ContentsScreen: React.FC = () => {
                         resizeMode="cover"
                       />
                     )}
-                    {/* Hiển thị text dưới ảnh nếu option.text hoặc option.textRomaji có giá trị */}
                     {(option.text && option.text.trim() !== '') ||
                     (option.textRomaji && option.textRomaji.trim() !== '') ? (
                       <View style={styles.optionImageTextContainer_NEW}>
-                        {/* Chỉ hiển thị nếu khác nhau */}
                         {option.text && option.text.trim() !== '' && (
                           <Text style={styles.optionImageTextForeign_NEW}>
                             {option.text}
@@ -867,10 +846,10 @@ const ContentsScreen: React.FC = () => {
             </View>
           </View>
         );
-
       case 'select':
       case 'audio_choice':
         return (
+          /* ... Giữ nguyên JSX, dùng (currentItem.options || []) hoặc currentOptions ... */
           <View style={styles.contentCard}>
             <View style={styles.contentCardQuestion}>
               <View style={styles.questionSelectContainer}>
@@ -899,7 +878,7 @@ const ContentsScreen: React.FC = () => {
               </View>
             </View>
             <View style={styles.optionsContainer}>
-              {currentItem.options?.map(option => {
+              {currentOptions.map(option => {
                 const isSelected = userSelectedOptionId === option.id;
                 const isCorrectOption =
                   currentItem.correct_answer === option.id;
@@ -933,6 +912,7 @@ const ContentsScreen: React.FC = () => {
                             styles.correctOptionText,
                           showAnswerFeedback === false &&
                             isSelected &&
+                            !isCorrectOption &&
                             styles.incorrectOptionText,
                           showAnswerFeedback === false &&
                             isCorrectOption &&
@@ -965,6 +945,7 @@ const ContentsScreen: React.FC = () => {
         );
       case 'sapXep':
         return (
+          /* ... Giữ nguyên JSX, dùng currentOptions (đã là shuffledSapXepOptions nếu có) ... */
           <View style={styles.contentCard}>
             <View style={styles.contentCardQuestion}>
               {currentItem.title && (
@@ -984,49 +965,56 @@ const ContentsScreen: React.FC = () => {
                     />
                   </TouchableOpacity>
                 )}
-                {showAnswerFeedback !== null && currentItem.content_detail ? (
+                {showAnswerFeedback !== null &&
+                currentItem.correct_answer_foreign ? (
                   <Text style={styles.contentDetailXapXep_Answered}>
-                    {currentItem.content_detail}
+                    {currentItem.correct_answer_foreign}
+                    {currentItem.correct_answer_romaji
+                      ? ` (${currentItem.correct_answer_romaji})`
+                      : ''}
                   </Text>
                 ) : (
                   <Text style={styles.contentDetailXapXep}>
-                    Sắp xếp các khối từ bên dưới
+                    {currentItem.content_detail ||
+                      'Sắp xếp các khối từ bên dưới'}
                   </Text>
                 )}
               </View>
             </View>
-
             <View style={styles.wordArrangeDropArea}>
               {arrangedWords.length > 0 ? (
-                arrangedWords.map((word, index) => (
-                  <TouchableOpacity
-                    key={`${word.id}_arranged_${index}`}
-                    style={[
-                      styles.wordBankItem,
-                      styles.arrangedWordItem,
-                      showAnswerFeedback !== null &&
-                        (Array.isArray(currentItem.correct_answer) &&
-                        currentItem.correct_answer[index] === word.id
-                          ? styles.correctWordBackground
-                          : styles.incorrectWordBackground),
-                    ]}
-                    onPress={() => handleArrangedWordPress(word)}
-                    disabled={showAnswerFeedback !== null}>
-                    <Text
-                      style={[styles.wordBankText, styles.arrangedWordText]}>
-                      {word.text}
-                    </Text>
-                  </TouchableOpacity>
-                ))
+                arrangedWords.map((word, index) => {
+                  let wordStyle = {};
+                  if (showAnswerFeedback === true) {
+                    wordStyle = styles.correctWordBackground;
+                  } else if (showAnswerFeedback === false) {
+                    wordStyle = styles.incorrectWordBackground;
+                  }
+                  return (
+                    <TouchableOpacity
+                      key={`${word.id}_arranged_${index}`}
+                      style={[
+                        styles.wordBankItem,
+                        styles.arrangedWordItem,
+                        wordStyle,
+                      ]}
+                      onPress={() => handleArrangedWordPress(word)}
+                      disabled={showAnswerFeedback !== null}>
+                      <Text
+                        style={[styles.wordBankText, styles.arrangedWordText]}>
+                        {word.text}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
               ) : (
                 <Text style={styles.arrangedTextPlaceholder}>
                   ______________________________
                 </Text>
               )}
             </View>
-
             <View style={styles.wordBankContainer}>
-              {currentItem.options?.map(wordOption => {
+              {currentOptions.map(wordOption => {
                 const isWordAlreadyArranged = arrangedWords.find(
                   w => w.id === wordOption.id,
                 );
@@ -1047,21 +1035,15 @@ const ContentsScreen: React.FC = () => {
                       !!isWordAlreadyArranged || showAnswerFeedback !== null
                     }>
                     <Text style={styles.wordBankText}>{wordOption.text}</Text>
-                    {wordOption.textRomaji && (
-                      <Text style={styles.wordBankTextRomaji}>
-                        ({wordOption.textRomaji})
-                      </Text>
-                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
           </View>
         );
-
       case 'audio':
         return (
-          <View style={styles.contentCard}>
+          /* ... Giữ nguyên JSX ... */ <View style={styles.contentCard}>
             {currentItem.title && (
               <Text style={styles.contentTitleAudio}>{currentItem.title}</Text>
             )}
@@ -1092,13 +1074,15 @@ const ContentsScreen: React.FC = () => {
         return (
           <View style={styles.contentCard}>
             <Text>
-              Loại nội dung "{currentItem.content_type}" chưa được hỗ trợ.
+              Loại nội dung "{(currentItem as any).content_type}" chưa được hỗ
+              trợ.
             </Text>
           </View>
         );
     }
   };
 
+  // ... (Phần return của Component ContentsScreen, giữ nguyên)
   if (isLoadingApiQuestions) {
     return (
       <SafeAreaView style={styles.safeAreaLoadingError}>
@@ -1107,26 +1091,26 @@ const ContentsScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-
   if (apiError) {
     return (
       <SafeAreaView style={styles.safeAreaLoadingError}>
-        <View style={styles.contentLoadingError}>
-          <Text style={styles.loadingErrorText}>{apiError}</Text>
-
+        <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={[
-              styles.retryButton,
-              {marginTop: 10, backgroundColor: COLORS.gray},
-            ]}>
-            <Text style={styles.retryButtonText}>Trở về</Text>
+            style={styles.backButton}>
+            <Text style={styles.backButtonText}>‹</Text>
           </TouchableOpacity>
+          <Text style={styles.headerTitleError} numberOfLines={1}>
+            {lessonNameFromRoute || 'Lỗi'}
+          </Text>
+          <View style={{width: 30}} />
+        </View>
+        <View style={styles.contentLoadingError}>
+          <Text style={styles.loadingErrorText}>{apiError}</Text>
         </View>
       </SafeAreaView>
     );
   }
-
   if (itemsForThisLesson.length === 0 && !isLoadingApiQuestions && !apiError) {
     return (
       <SafeAreaView style={styles.safeAreaLoadingError}>
@@ -1147,7 +1131,6 @@ const ContentsScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-
   if (showSummaryScreen) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -1168,7 +1151,6 @@ const ContentsScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-
   if (!currentItem && !showSummaryScreen) {
     return (
       <SafeAreaView style={styles.safeAreaLoadingError}>
@@ -1190,7 +1172,6 @@ const ContentsScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-
   const shouldShowCheckButton =
     currentItem &&
     (currentItem.content_type === 'select' ||
@@ -1205,7 +1186,6 @@ const ContentsScreen: React.FC = () => {
       currentItem.content_type === 'audio_choice') &&
       userSelectedOptionId) ||
       (currentItem.content_type === 'sapXep' && arrangedWords.length > 0));
-
   const shouldShowNewFeedbackUi =
     currentItem &&
     (currentItem.content_type === 'select' ||
@@ -1213,7 +1193,6 @@ const ContentsScreen: React.FC = () => {
       currentItem.content_type === 'audio_choice' ||
       currentItem.content_type === 'sapXep') &&
     showAnswerFeedback !== null;
-
   const isNonInteractiveType =
     currentItem &&
     (currentItem.content_type === 'voice' ||
@@ -1225,12 +1204,10 @@ const ContentsScreen: React.FC = () => {
       currentItem.content_type === 'audio_choice' ||
       currentItem.content_type === 'sapXep') &&
     (!currentItem.options || currentItem.options.length === 0);
-
   const shouldShowOriginalContinueOrSkip =
     !shouldShowCheckButton &&
     !shouldShowNewFeedbackUi &&
     (isNonInteractiveType || typeHasNoOptionsToInteract);
-
   const isContinueButtonDisabled =
     currentItem &&
     (currentItem.content_type === 'select' ||
@@ -1240,7 +1217,6 @@ const ContentsScreen: React.FC = () => {
     showAnswerFeedback === null &&
     currentItem.options &&
     currentItem.options.length > 0;
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
@@ -1263,7 +1239,6 @@ const ContentsScreen: React.FC = () => {
               />
             </View>
           </View>
-
           <ScrollView
             style={styles.contentScrollArea}
             contentContainerStyle={styles.contentScrollContainer}
@@ -1271,11 +1246,10 @@ const ContentsScreen: React.FC = () => {
             key={`content_scroll_${currentIndex}_${showAnswerFeedback}`}>
             {renderContentItem()}
           </ScrollView>
-
           {audioURLToPlay && (
             <Video
               ref={audioRef}
-              volume={1.0} // 👈 Đặt volume đồng nhất từ 0.0 đến 1.0
+              volume={1.0}
               muted={false}
               source={{uri: audioURLToPlay}}
               paused={!isAudioPlaying}
@@ -1311,7 +1285,6 @@ const ContentsScreen: React.FC = () => {
           {audioError && (
             <Text style={styles.audioErrorText}>{audioError}</Text>
           )}
-
           <View
             style={[
               styles.footer,
@@ -1329,7 +1302,6 @@ const ContentsScreen: React.FC = () => {
                 <Text style={styles.footerButtonText}>Kiểm tra</Text>
               </TouchableOpacity>
             )}
-
             {shouldShowNewFeedbackUi && currentItem && (
               <View style={styles.feedback_Container_NEW}>
                 <View style={styles.feedback_TextAudioWrapper_NEW}>
@@ -1337,13 +1309,13 @@ const ContentsScreen: React.FC = () => {
                     <Text
                       style={styles.feedback_CorrectAnswerText_NEW}
                       numberOfLines={2}>
-                      {showAnswerFeedback === false}
+                      {showAnswerFeedback === false ? 'Đáp án đúng: ' : ''}
                       {currentItem.correct_answer_foreign ||
                         currentItem.content_detail}
                       {currentItem.targetLanguageCode &&
                         ` (${currentItem.targetLanguageCode.toUpperCase()})`}
                     </Text>
-                    {currentItem.correct_answer_romaji && ( // Hiển thị Romaji nếu có
+                    {currentItem.correct_answer_romaji && (
                       <Text
                         style={styles.feedback_CorrectAnswerRomaji_NEW}
                         numberOfLines={1}>
@@ -1351,27 +1323,28 @@ const ContentsScreen: React.FC = () => {
                       </Text>
                     )}
                   </View>
-                  {/* Audio Button for feedback */}
-                  {(currentItem.correct_answer_foreign &&
+                  {((currentItem.correct_answer_foreign &&
                     currentItem.options?.find(
                       opt => opt.id === currentItem.correct_answer,
                     )?.audioUrl) ||
-                  currentItem.audio_url ? (
+                    currentItem.audio_url) && (
                     <TouchableOpacity
                       onPress={() => {
                         let audioToPlayOnClick = currentItem.audio_url;
-                        if (typeof currentItem.correct_answer === 'string') {
+                        if (
+                          typeof currentItem.correct_answer === 'string' &&
+                          (currentItem.content_type === 'select' ||
+                            currentItem.content_type === 'audio_choice' ||
+                            currentItem.content_type === 'select_image')
+                        ) {
                           const correctOpt = currentItem.options?.find(
                             opt => opt.id === currentItem.correct_answer,
                           );
                           if (correctOpt?.audioUrl) {
                             audioToPlayOnClick = correctOpt.audioUrl;
                           }
-                        } else if (
-                          Array.isArray(currentItem.correct_answer) &&
-                          currentItem.content_type === 'sapXep'
-                        ) {
-                          audioToPlayOnClick = currentItem.audio_url; // Audio của cả câu đúng
+                        } else if (currentItem.content_type === 'sapXep') {
+                          audioToPlayOnClick = currentItem.audio_url;
                         }
                         playSound(audioToPlayOnClick);
                       }}
@@ -1389,7 +1362,7 @@ const ContentsScreen: React.FC = () => {
                         resizeMode="contain"
                       />
                     </TouchableOpacity>
-                  ) : null}
+                  )}
                 </View>
                 <TouchableOpacity
                   style={styles.feedback_ContinueButton_NEW}
@@ -1397,9 +1370,7 @@ const ContentsScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.feedback_ContinueButtonText_NEW,
-                      {
-                        color: showAnswerFeedback ? COLORS.primary : COLORS.red,
-                      },
+                      {color: showAnswerFeedback ? COLORS.primary : COLORS.red},
                     ]}>
                     Tiếp tục
                   </Text>
@@ -1412,7 +1383,9 @@ const ContentsScreen: React.FC = () => {
                   isNonInteractiveType || typeHasNoOptionsToInteract
                     ? styles.skipButton
                     : styles.continueButton,
-                  isContinueButtonDisabled && styles.disabledButtonFooter,
+                  isContinueButtonDisabled &&
+                    !isNonInteractiveType &&
+                    styles.disabledButtonFooter,
                 ]}
                 onPress={handleContinue}
                 disabled={
@@ -1445,6 +1418,7 @@ const ContentsScreen: React.FC = () => {
   );
 };
 
+// Styles (giữ nguyên)
 const screenWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.white},
@@ -1564,16 +1538,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: SIZES.padding,
   },
-  AudioIcon: {
-    width: 120,
-    height: 120,
-    tintColor: COLORS.primary,
-  },
-  recordIcon: {
-    width: 50,
-    height: 50,
-    tintColor: COLORS.red,
-  },
+  AudioIcon: {width: 120, height: 120, tintColor: COLORS.primary},
+  recordIcon: {width: 50, height: 50, tintColor: COLORS.red},
   contentCard2: {
     alignItems: 'center',
     alignSelf: 'center',
@@ -1634,14 +1600,8 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
-  imageOptionAudioButton_NEW: {
-    display: 'none',
-  },
-  imageOptionAudioIcon_NEW: {
-    width: 18,
-    height: 18,
-    tintColor: COLORS.white,
-  },
+  imageOptionAudioButton_NEW: {display: 'none'},
+  imageOptionAudioIcon_NEW: {width: 18, height: 18, tintColor: COLORS.white},
   selectedImageOption: {
     borderColor: COLORS.primary,
     borderWidth: 3,
@@ -1657,17 +1617,9 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     backgroundColor: COLORS.lightRed,
   },
-  questionSelectContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  questionAudioButtonSelect: {
-    marginRight: SIZES.base,
-  },
-  audioIconSmall: {
-    width: 30,
-    height: 30,
-  },
+  questionSelectContainer: {flexDirection: 'row', alignItems: 'center'},
+  questionAudioButtonSelect: {marginRight: SIZES.base},
+  audioIconSmall: {width: 30, height: 30},
   contentDetailSelect: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
     fontSize: SIZES.h3,
@@ -1689,13 +1641,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  optionTextAudioButton_NEW: {
-    marginRight: SIZES.base,
-  },
-  optionTextAudioIcon_NEW: {
-    width: 20,
-    height: 20,
-  },
+  optionTextAudioButton_NEW: {marginRight: SIZES.base},
+  optionTextAudioIcon_NEW: {width: 20, height: 20},
   optionText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
     fontSize: SIZES.font,
@@ -1740,9 +1687,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SIZES.base,
   },
-  questionAudioButton: {
-    marginRight: SIZES.base,
-  },
+  questionAudioButton: {marginRight: SIZES.base},
   contentDetailXapXep: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
     fontSize: SIZES.font * 1.1,
@@ -1779,9 +1724,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 50,
   },
-  arrangedWordItem: {
-    backgroundColor: COLORS.primary || '#28a745',
-  },
+  arrangedWordItem: {backgroundColor: COLORS.primary || '#28a745'},
   wordBankContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1876,10 +1819,7 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     textAlign: 'center',
   },
-  errorContainer: {
-    flex: 1,
-    backgroundColor: COLORS.background || COLORS.white,
-  },
+  errorContainer: {flex: 1, backgroundColor: COLORS.background || COLORS.white},
   backButtonError: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: SIZES.padding * 2,
@@ -1911,7 +1851,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
-    marginBottom: 30,
+    marginBottom: Platform.OS === 'ios' ? 0 : 30,
   },
   continueButton: {
     backgroundColor: COLORS.primary || '#4CAF50',
@@ -1919,6 +1859,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
+    marginBottom: Platform.OS === 'ios' ? 0 : 0,
   },
   skipButton: {
     backgroundColor: COLORS.gray,
@@ -1926,9 +1867,9 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
+    marginBottom: Platform.OS === 'ios' ? 0 : 0,
   },
-  disabledButtonFooter: {backgroundColor: COLORS.lightGray, marginBottom: 30},
-
+  disabledButtonFooter: {backgroundColor: COLORS.lightGray},
   footerButtonText: {
     fontFamily: FONTS.bold?.fontFamily || 'System',
     color: COLORS.white,
@@ -1961,7 +1902,7 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.base * 0.5,
   },
   feedback_TextContainer_NEW: {
-    marginBottom: 30,
+    marginBottom: Platform.OS === 'ios' ? 0 : 30,
     flex: 1,
     marginRight: SIZES.base,
     alignItems: 'center',
@@ -1982,16 +1923,10 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     marginTop: 2,
   },
-  feedback_AudioButton_NEW: {
-    padding: SIZES.base * 0.5,
-    borderRadius: 20,
-  },
-  feedback_AudioIcon_NEW: {
-    width: 28,
-    height: 28,
-  },
+  feedback_AudioButton_NEW: {padding: SIZES.base * 0.5, borderRadius: 20},
+  feedback_AudioIcon_NEW: {width: 28, height: 28},
   feedback_ContinueButton_NEW: {
-    marginBottom: 30,
+    marginBottom: Platform.OS === 'ios' ? 0 : 30,
     backgroundColor: COLORS.white,
     paddingVertical: SIZES.padding * 0.8,
     paddingHorizontal: SIZES.padding * 2.5,
@@ -2038,7 +1973,6 @@ const summaryStyles = StyleSheet.create({
     margin: 0,
     backgroundColor: COLORS.white,
   },
-
   logo: {
     width: screenWidth * 0.3,
     height: screenWidth * 0.3,
@@ -2066,11 +2000,7 @@ const summaryStyles = StyleSheet.create({
     shadowRadius: SIZES.radius / 2,
     elevation: 2,
   },
-  iconText: {
-    width: SIZES.h2,
-    height: SIZES.h2,
-    marginRight: SIZES.base,
-  },
+  iconText: {width: SIZES.h2, height: SIZES.h2, marginRight: SIZES.base},
   text: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
     fontSize: SIZES.font,
@@ -2090,8 +2020,6 @@ const summaryStyles = StyleSheet.create({
     color: COLORS.white,
     fontSize: SIZES.large,
   },
-  disabledButton: {
-    backgroundColor: COLORS.gray,
-  },
+  disabledButton: {backgroundColor: COLORS.gray},
 });
 export default ContentsScreen;

@@ -4,7 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput, // TextInput sẽ được dùng trong AddEditLessonModal
+  TextInput,
   FlatList,
   Image,
   TouchableOpacity,
@@ -29,14 +29,11 @@ import {showMessage} from 'react-native-flash-message';
 
 // --- BEGIN: Định nghĩa Type và API ---
 interface ApiLesson {
-  // Dữ liệu trả về từ GET /api/admin/lesson?topicId=...
   id: number;
   name: string;
-  // isComplete được bỏ qua theo yêu cầu
 }
 
 type Lesson = {
-  // Type dùng nội bộ trong màn hình để hiển thị và quản lý
   lesson_code: number;
   lesson_name: string;
   lesson_description: string;
@@ -194,15 +191,14 @@ const modalStyles = StyleSheet.create({
 
 // --- AddEditLessonModal ---
 interface AddEditLessonModalFormData {
-  // Kiểu dữ liệu form modal sẽ trả về
   lesson_name: string;
 }
 interface AddEditLessonModalProps {
   visible: boolean;
   mode: 'add' | 'edit';
-  initialData?: {lesson_name: string}; // Chỉ cần tên để edit theo DTO mới
+  initialData?: {lesson_name: string};
   onClose: () => void;
-  onSubmit: (data: AddEditLessonModalFormData) => void; // Sửa lại type data
+  onSubmit: (data: AddEditLessonModalFormData) => void;
 }
 const AddEditLessonModal: React.FC<AddEditLessonModalProps> = ({
   visible,
@@ -212,14 +208,12 @@ const AddEditLessonModal: React.FC<AddEditLessonModalProps> = ({
   onSubmit,
 }) => {
   const [lessonName, setLessonName] = useState('');
-  // Bỏ các state không cần thiết: lessonDescription, quantityContent, lessonType
 
   useEffect(() => {
     if (visible) {
       if (mode === 'edit' && initialData) {
         setLessonName(initialData.lesson_name);
       } else {
-        // Chế độ 'add' hoặc không có initialData
         setLessonName('');
       }
     }
@@ -236,7 +230,7 @@ const AddEditLessonModal: React.FC<AddEditLessonModalProps> = ({
   const handleAttemptCloseModal = () => {
     if (mode === 'add') {
       setLessonName('');
-    } // Reset khi thêm mới và đóng
+    }
     onClose();
   };
 
@@ -283,7 +277,6 @@ const AddEditLessonModal: React.FC<AddEditLessonModalProps> = ({
                   onChangeText={setLessonName}
                 />
               </View>
-              {/* Các trường lessonDescription, quantityContent, lessonType đã được loại bỏ */}
               <TouchableOpacity
                 style={formModalStyles.submitButton}
                 onPress={handleSubmit}>
@@ -526,15 +519,15 @@ const LessonAdminScreen = () => {
     null,
   );
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
-  const [isSubmittingLesson, setIsSubmittingLesson] = useState(false); // State cho submit lesson form
+  const [isSubmittingLesson, setIsSubmittingLesson] = useState(false);
 
   const currentTopicId = useMemo(() => {
     const id = parseInt(topicCodeFromRoute, 10);
     return isNaN(id) ? null : id;
   }, [topicCodeFromRoute]);
 
-  const getToken = async () => {
-    /* ... */ const token = await AsyncStorage.getItem('token');
+  const getToken = useCallback(async () => {
+    const token = await AsyncStorage.getItem('token');
     if (!token) {
       showMessage({
         message: 'Lỗi xác thực, vui lòng đăng nhập lại.',
@@ -544,24 +537,26 @@ const LessonAdminScreen = () => {
       throw new Error('Token not found');
     }
     return token;
-  };
-  const mapApiLessonToDisplayLesson = (
-    apiLesson: ApiLesson,
-    topicId: number,
-  ): Lesson => ({
-    lesson_code: apiLesson.id,
-    lesson_name: apiLesson.name,
-    lesson_description: '',
-    quantity_content: 0,
-    day_creation: '',
-    topic_code: topicId,
-    status: 'pending',
-    lesson_type: 'common',
-  });
+  }, [logout]);
+
+  // ===== BẮT ĐẦU THAY ĐỔI: Bọc mapApiLessonToDisplayLesson bằng useCallback =====
+  const mapApiLessonToDisplayLesson = useCallback(
+    (apiLesson: ApiLesson, topicId: number): Lesson => ({
+      lesson_code: apiLesson.id,
+      lesson_name: apiLesson.name,
+      lesson_description: '',
+      quantity_content: 0,
+      day_creation: '',
+      topic_code: topicId,
+      status: 'pending',
+      lesson_type: 'common',
+    }),
+    [],
+  ); // Mảng phụ thuộc rỗng vì hàm này không dùng giá trị từ scope component
+  // ===== KẾT THÚC THAY ĐỔI =====
 
   const fetchLessonsForTopic = useCallback(
     async (topicId: number) => {
-      /* ... */
       if (isNaN(topicId)) {
         setLessonsError('ID chủ đề không hợp lệ.');
         return;
@@ -584,20 +579,33 @@ const LessonAdminScreen = () => {
           setLessons([]);
         }
       } catch (err: any) {
+        console.error(
+          'LessonAdminScreen: Lỗi đầy đủ khi tải bài học:',
+          JSON.stringify(err, null, 2),
+        );
+        if (axios.isAxiosError(err)) {
+          console.error('Axios error status:', err.response?.status);
+          console.error(
+            'Axios error data:',
+            JSON.stringify(err.response?.data, null, 2),
+          );
+        }
         const msg =
-          err.response?.data?.message || 'Không thể tải danh sách bài học.';
+          err.response?.data?.message ||
+          err.message ||
+          'Không thể tải danh sách bài học.';
         setLessonsError(msg);
         setLessons([]);
-        console.error('LessonAdminScreen: Lỗi tải bài học:', msg);
+        console.error('LessonAdminScreen: Lỗi tải bài học (đã xử lý):', msg);
       } finally {
         setIsLoadingLessons(false);
       }
     },
-    [logout], // Thêm getToken vào dependency array nếu nó không phải là hàm thuần túy hoặc có thể thay đổi
+    [getToken, mapApiLessonToDisplayLesson],
   );
 
   useEffect(() => {
-    /* ... */ if (currentTopicId !== null) {
+    if (currentTopicId !== null) {
       fetchLessonsForTopic(currentTopicId);
       const filteredTests = initialTestData.filter(
         test => test.topic_code === currentTopicId,
@@ -610,9 +618,6 @@ const LessonAdminScreen = () => {
     }
   }, [currentTopicId, fetchLessonsForTopic]);
 
-  // --- CRUD cho Bài học ---
-
-  // <<<<< HÀM performDeleteLesson ĐƯỢC CẬP NHẬT Ở ĐÂY >>>>>
   const performDeleteLesson = useCallback(
     async (lessonId: number) => {
       if (currentTopicId === null) {
@@ -627,23 +632,20 @@ const LessonAdminScreen = () => {
         const token = await getToken();
         const response = await axios.put(
           `${API_ADMIN_LESSON_URL}/delete?lessonId=${lessonId}`,
-          {}, // PUT request có thể không cần body, tùy thuộc vào API backend
+          {},
           {
             headers: {Authorization: `Bearer ${token}`},
           },
         );
-
-        // Log phản hồi từ backend (ví dụ: "Xoa thanh cong")
         console.log(
           'LessonAdminScreen: Phản hồi từ API xóa bài học:',
           response.data,
         );
-
         showMessage({
           message: 'Xóa bài học thành công!',
           type: 'success',
         });
-        fetchLessonsForTopic(currentTopicId); // Tải lại danh sách bài học
+        fetchLessonsForTopic(currentTopicId);
       } catch (apiError: any) {
         console.error(
           'LessonAdminScreen: Lỗi khi xóa bài học:',
@@ -654,13 +656,12 @@ const LessonAdminScreen = () => {
         showMessage({message: errorMessage, type: 'danger', duration: 3000});
       } finally {
         setDeletingLessonCode(null);
-        setIsDeleteLessonConfirmVisible(false); // Đóng modal xác nhận sau khi hoàn tất
+        setIsDeleteLessonConfirmVisible(false);
         setLessonToDeleteConfirm(null);
       }
     },
-    [currentTopicId, getToken, fetchLessonsForTopic, logout], //Thêm logout vào dependency array
+    [currentTopicId, getToken, fetchLessonsForTopic],
   );
-  // <<<<< KẾT THÚC CẬP NHẬT performDeleteLesson >>>>>
 
   const handleCloseLessonDeleteConfirm = useCallback(() => {
     setIsDeleteLessonConfirmVisible(false);
@@ -670,7 +671,6 @@ const LessonAdminScreen = () => {
   const handleConfirmLessonDelete = useCallback(() => {
     if (lessonToDeleteConfirm) {
       performDeleteLesson(lessonToDeleteConfirm.id);
-      // Không cần đóng modal hay reset state ở đây nữa, vì performDeleteLesson sẽ làm
     }
   }, [lessonToDeleteConfirm, performDeleteLesson]);
 
@@ -704,13 +704,13 @@ const LessonAdminScreen = () => {
         Alert.alert('Lỗi', 'Không xác định được chủ đề hiện tại.');
         return;
       }
-      setIsSubmittingLesson(true); // Báo hiệu đang submit
+      setIsSubmittingLesson(true);
       try {
         const token = await getToken();
         const headers = {Authorization: `Bearer ${token}`};
         const lessonData = {
           name: formData.lesson_name,
-          topicId: String(currentTopicId), // API yêu cầu topicId là string trong body
+          topicId: String(currentTopicId),
         };
 
         if (lessonModalMode === 'add') {
@@ -725,7 +725,6 @@ const LessonAdminScreen = () => {
             `LessonAdminScreen: Gọi API Update Lesson ID: ${lessonIdToUpdate}`,
             lessonData,
           );
-          // API update là PUT .../update?lessonId=...
           await axios.put(
             `${API_ADMIN_LESSON_URL}/update?lessonId=${lessonIdToUpdate}`,
             lessonData,
@@ -737,7 +736,7 @@ const LessonAdminScreen = () => {
           });
         }
 
-        fetchLessonsForTopic(currentTopicId); // Tải lại danh sách bài học
+        fetchLessonsForTopic(currentTopicId);
         setIsAddEditLessonModalVisible(false);
         setCurrentEditingLesson(null);
       } catch (apiError: any) {
@@ -752,7 +751,7 @@ const LessonAdminScreen = () => {
           } bài học.`;
         showMessage({message: errorMessage, type: 'danger', duration: 3000});
       } finally {
-        setIsSubmittingLesson(false); // Kết thúc submit
+        setIsSubmittingLesson(false);
       }
     },
     [
@@ -761,15 +760,11 @@ const LessonAdminScreen = () => {
       currentTopicId,
       getToken,
       fetchLessonsForTopic,
-      logout, // Thêm logout vào dependency array
     ],
   );
 
-  // --- CRUD cho Bài kiểm tra (giữ nguyên logic client-side) ---
-  // ... (Các hàm performDeleteTest, handleCloseTestDeleteConfirm, etc. giữ nguyên) ...
   const performDeleteTest = useCallback(async (testId: string) => {
-    /* ... */ setDeletingTestId(testId);
-
+    setDeletingTestId(testId);
     setTests(prev => prev.filter(t => t.test_id !== testId));
     setDeletingTestId(null);
     Alert.alert('Thành công', 'Đã xóa bài kiểm tra (client-side).');
@@ -837,9 +832,8 @@ const LessonAdminScreen = () => {
     [testModalMode, currentEditingTest, topicCodeFromRoute],
   );
 
-  // --- Logout ---
   const handleLogoutFromMenu = useCallback(async () => {
-    /* ... */ setIsProfileMenuVisible(false);
+    setIsProfileMenuVisible(false);
     Alert.alert(
       'Xác nhận đăng xuất',
       'Bạn có chắc chắn muốn đăng xuất?',
@@ -855,7 +849,7 @@ const LessonAdminScreen = () => {
       ],
       {cancelable: true},
     );
-  }, [logout, navigation]); // Thêm navigation vào dependencies nếu nó được sử dụng để điều hướng sau logout
+  }, [logout]);
 
   const renderLessonItem = useCallback(
     ({item}: {item: Lesson}) => (
@@ -938,10 +932,8 @@ const LessonAdminScreen = () => {
     [deletingTestId, handleDeleteTestPress, handleEditTest],
   );
 
-  // --- Phần return JSX của LessonAdminScreen ---
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Main Header */}
       <View style={styles.mainHeader}>
         <TouchableOpacity
           style={styles.headerButton}
@@ -963,7 +955,6 @@ const LessonAdminScreen = () => {
           />
         </TouchableOpacity>
       </View>
-      {/* Sub Header */}
       <View style={styles.subHeader}>
         <TouchableOpacity
           style={styles.backButtonSubHeader}
@@ -979,7 +970,6 @@ const LessonAdminScreen = () => {
         </Text>
         <View style={{width: 30}} />
       </View>
-      {/* Tabs */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[
@@ -1010,8 +1000,24 @@ const LessonAdminScreen = () => {
           </Text>
         </TouchableOpacity>
       </View>
-      {/* Add New Button */}
-      <View style={styles.addNewButtonContainer}>
+
+      <View style={styles.buttonsRowContainer}>
+        {/* THAY ĐỔI */}
+        <TouchableOpacity
+          style={styles.addNewButton}
+          onPress={() => {
+            if (topicCodeFromRoute && topicTitleFromRoute) {
+              navigation.navigate('TheoryAdmin', {
+                topic_code: topicCodeFromRoute,
+                title: topicTitleFromRoute,
+              });
+            } else {
+              Alert.alert('Lỗi', 'Không có thông tin chủ đề để xem lý thuyết.');
+            }
+          }}
+          activeOpacity={0.8}>
+          <Text style={styles.addNewButtonText}>Lý thuyết</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.addNewButton}
           onPress={
@@ -1022,7 +1028,6 @@ const LessonAdminScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Content List */}
       {activeTab === 'lessons' ? (
         isLoadingLessons ? (
           <View style={styles.loadingContainerFull}>
@@ -1049,7 +1054,7 @@ const LessonAdminScreen = () => {
             keyboardShouldPersistTaps="handled"
           />
         )
-      ) : /* tests tab */ tests.length === 0 ? (
+      ) : tests.length === 0 ? (
         <View style={styles.emptyListContainer}>
           <Text style={styles.emptyListText}>
             Chủ đề này chưa có bài kiểm tra nào.
@@ -1066,7 +1071,6 @@ const LessonAdminScreen = () => {
         />
       )}
 
-      {/* Loading overlay for form submission */}
       {isSubmittingLesson && (
         <View style={styles.submittingOverlay}>
           <ActivityIndicator size="large" color={COLORS.white} />
@@ -1074,7 +1078,6 @@ const LessonAdminScreen = () => {
         </View>
       )}
 
-      {/* Modals */}
       <ConfirmDeleteModal
         visible={isDeleteLessonConfirmVisible}
         onClose={handleCloseLessonDeleteConfirm}
@@ -1140,11 +1143,7 @@ const LessonAdminScreen = () => {
     </SafeAreaView>
   );
 };
-// --- END: Component LessonAdminScreen ---
-
-// --- BEGIN: Styles cho LessonAdminScreen (Giữ nguyên phần lớn) ---
 const styles = StyleSheet.create({
-  /* ... styles giữ nguyên ... */
   safeArea: {flex: 1, backgroundColor: COLORS.background || '#FFFFFF'},
   mainHeader: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 30,
@@ -1208,12 +1207,21 @@ const styles = StyleSheet.create({
   },
   tabText: {fontSize: 16, color: COLORS.black || '#555555', fontWeight: '500'},
   tabTextActive: {color: COLORS.primary, fontWeight: 'bold'},
-  addNewButtonContainer: {
-    alignItems: 'flex-end',
+
+  // ===== STYLE MỚI CHO HÀNG NÚT =====
+  buttonsRowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginHorizontal: 15,
     marginBottom: 12,
     marginTop: 5,
   },
+  addNewButtonContainer: {
+    // Style này có thể không cần nữa nếu buttonsRowContainer đã đủ
+    // alignItems: 'flex-end', // Được xử lý bởi justifyContent: 'space-between' trong buttonsRowContainer
+  },
+  // ===== KẾT THÚC STYLE MỚI =====
   addNewButton: {
     backgroundColor: COLORS.primary || '#28a745',
     paddingHorizontal: 18,
@@ -1227,6 +1235,8 @@ const styles = StyleSheet.create({
     shadowRadius: 1.5,
     height: 39,
     borderRadius: 5,
+    // Nếu muốn các nút có chiều rộng bằng nhau và chiếm không gian, bạn có thể thêm flex: 1 ở đây
+    // Hoặc đặt minWidth nếu muốn kích thước cố định tối thiểu
   },
   addNewButtonText: {color: COLORS.white, fontSize: 15, fontWeight: 'bold'},
   listContainer: {flex: 1},
@@ -1291,7 +1301,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10000,
-  }, // Cho loading overlay
+  },
   submittingText: {
     marginTop: 10,
     color: COLORS.white,

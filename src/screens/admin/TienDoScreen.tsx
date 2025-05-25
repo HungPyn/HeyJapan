@@ -1,5 +1,5 @@
 // screens/admin/TienDoScreen.tsx
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react'; // Thêm useRef
 import {
   View,
   Text,
@@ -25,152 +25,160 @@ import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../../navigation';
 
-// --- BEGIN: Dữ liệu và Type ---
-// Kiểu dữ liệu người dùng từ API (tham khảo từ TaiKhoanScreen)
+// --- Types & Interfaces (Giữ nguyên) ---
 type ApiUser = {
   userId: string;
   userName: string;
-  role: boolean; // Giả sử API trả về role, có thể dùng nếu cần
+  role: boolean;
 };
-
-// Kiểu dữ liệu User sử dụng trong component TienDoScreen
 type User = {
-  user_id: string; // Map từ userId
-  username: string; // Map từ userName
-  // Các trường này có thể không có từ API /api/admin/account
-  // nhưng giữ lại là optional nếu bạn có nguồn dữ liệu khác hoặc để mặc định
+  user_id: string;
+  username: string;
   profile_picture_url?: string;
   email?: string;
   level_id?: number;
 };
-// --- END: Dữ liệu và Type ---
 
-// --- BEGIN: Đường dẫn tới ảnh ---
+// --- Đường dẫn tới ảnh (Giữ nguyên) ---
 const LOGO_ICON = require('../../assets/images/Logo.png');
 const PROFILE_ICON = require('../../assets/images/IconUserHeader.png');
 const SEARCH_ICON = require('../../assets/images/IconTimKiem.png');
 const PERSON_ICON = require('../../assets/images/IconUser.png');
 const LOGOUT_ICON = require('../../assets/images/logout.png');
-// DELETE_ICON không còn cần thiết
-// --- END: Đường dẫn tới ảnh ---
 
 const API_BASE_URL = 'http://10.0.2.2:8080/api/admin/account';
 
-// Định nghĩa type cho navigation prop của TienDoScreen
-// TienDoScreen là một route trong RootStack, và nó điều hướng đến TienDoDetail (cũng trong RootStack)
 type TienDoScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
-  'TienDoScreen' // Tên của route hiện tại
+  'TienDoScreen'
 >;
 
 const TienDoScreen = () => {
   const {logout} = useAuth();
   const navigation = useNavigation<TienDoScreenNavigationProp>();
 
-  const [users, setUsers] = useState<User[]>([]); // Danh sách người dùng gốc từ API
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]); // Danh sách hiển thị (sau khi tìm kiếm)
+  const [users, setUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // State cho loading
-  const [error, setError] = useState<string | null>(null); // State cho lỗi API
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
 
-  // Hàm lấy token (giống TaiKhoanScreen)
-  const getToken = async () => {
+  // Ref để theo dõi component có còn mounted không
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true; // Đặt là true khi component mount
+    return () => {
+      isMountedRef.current = false; // Đặt là false khi component unmount
+    };
+  }, []); // Chạy một lần khi mount và cleanup khi unmount
+
+  const getToken = useCallback(async () => {
+    // useCallback cho getToken
     const token = await AsyncStorage.getItem('token');
     if (!token) {
-      Alert.alert('Lỗi', 'Không tìm thấy token. Vui lòng đăng nhập lại.');
-      logout(); // Đăng xuất nếu không có token
+      // Không Alert ở đây nữa, để fetchUsers xử lý lỗi này một cách tập trung
+      // logout(); // Không gọi logout ở đây nữa, hàm gọi sẽ quyết định
       throw new Error('Token not found');
     }
     return token;
-  };
+  }, []); // Không có dependency nếu không dùng state/props nào
 
-  // Hàm map ApiUser sang User
-  const mapApiUserToUser = (apiUser: ApiUser): User => ({
-    user_id: apiUser.userId,
-    username: apiUser.userName,
-    // Các trường khác nếu có từ API hoặc đặt giá trị mặc định
-    profile_picture_url: '', // Hoặc ảnh mặc định
-    email: '', // Hoặc thông tin từ API nếu có
-  });
+  const mapApiUserToUser = useCallback(
+    (apiUser: ApiUser): User => ({
+      // useCallback cho mapApiUserToUser
+      user_id: apiUser.userId,
+      username: apiUser.userName,
+      profile_picture_url: '',
+      email: '',
+    }),
+    [],
+  );
 
-  // Hàm lấy danh sách người dùng từ API (tích hợp tìm kiếm)
   const fetchUsers = useCallback(
     async (keyword?: string) => {
-      console.log(`TienDoScreen: Fetching users. Keyword: "${keyword || ''}"`);
+      if (!isMountedRef.current) {
+        // Kiểm tra ngay từ đầu
+        console.log('TienDoScreen: fetchUsers aborted, component not mounted.');
+        return;
+      }
       setIsLoading(true);
-      setError(null);
+      if (isMountedRef.current) setError(null); // Chỉ set nếu còn mounted
+
       try {
-        const token = await getToken();
+        const token = await getToken(); // Nếu lỗi Token not found, sẽ nhảy vào catch
+
         const url = keyword
           ? `${API_BASE_URL}/search?keyword=${encodeURIComponent(keyword)}`
           : API_BASE_URL;
 
-        console.log(`TienDoScreen: Calling API: ${url}`);
         const response = await axios.get<ApiUser[]>(url, {
           headers: {Authorization: `Bearer ${token}`},
         });
 
+        if (!isMountedRef.current) return; // Kiểm tra lại sau await
+
         const fetchedApiUsers = response.data || [];
-        console.log(
-          `TienDoScreen: API response data count: ${fetchedApiUsers.length}`,
-        );
         const mappedUsers = fetchedApiUsers.map(mapApiUserToUser);
 
         if (!keyword) {
-          setUsers(mappedUsers); // Cập nhật danh sách gốc nếu không phải tìm kiếm
+          if (isMountedRef.current) setUsers(mappedUsers);
         }
-        setFilteredUsers(mappedUsers); // Luôn cập nhật danh sách hiển thị
-        if (mappedUsers.length === 0 && keyword) {
-          console.log(
-            `TienDoScreen: Không tìm thấy người dùng nào với từ khóa "${keyword}"`,
-          );
-        } else if (mappedUsers.length === 0 && !keyword) {
-          console.log(`TienDoScreen: API không trả về người dùng nào.`);
-        }
+        if (isMountedRef.current) setFilteredUsers(mappedUsers);
       } catch (apiError: any) {
+        if (!isMountedRef.current) return; // Kiểm tra trong catch
+
         console.error(
           'TienDoScreen: Lỗi khi lấy danh sách người dùng:',
-          apiError.response?.data || apiError.message,
-        );
-        const errorMessage =
-          apiError.response?.data?.message ||
-          'Không thể tải danh sách người dùng. Vui lòng thử lại.';
-        setError(errorMessage);
-        // Alert.alert('Lỗi API', errorMessage); // Có thể không cần Alert nếu đã hiển thị lỗi trên UI
-        setUsers([]);
-        setFilteredUsers([]);
+          apiError.message,
+        ); // Log lỗi gốc
+
+        if (apiError.message === 'Token not found') {
+          // Token không tìm thấy, có thể người dùng đã/đang đăng xuất.
+          // Gọi logout để đảm bảo trạng thái nhất quán.
+          // isMountedRef sẽ ngăn các set state không cần thiết nếu logout gây unmount.
+          if (isMountedRef.current) logout();
+        } else {
+          // Các lỗi khác (ví dụ: lỗi mạng, lỗi server)
+          const errorMessage =
+            apiError.response?.data?.message ||
+            apiError.message || // Hiển thị lỗi từ apiError.message nếu có
+            'Không thể tải danh sách người dùng. Vui lòng thử lại.';
+          if (isMountedRef.current) setError(errorMessage);
+        }
+        // Luôn dọn dẹp state khi có lỗi
+        if (isMountedRef.current) {
+          setUsers([]);
+          setFilteredUsers([]);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
       }
     },
-    [logout],
-  ); // Thêm logout vào dependency nếu getToken dùng nó khi lỗi
+    [getToken, mapApiUserToUser, logout], // Thêm mapApiUserToUser và logout vào dependencies
+  );
 
-  // useEffect để lấy danh sách người dùng khi màn hình được mount
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // useEffect để xử lý tìm kiếm khi searchQuery thay đổi (với debounce)
   useEffect(() => {
     const timerId = setTimeout(() => {
+      if (!isMountedRef.current) return; // Kiểm tra trước khi thực hiện logic
       if (searchQuery.trim() === '') {
-        // Nếu ô tìm kiếm trống, hiển thị lại toàn bộ danh sách gốc đã fetch trước đó
-        // hoặc fetch lại toàn bộ nếu muốn dữ liệu mới nhất.
-        // setFilteredUsers(users); // Cách 1: Dùng state users đã fetch (nhanh hơn)
-        fetchUsers(); // Cách 2: Fetch lại toàn bộ (đảm bảo dữ liệu mới nhất)
+        fetchUsers();
       } else {
-        fetchUsers(searchQuery.trim()); // Gọi API tìm kiếm
+        fetchUsers(searchQuery.trim());
       }
-    }, 500); // Debounce 500ms
+    }, 500);
 
     return () => clearTimeout(timerId);
-  }, [searchQuery, fetchUsers]); // Thêm users vào dependency nếu dùng Cách 1 ở trên
+  }, [searchQuery, fetchUsers]);
 
   const handleLogout = useCallback(async () => {
-    // ... (logic logout giữ nguyên như cũ) ...
     setIsProfileMenuVisible(false);
     Alert.alert(
       'Xác nhận đăng xuất',
@@ -181,7 +189,7 @@ const TienDoScreen = () => {
           text: 'Đăng xuất',
           style: 'destructive',
           onPress: async () => {
-            await logout();
+            await logout(); // isMountedRef sẽ được xử lý bởi useEffect cleanup
           },
         },
       ],
@@ -195,26 +203,18 @@ const TienDoScreen = () => {
         style={styles.userItem}
         activeOpacity={0.8}
         onPress={() => {
-          console.log(
-            `TienDoScreen: Xem tiến độ User: ${item.username} (ID: ${item.user_id})`,
-          );
-          // Điều hướng đến chi tiết tiến độ, truyền userId và username
           navigation.navigate('TienDoDetail', {
             userId: item.user_id,
             username: item.username,
           });
         }}>
-        <Image
-          source={PERSON_ICON} // Sử dụng icon người mặc định
-          style={styles.personIcon}
-        />
+        <Image source={PERSON_ICON} style={styles.personIcon} />
         <Text style={styles.usernameText} numberOfLines={1}>
           {item.username}
         </Text>
-        {/* NÚT XÓA ĐÃ BỊ LOẠI BỎ */}
       </TouchableOpacity>
     ),
-    [navigation], // Chỉ phụ thuộc vào navigation
+    [navigation],
   );
 
   return (
@@ -242,7 +242,6 @@ const TienDoScreen = () => {
           />
         </TouchableOpacity>
       </View>
-
       <View style={styles.searchContainer}>
         <Image
           source={SEARCH_ICON}
@@ -257,17 +256,15 @@ const TienDoScreen = () => {
           onChangeText={setSearchQuery}
           returnKeyType="search"
           onBlur={() => Keyboard.dismiss()}
-          clearButtonMode="while-editing" // Thêm nút clear cho iOS
+          clearButtonMode="while-editing"
         />
       </View>
-
       {isLoading && filteredUsers.length === 0 && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Đang tải danh sách...</Text>
         </View>
       )}
-
       {!isLoading && error && filteredUsers.length === 0 && (
         <View style={styles.emptyListContainer}>
           <Text style={styles.errorText}>{error}</Text>
@@ -278,7 +275,6 @@ const TienDoScreen = () => {
           </TouchableOpacity>
         </View>
       )}
-
       {!isLoading && !error && filteredUsers.length === 0 && (
         <View style={styles.emptyListContainer}>
           <Text style={styles.emptyListText}>
@@ -288,7 +284,6 @@ const TienDoScreen = () => {
           </Text>
         </View>
       )}
-
       {filteredUsers.length > 0 && (
         <FlatList
           data={filteredUsers}
@@ -299,8 +294,6 @@ const TienDoScreen = () => {
           keyboardShouldPersistTaps="handled"
         />
       )}
-
-      {/* ActivityIndicator nhỏ khi đang loading nhưng vẫn có data (ví dụ khi search) */}
       {isLoading && filteredUsers.length > 0 && (
         <ActivityIndicator
           style={styles.inlineSpinner}
@@ -308,8 +301,6 @@ const TienDoScreen = () => {
           color={COLORS.primary}
         />
       )}
-
-      {/* Profile Menu Modal (giữ nguyên) */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -320,10 +311,7 @@ const TienDoScreen = () => {
           onPress={() => setIsProfileMenuVisible(false)}>
           <View
             style={profileMenuStyles.menuViewWrapper}
-            onStartShouldSetResponder={() =>
-              true
-            } /* Ngăn press lan ra backdrop */
-          >
+            onStartShouldSetResponder={() => true}>
             <View style={profileMenuStyles.menuContainer}>
               <TouchableOpacity
                 style={profileMenuStyles.menuItem}
@@ -339,25 +327,21 @@ const TienDoScreen = () => {
           </View>
         </Pressable>
       </Modal>
-      {/* ConfirmDeleteModal đã được loại bỏ */}
     </SafeAreaView>
   );
 };
 
-// Styles (giữ nguyên phần lớn, loại bỏ style của nút xóa nếu có)
-// Tôi sẽ dùng lại các style bạn đã cung cấp cho TienDoScreen
+// Styles (Giữ nguyên)
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.white || '#FFFFFF'},
   header: {
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 30,
+    paddingTop: 30,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.primary,
     paddingHorizontal: 15,
-    paddingBottom: 10,
-    height:
-      Platform.OS === 'android' ? 56 + (StatusBar.currentHeight || 0) : 90,
+    height: 90,
   },
   headerButton: {padding: 5},
   headerIcon: {width: 30, height: 30},
@@ -400,24 +384,18 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  personIcon: {
-    width: 28,
-    height: 28,
-    marginRight: 15,
-    tintColor: '#666',
-  },
+  personIcon: {width: 28, height: 28, marginRight: 15, tintColor: '#666'},
   usernameText: {
     flex: 1,
     fontSize: 16,
     color: COLORS.black || '#444',
     fontWeight: '500',
   },
-  // deleteButton và deleteIcon styles không còn cần thiết nữa
   emptyListContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 50, // Hoặc padding nếu muốn
+    marginTop: 50,
     padding: 20,
   },
   emptyListText: {
@@ -425,44 +403,27 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray || '#888',
     textAlign: 'center',
   },
-  loadingContainer: {
-    // Style cho loading toàn màn hình khi chưa có data
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {marginTop: 10, fontSize: 16, color: COLORS.gray || '#555'}, // Giống TaiKhoanScreen
+  loadingContainer: {flex: 1, justifyContent: 'center', alignItems: 'center'},
+  loadingText: {marginTop: 10, fontSize: 16, color: COLORS.gray || '#555'},
   errorText: {
-    // Giống TaiKhoanScreen
     fontSize: 16,
     color: COLORS.red || 'red',
     textAlign: 'center',
     marginBottom: 10,
   },
   retryButton: {
-    // Giống TaiKhoanScreen
     marginTop: 15,
     backgroundColor: COLORS.primary,
     paddingVertical: 10,
     paddingHorizontal: 25,
     borderRadius: 8,
   },
-  retryButtonText: {
-    // Giống TaiKhoanScreen
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  inlineSpinner: {
-    // Giống TaiKhoanScreen
-    marginVertical: 10,
-  },
+  retryButtonText: {color: COLORS.white, fontSize: 16, fontWeight: 'bold'},
+  inlineSpinner: {marginVertical: 10},
 });
-
 const profileMenuStyles = StyleSheet.create({
   backdrop: {flex: 1, backgroundColor: 'transparent'},
   menuViewWrapper: {
-    // Thêm wrapper này để bắt sự kiện press chính xác hơn
     position: 'absolute',
     top: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 50 : 85,
     right: 15,
