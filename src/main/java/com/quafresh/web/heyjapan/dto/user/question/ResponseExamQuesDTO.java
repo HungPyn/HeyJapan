@@ -20,5 +20,7 @@ public class ResponseExamQuesDTO {
 
     private String optionsLanguageCode;
 
+    private String audioUrlExam;
+
     private List<QuestionChoiceDTO> questionChoices;
 }
