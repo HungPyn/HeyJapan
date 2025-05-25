@@ -23,7 +23,7 @@ public class Alphabets {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type",nullable = false)
-    private AlphabetType questionType;
+    private AlphabetType alphabetType;
 
     @Column(name = "pronunciations",nullable = false)
     private String Pronunciations;
