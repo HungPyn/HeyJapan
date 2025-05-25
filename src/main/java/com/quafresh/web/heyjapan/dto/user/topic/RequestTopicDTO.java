@@ -23,4 +23,5 @@ public class RequestTopicDTO {
 
         private Integer levelId;
 
+        private Integer topicID;
 }
