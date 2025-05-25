@@ -37,6 +37,7 @@ public class VocabularyServiceImpl implements VocabularyService {
         vocabulary.setWord(requestVocabularyDTO.getWord());
         vocabulary.setMeaning(requestVocabularyDTO.getMeaning());
         vocabulary.setPronunciation(requestVocabularyDTO.getPronunciation());
+        vocabulary.setUrlAudio(requestVocabularyDTO.getUrlAudio());
         vocabulary.setTopic(topic);
         vocabularyRepository.save(vocabulary);
     }
@@ -48,6 +49,7 @@ public class VocabularyServiceImpl implements VocabularyService {
         vocabulary.setWord(requestVocabularyDTO.getWord());
         vocabulary.setMeaning(requestVocabularyDTO.getMeaning());
         vocabulary.setPronunciation(requestVocabularyDTO.getPronunciation());
+        vocabulary.setUrlAudio(requestVocabularyDTO.getUrlAudio());
         vocabularyRepository.save(vocabulary);
     }
 

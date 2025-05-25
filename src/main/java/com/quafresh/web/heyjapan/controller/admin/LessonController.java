@@ -37,9 +37,11 @@ public class LessonController {
         lessonService.update(lessonId,requestLessonDTO);
         return ResponseEntity.ok("Cập nhập bài học thành công");
     }
+
     @PutMapping("/delete")
     private ResponseEntity<?> deleteLesson(@RequestParam Integer lessonId){
         lessonService.delete(lessonId);
         return ResponseEntity.ok("Xoa thanh cong");
     }
+
 }

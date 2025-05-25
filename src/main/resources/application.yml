@@ -21,6 +21,7 @@ spring:
       credentials:
         location: file:D:/DATN/keys/sakuranihongo-200e5-fd43217e81bb.json
 
+
   security:
     oauth2:
       client:

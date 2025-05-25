@@ -33,7 +33,6 @@ public class LessonQuestionServiceImpl implements LessonQuestionService {
         dto.setAudio_url_questions(lessonQuestion.getAudioUrlQuestions());
         dto.setTargetLanguageCode(lessonQuestion.getTargetLanguageCode());
         dto.setTargetWordNative(lessonQuestion.getTargetWordNative());
-
         if (lessonQuestion.getQuestionChoices() != null) {
             List<QuestionChoiceDTO> choiceDTOs = lessonQuestion.getQuestionChoices().stream()
                     .map(choiceEntity -> {

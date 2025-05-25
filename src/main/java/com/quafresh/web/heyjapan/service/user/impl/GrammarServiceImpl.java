@@ -38,6 +38,7 @@ public class GrammarServiceImpl implements GrammarService {
         grammar.setStructure(dto.getStructure());
         grammar.setExplanation(dto.getExplanation());
         grammar.setTopic(topic);
+        grammar.setUrlAudio(dto.getUrlAudio());
 
         grammarRepository.save(grammar);
     }
@@ -49,6 +50,7 @@ public class GrammarServiceImpl implements GrammarService {
         grammar.setExample(dto.getExample());
         grammar.setStructure(dto.getStructure());
         grammar.setExplanation(dto.getExplanation());
+        grammar.setUrlAudio(dto.getUrlAudio());
         grammarRepository.save(grammar);
     }
 

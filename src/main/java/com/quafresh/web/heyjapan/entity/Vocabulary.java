@@ -32,6 +32,10 @@ public class Vocabulary {
     @Column(name = "pronunciation")
     private String pronunciation;
 
+    @NotNull
+    @Column(name = "url_audio", nullable = false)
+    private String urlAudio;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "topic_id")

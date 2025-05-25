@@ -14,5 +14,4 @@ import java.util.List;
 public class TheoryDTO {
     private Integer id;
     private String name;
-
 }

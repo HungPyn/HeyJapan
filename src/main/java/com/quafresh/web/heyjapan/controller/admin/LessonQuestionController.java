@@ -1,7 +1,9 @@
 package com.quafresh.web.heyjapan.controller.admin;
 
+import com.quafresh.web.heyjapan.dto.user.lesson.RequestLessonQuestionDTO;
 import com.quafresh.web.heyjapan.entity.QuestionChoice;
 import com.quafresh.web.heyjapan.repository.QuestionChoiceRepository;
+import com.quafresh.web.heyjapan.service.user.LessonQuestionService;
 import com.quafresh.web.heyjapan.service.user.QuestionChoicesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,10 +18,12 @@ import java.util.List;
 @PreAuthorize("hasRole('ADMIN')")
 public class LessonQuestionController {
     private final QuestionChoicesService questionChoicesService;
+    private final LessonQuestionService lessonQuestionService ;
     @GetMapping("/lesson")
     private ResponseEntity<List<?>> getQuestionChoicesByLessonId(@RequestParam Integer lessonId){
-        return ResponseEntity.ok(questionChoicesService.getAllByLessonID(lessonId));
+        return ResponseEntity.ok(lessonQuestionService.getQuestionsAndChoicesForLesson(lessonId));
     }
+
     @GetMapping("/exam")
     private ResponseEntity<List<?>> getQuestionChoicesByExamID(@RequestParam Integer examID){
         return ResponseEntity.ok(questionChoicesService.getAllByExamID(examID));
@@ -41,5 +45,15 @@ public class LessonQuestionController {
     private ResponseEntity<?> deleteByQuestionChoices(@RequestParam Integer id){
         questionChoicesService.deleteByID(id);
         return ResponseEntity.ok("Xoa thanh cong questionsChoices co id la "+id);
+    }
+
+    @PostMapping("/updateFull")
+    private ResponseEntity<?> updateFullQuestionChoices(@RequestBody RequestLessonQuestionDTO questionChoice){
+        return  questionChoicesService.updateFullLesson(questionChoice);
+    }
+
+    @PostMapping("/createFull")
+    private ResponseEntity<?> createFullQuestionChoices(@RequestBody RequestLessonQuestionDTO questionChoice){
+        return  questionChoicesService.createFullQuestion(questionChoice);
     }
 }

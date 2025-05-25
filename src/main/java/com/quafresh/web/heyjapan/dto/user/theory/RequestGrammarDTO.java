@@ -15,4 +15,6 @@ public class RequestGrammarDTO {
     private String explanation;
 
     private String example;
+
+    private String urlAudio;
 }

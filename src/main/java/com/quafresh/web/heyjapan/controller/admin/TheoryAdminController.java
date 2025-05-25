@@ -18,15 +18,16 @@ import org.springframework.web.bind.annotation.*;
 public class TheoryAdminController {
     private final VocabularyService vocabularyService;
     private final GrammarService grammarService;
+
     @GetMapping("/vocabulary/by-topic")
     public ResponseEntity<?> getVocabulary(@RequestParam("topicId") Integer topicId) {
         return ResponseEntity.ok(vocabularyService.getAllByTopic(topicId));
     }
-
     @GetMapping("/vocabulary")
     public ResponseEntity<?> getVocabularyById(@RequestParam("vocabularyId") Long id) {
         return ResponseEntity.ok(vocabularyService.getById(id));
     }
+
     @PostMapping("/vocabulary/create")
     public ResponseEntity<?> createVocabulary(@RequestParam("topicId") Integer topicId,@Valid @RequestBody RequestVocabularyDTO dto) {
         vocabularyService.create(topicId,dto);
@@ -46,10 +47,11 @@ public class TheoryAdminController {
     }
 
     //Grammar
-    @GetMapping("/grammar/by-topic")
+   @GetMapping("/grammar/by-topic")
     public ResponseEntity<?> getGrammars(@RequestParam("topicId") Integer  topicId) {
-        return ResponseEntity.ok(grammarService.getAllByTopic(topicId));
-    }
+       return ResponseEntity.ok(grammarService.getAllByTopic(topicId));
+   }
+
     @GetMapping("/grammar")
     public ResponseEntity<?> getGrammarById(@RequestParam("grammarId") Long id) {
         return ResponseEntity.ok(grammarService.getById(id));
