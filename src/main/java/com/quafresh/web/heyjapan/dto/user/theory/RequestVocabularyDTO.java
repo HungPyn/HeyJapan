@@ -19,4 +19,7 @@ public class RequestVocabularyDTO {
 
     @NotBlank(message = "Phát âm không được trống")
     private String pronunciation;
+
+    @NotBlank(message = "Am thanh khong duoc de trong")
+    private String urlAudio;
 }
