@@ -24,63 +24,68 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
 
     //admin
     @Query("""
-    SELECT new com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO(
-        er.id,
-        :userId,
-        t.id,
-        (
-            SELECT COUNT(er2)
-            FROM ExamResult er2
-            WHERE er2.topic.id = t.id AND er2.user.id = :userId
-        ),
-        MAX(er.examTime),
-        t.name,
-        MAX(er.scorePercent),
-        MAX(er.totalQuestions),
-        MAX(er.correctAnswers)
-    )
-    FROM Topic t
-    LEFT JOIN ExamResult er ON er.topic.id = t.id AND er.user.id = :userId
-    GROUP BY t.id, t.name
-    ORDER BY t.id ASC
-""")
+            SELECT new com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO(
+                er.id,
+                :userId,
+                t.id,
+                (
+                    SELECT COUNT(er2)
+                    FROM ExamResult er2
+                    WHERE er2.topic.id = t.id AND er2.user.id = :userId
+                ),
+                er.examTime,
+                t.name,
+                er.scorePercent,
+                er.totalQuestions,
+                er.correctAnswers
+            )
+            FROM ExamResult er
+            JOIN er.topic t
+            WHERE er.user.id = :userId
+            AND er.scorePercent = (
+                SELECT MAX(er2.scorePercent)
+                FROM ExamResult er2
+                WHERE er2.topic.id = t.id AND er2.user.id = :userId
+            )
+            ORDER BY t.id ASC
+            """)
     List<ResponseExamResultDTO> getAllExamResultByUserId(@Param("userId") String userId);
 
+
     @Query("""
-    SELECT er FROM ExamResult er 
-    WHERE er.user.id = :userId AND er.topic.id = :topicId 
-    ORDER BY er.scorePercent DESC
-""")
+                SELECT er FROM ExamResult er 
+                WHERE er.user.id = :userId AND er.topic.id = :topicId 
+                ORDER BY er.scorePercent DESC
+            """)
     Optional<ExamResult> findByUserIdAndTopicId(
             @Param("userId") String userId,
             @Param("topicId") Integer topicId
     );
 
 
-
     @Query("""
-    SELECT new com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO(
-        er.id,
-        :userId,
-        t.id,
-        (
-            SELECT COUNT(er2)
-            FROM ExamResult er2
-            WHERE er2.topic.id = t.id AND er2.user.id = :userId
-        ),
-        MAX(er.examTime),
-        t.name,
-        MAX(er.scorePercent),
-        MAX(er.totalQuestions),
-        MAX(er.correctAnswers)
-    )
-    FROM ExamResult er
-    JOIN er.topic t
-    JOIN er.user u
-    WHERE er.user.id = :userId AND er.topic.id = :topicId
-    GROUP BY er.id, u.id, t.id, t.name
-    ORDER BY er.startDatetime DESC
-""")
+                SELECT new com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO(
+                    er.id,
+                    :userId,
+                    t.id,
+                    (
+                        SELECT COUNT(er2)
+                        FROM ExamResult er2
+                        WHERE er2.topic.id = t.id AND er2.user.id = :userId
+                    ),
+                    MAX(er.examTime),
+                    t.name,
+                    MAX(er.scorePercent),
+                    MAX(er.totalQuestions),
+                    MAX(er.correctAnswers)
+                )
+                FROM ExamResult er
+                JOIN er.topic t
+                JOIN er.user u
+                WHERE er.user.id = :userId AND er.topic.id = :topicId
+                GROUP BY er.id, u.id, t.id, t.name
+                ORDER BY er.startDatetime DESC
+            """)
     Optional<ResponseExamResultDTO> getExamResultByTopicId(
             @Param("userId") String userId,
             @Param("topicId") Integer topicId
@@ -88,32 +93,31 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
 
 
     @Query("""
-    SELECT new com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO(
-        MIN(er.id),
-        :userId,
-        t.id,
-        (
-            SELECT COUNT(er2)
-            FROM ExamResult er2
-            WHERE er2.topic.id = t.id AND er2.user.id = :userId
-        ),
-        MAX(er.examTime),
-        t.name,
-        MAX(er.scorePercent),
-        MAX(er.totalQuestions),
-        MAX(er.correctAnswers)
-    )
-    FROM Topic t
-    LEFT JOIN ExamResult er ON t.id = er.topic.id AND er.user.id = :userId
-    WHERE LOWER(t.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-    GROUP BY t.id, t.name
-    ORDER BY t.id ASC
-""")
+                SELECT new com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO(
+                    MIN(er.id),
+                    :userId,
+                    t.id,
+                    (
+                        SELECT COUNT(er2)
+                        FROM ExamResult er2
+                        WHERE er2.topic.id = t.id AND er2.user.id = :userId
+                    ),
+                    MAX(er.examTime),
+                    t.name,
+                    MAX(er.scorePercent),
+                    MAX(er.totalQuestions),
+                    MAX(er.correctAnswers)
+                )
+                FROM Topic t
+                LEFT JOIN ExamResult er ON t.id = er.topic.id AND er.user.id = :userId
+                WHERE LOWER(t.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                GROUP BY t.id, t.name
+                ORDER BY t.id ASC
+            """)
     List<ResponseExamResultDTO> searchExamResultsByUserIdAndKeyword(
             @Param("userId") String userId,
             @Param("keyword") String keyword
     );
-
 
 
 }
