@@ -45,5 +45,8 @@ public interface UserMapper {
     // Chuyển từ entity sang dto phần question
     ResponseExamQuesDTO toResponseExamQuesDTO(ExamQuestion examQuestion);
     ResponseLessonQuesDTO toResponseLessonQuesDTO(LessonQuestion lessonQuestion);
+
+    @Mapping(source = "lessonQuestion.id", target = "lessonQuestion")
+    @Mapping(source = "examQuestion.id", target = "examQuestion")
     QuestionChoiceDTO toQuestionChoiceDTO(QuestionChoice questionChoice);
 }
