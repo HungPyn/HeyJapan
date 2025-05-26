@@ -24,10 +24,11 @@ import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../../navigation';
 import {showMessage} from 'react-native-flash-message';
-import axios from 'axios';
+import axios /*, {AxiosRequestConfig}*/ from 'axios'; // AxiosRequestConfig có thể không cần nếu không dùng options phức tạp
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {Video, VideoRef, OnLoadData} from 'react-native-video';
 
-// --- Định nghĩa Type cho Câu hỏi ---
+// --- Định nghĩa Type cho Câu hỏi (Client-side, dựa trên API response GET) ---
 interface ApiQuestionChoice {
   id: number;
   textForeign: string;
@@ -37,18 +38,16 @@ interface ApiQuestionChoice {
   textBlock?: string | null;
   isCorrect: boolean | number | null;
 }
-
 interface ApiQuestion {
-  id: number;
+  id: number; // ID của LessonQuestion từ backend
   questionType: string;
   promptTextTemplate: string;
   targetWordNative: string;
   targetLanguageCode: string;
   optionsLanguageCode: string;
-  audio_url_questions: string | null;
+  audio_url_questions: string | null; // Tên này nhận từ API GET
   questionChoices: ApiQuestionChoice[];
 }
-// --- END Định nghĩa Type cho Câu hỏi ---
 
 // --- ICONS ---
 const LOGO_ICON_HEADER = require('../../assets/images/Logo.png');
@@ -59,9 +58,7 @@ const EDIT_ICON_ACTION = require('../../assets/images/chinhSua.png');
 const BACK_ARROW_ICON = require('../../assets/images/IconBack.png');
 const AUDIO_PLAY_ICON = require('../../assets/images/audioInconten.png');
 const DELETE_CHOICE_ICON = require('../../assets/images/iconThungRac.png');
-// --- END ICONS ---
 
-// --- Định nghĩa QUESTION_TYPE_OPTIONS và QuestionTypeOption ở phạm vi module ---
 const QUESTION_TYPE_OPTIONS = [
   {label: 'Sắp xếp từ (WORD_ORDER)', value: 'WORD_ORDER'},
   {label: 'Câu hỏi audio (AUDIO_CHOICE)', value: 'AUDIO_CHOICE'},
@@ -72,41 +69,55 @@ interface QuestionTypeOption {
   label: string;
   value: string;
 }
-// --- END QUESTION_TYPE_OPTIONS ---
 
 // --- Types cho Modal Form ---
 interface EditableQuestionChoiceClient {
-  clientId: string; // ID duy nhất ở client (ví dụ: Date.now().toString())
-  id?: number; // ID từ backend (nếu là edit)
+  clientId: string;
+  id?: number;
   textForeign: string;
   textRomaji?: string | null;
   imageUrl: string | null;
   audioUrlForeign: string | null;
   textBlock?: string | null;
   isCorrect: boolean | number | null;
-  _shuffledTextBlockDisplay?: string; // Chỉ dùng cho UI hiển thị các từ đã trộn của WORD_ORDER
+  _shuffledTextBlockDisplay?: string;
 }
 
-interface QuestionChoiceSubmitData {
-  id?: number; // ID của choice, optional cho choice mới (backend sẽ tự tạo)
+interface QuestionChoiceDTOForAPI {
+  id?: number;
   textForeign: string;
   textRomaji?: string | null;
   imageUrl?: string | null;
   audioUrlForeign?: string | null;
   textBlock?: string | null;
-  isCorrect: boolean | number | null;
+  isCorrect: boolean;
+  lessonQuestion?: number;
+  examQuestion?: number;
 }
 
-interface AddEditContentModalFormData {
+interface RequestLessonQuestionDTOForAPI {
+  lessonId?: number;
+  lessonQuestionID?: number;
   questionType: string;
   promptTextTemplate: string;
   targetWordNative: string;
-  audio_url_questions: string | null;
-  questionChoices: QuestionChoiceSubmitData[];
+  targetLanguageCode: string;
+  optionsLanguageCode: string;
+  audioUrlQuestions: string | null;
+  questionChoices: QuestionChoiceDTOForAPI[];
 }
-// --- END Types cho Modal Form ---
 
-// --- ConfirmDeleteModal ---
+// --- Types cho Navigation và Route ---
+type ContensAdminScreenRouteProp = RouteProp<
+  RootStackParamList,
+  'ContentAdmin'
+>;
+type ContensAdminScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'ContentAdmin'
+>;
+
+// --- ConfirmDeleteModal (GIỮ NGUYÊN) ---
 interface ConfirmDeleteModalProps {
   visible: boolean;
   onClose: () => void;
@@ -173,7 +184,6 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
     </Modal>
   );
 };
-// Style cho ConfirmDeleteModal (GIỮ NGUYÊN TỪ FILE GỐC CỦA BẠN)
 const confirmModalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
@@ -226,867 +236,8 @@ const confirmModalStyles = StyleSheet.create({
   cancelButtonText: {color: '#555555'},
   confirmButtonText: {color: COLORS.primary ? COLORS.white : '#333333'},
 });
-// --- END ConfirmDeleteModal ---
 
-// --- AddEditContentModal ---
-interface AddEditContentModalProps {
-  visible: boolean;
-  mode: 'add' | 'edit';
-  initialData?: ApiQuestion | null;
-  onClose: () => void;
-  onSubmit: (data: AddEditContentModalFormData) => void;
-}
-
-const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
-  visible,
-  mode,
-  initialData,
-  onClose,
-  onSubmit,
-}) => {
-  const [questionType, setQuestionType] = useState(
-    QUESTION_TYPE_OPTIONS[0].value,
-  );
-  const [promptTextTemplate, setPromptTextTemplate] = useState('');
-  const [targetWordNative, setTargetWordNative] = useState('');
-  const [audioUrlQuestions, setAudioUrlQuestions] = useState('');
-  const [currentQuestionChoices, setCurrentQuestionChoices] = useState<
-    EditableQuestionChoiceClient[]
-  >([]);
-  const [isQuestionTypePickerVisible, setIsQuestionTypePickerVisible] =
-    useState(false);
-
-  const getDisplayQuestionTypeLabel = (value: string) => {
-    // Sử dụng QUESTION_TYPE_OPTIONS toàn cục
-    return (
-      QUESTION_TYPE_OPTIONS.find(
-        (opt: QuestionTypeOption) => opt.value === value,
-      )?.label || value
-    );
-  };
-
-  const getShuffledDisplayFromTextBlock = (
-    textBlockString: string | null | undefined,
-  ): string => {
-    if (
-      textBlockString &&
-      String(textBlockString).trim() !== '' &&
-      textBlockString !== '[]' &&
-      textBlockString !== 'null'
-    ) {
-      try {
-        const parsedArray = JSON.parse(textBlockString);
-        if (Array.isArray(parsedArray)) {
-          return parsedArray.join(' / ');
-        } else {
-          console.warn(
-            '[getShuffledDisplayFromTextBlock] Parsed textBlock is not an array:',
-            parsedArray,
-            'Original textBlock:',
-            textBlockString,
-          );
-          return '[Lỗi dữ liệu khối từ]';
-        }
-      } catch (error) {
-        console.error(
-          '[getShuffledDisplayFromTextBlock] Failed to parse textBlock JSON:',
-          textBlockString,
-          error,
-        );
-        return '[Lỗi parse khối từ]';
-      }
-    }
-    return '';
-  };
-
-  const initializeChoices = useCallback(
-    (type: string, existingApiChoices?: ApiQuestionChoice[]) => {
-      let newChoices: EditableQuestionChoiceClient[] = [];
-      const currentInitialDataForChoices =
-        mode === 'edit' && initialData && initialData.questionType === type
-          ? initialData.questionChoices
-          : existingApiChoices || [];
-
-      if (
-        currentInitialDataForChoices &&
-        currentInitialDataForChoices.length > 0
-      ) {
-        newChoices = currentInitialDataForChoices.map((c, index) => ({
-          ...c,
-          clientId: c.id ? `db-${c.id}` : `edit-temp-${Date.now()}-${index}`,
-          id: c.id,
-          _shuffledTextBlockDisplay: getShuffledDisplayFromTextBlock(
-            c.textBlock,
-          ),
-          textRomaji: c.textRomaji === undefined ? null : c.textRomaji,
-          audioUrlForeign:
-            c.audioUrlForeign === undefined ? null : c.audioUrlForeign,
-          imageUrl: c.imageUrl === undefined ? null : c.imageUrl,
-          textBlock: c.textBlock === undefined ? null : c.textBlock,
-        }));
-      }
-
-      if (type === 'WORD_ORDER') {
-        if (newChoices.length === 0) {
-          let textForWordOrder = '';
-          let initialTextBlockValue = null;
-
-          if (
-            mode === 'edit' &&
-            initialData &&
-            initialData.questionType === 'WORD_ORDER'
-          ) {
-            textForWordOrder =
-              initialData.questionChoices?.[0]?.textForeign ||
-              initialData.targetWordNative ||
-              '';
-            initialTextBlockValue =
-              initialData.questionChoices?.[0]?.textBlock || null;
-          } else if (mode === 'add') {
-            textForWordOrder = targetWordNative || '';
-          }
-
-          newChoices = [
-            {
-              clientId: `temp-${Date.now()}`,
-              id:
-                mode === 'edit' && initialData?.questionChoices?.[0]?.id
-                  ? initialData.questionChoices[0].id
-                  : undefined,
-              textForeign: textForWordOrder,
-              textRomaji: null,
-              imageUrl: null,
-              audioUrlForeign: null,
-              textBlock: initialTextBlockValue,
-              _shuffledTextBlockDisplay: getShuffledDisplayFromTextBlock(
-                initialTextBlockValue,
-              ),
-              isCorrect: null,
-            },
-          ];
-        } else if (newChoices.length >= 1) {
-          newChoices = [newChoices[0]];
-          if (!newChoices[0]._shuffledTextBlockDisplay) {
-            newChoices[0]._shuffledTextBlockDisplay =
-              getShuffledDisplayFromTextBlock(newChoices[0].textBlock);
-          }
-        }
-      } else {
-        const minChoices = 4; // Yêu cầu ít nhất 4 cho các loại khác
-        while (newChoices.length < minChoices) {
-          newChoices.push({
-            clientId: `temp-${Date.now()}-${newChoices.length}`,
-            textForeign: '',
-            textRomaji: '',
-            imageUrl: null,
-            audioUrlForeign: null,
-            isCorrect: false,
-            textBlock: null,
-          });
-        }
-      }
-      setCurrentQuestionChoices(newChoices);
-    },
-    [mode, initialData, targetWordNative],
-  );
-
-  useEffect(() => {
-    if (visible) {
-      if (mode === 'edit' && initialData) {
-        setQuestionType(initialData.questionType);
-        setPromptTextTemplate(initialData.promptTextTemplate || '');
-        setTargetWordNative(initialData.targetWordNative || '');
-        setAudioUrlQuestions(initialData.audio_url_questions || '');
-        initializeChoices(
-          initialData.questionType,
-          initialData.questionChoices,
-        );
-      } else {
-        const defaultType = QUESTION_TYPE_OPTIONS[0].value;
-        setQuestionType(defaultType);
-        setPromptTextTemplate('');
-        setTargetWordNative('');
-        setAudioUrlQuestions('');
-        initializeChoices(defaultType);
-      }
-    }
-  }, [visible, mode, initialData, initializeChoices]);
-
-  useEffect(() => {
-    if (visible) {
-      if (
-        mode === 'edit' &&
-        initialData &&
-        initialData.questionType !== questionType
-      ) {
-        initializeChoices(questionType);
-      } else if (mode === 'add') {
-        initializeChoices(questionType);
-      }
-
-      if (questionType === 'AUDIO_CHOICE') {
-        setTargetWordNative('');
-      } else if (
-        questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' &&
-        mode === 'add'
-      ) {
-        if (
-          !initialData ||
-          initialData.questionType !== 'MULTIPLE_CHOICE_VOCAB_IMAGE'
-        ) {
-          setTargetWordNative('');
-        }
-      }
-    }
-  }, [questionType, visible, mode, initialData, initializeChoices]);
-
-  const handleChoiceChange = (
-    choiceClientId: string,
-    field: keyof Omit<
-      EditableQuestionChoiceClient,
-      'id' | 'clientId' | '_shuffledTextBlockDisplay'
-    >,
-    value: string | boolean | number | null,
-  ) => {
-    setCurrentQuestionChoices(prevChoices =>
-      prevChoices.map(choice => {
-        if (choice.clientId === choiceClientId) {
-          return {...choice, [field]: value};
-        }
-        return choice;
-      }),
-    );
-  };
-
-  const handleSetCorrectChoice = (choiceClientId: string) => {
-    if (questionType === 'WORD_ORDER') return;
-    setCurrentQuestionChoices(prevChoices =>
-      prevChoices.map(choice => ({
-        ...choice,
-        isCorrect: choice.clientId === choiceClientId,
-      })),
-    );
-  };
-
-  const handleAddChoice = () => {
-    if (questionType === 'WORD_ORDER') {
-      Alert.alert(
-        'Thông báo',
-        'Loại câu hỏi Sắp xếp từ chỉ có một trường nhập câu gốc.',
-      );
-      return;
-    }
-    if (currentQuestionChoices.length >= 10) {
-      Alert.alert('Thông báo', 'Đã đạt số lượng lựa chọn tối đa (10).');
-      return;
-    }
-    setCurrentQuestionChoices(prev => [
-      ...prev,
-      {
-        clientId: `temp-${Date.now()}-${prev.length}`,
-        textForeign: '',
-        textRomaji: '',
-        imageUrl: null,
-        audioUrlForeign: null,
-        isCorrect: false,
-        textBlock: null,
-      },
-    ]);
-  };
-
-  const handleRemoveChoice = (choiceClientId: string) => {
-    const minChoices = questionType === 'WORD_ORDER' ? 1 : 4;
-    if (currentQuestionChoices.length <= minChoices) {
-      Alert.alert('Thông báo', `Cần ít nhất ${minChoices} lựa chọn trả lời.`);
-      return;
-    }
-    if (questionType === 'WORD_ORDER') return;
-
-    setCurrentQuestionChoices(prev =>
-      prev.filter(choice => choice.clientId !== choiceClientId),
-    );
-  };
-
-  const shuffleWordsForTextBlock = (text: string): string[] => {
-    if (!text || text.trim() === '') return [];
-    const words =
-      text.match(
-        /[\u3000\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uFF65-\uFF9F0-9a-zA-Z]+|\S/g,
-      ) || [];
-
-    for (let i = words.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [words[i], words[j]] = [words[j], words[i]];
-    }
-    return words.filter(w => w.trim() !== '');
-  };
-
-  const handleShuffleWordOrderChoice = (choiceClientId: string) => {
-    const choiceIndex = currentQuestionChoices.findIndex(
-      c => c.clientId === choiceClientId,
-    );
-    if (questionType !== 'WORD_ORDER' || choiceIndex === -1) return;
-
-    const originalText = currentQuestionChoices[choiceIndex].textForeign;
-    if (!originalText || originalText.trim() === '') {
-      Alert.alert(
-        'Lỗi',
-        'Vui lòng nhập nội dung câu gốc (Text Foreign) trước khi trộn.',
-      );
-      return;
-    }
-    const shuffledWordsArray = shuffleWordsForTextBlock(originalText);
-    if (shuffledWordsArray.length === 0) {
-      Alert.alert(
-        'Lỗi',
-        'Không thể tách từ từ câu gốc để trộn. Vui lòng kiểm tra lại câu gốc.',
-      );
-      return;
-    }
-    const shuffledJsonString = JSON.stringify(shuffledWordsArray);
-
-    setCurrentQuestionChoices(prevChoices =>
-      prevChoices.map(c =>
-        c.clientId === choiceClientId
-          ? {
-              ...c,
-              textBlock: shuffledJsonString,
-              _shuffledTextBlockDisplay: shuffledWordsArray.join(' / '),
-            }
-          : c,
-      ),
-    );
-    showMessage({message: 'Đã trộn và cập nhật Text Block!', type: 'success'});
-  };
-
-  const handleSubmit = () => {
-    if (!promptTextTemplate.trim())
-      return Alert.alert('Lỗi', 'Vui lòng nhập "Mẫu câu hỏi/Yêu cầu".');
-
-    if (questionType === 'WORD_ORDER') {
-      if (!targetWordNative.trim())
-        return Alert.alert(
-          'Lỗi',
-          'WORD_ORDER: Vui lòng nhập "Nội dung/Đáp án chính" (câu đúng).',
-        );
-      if (currentQuestionChoices.length !== 1) {
-        Alert.alert(
-          'Lỗi',
-          'Lỗi cấu hình: Câu hỏi WORD_ORDER cần đúng 1 lựa chọn.',
-        );
-        return;
-      }
-      const choice = currentQuestionChoices[0];
-      if (!choice.textForeign.trim())
-        return Alert.alert(
-          'Lỗi',
-          "WORD_ORDER: Vui lòng nhập câu gốc vào 'Nội dung tiếng nước ngoài'.",
-        );
-      if (
-        !choice.textBlock ||
-        choice.textBlock.trim() === '' ||
-        choice.textBlock === '[]'
-      )
-        return Alert.alert(
-          'Lỗi',
-          "WORD_ORDER: Vui lòng nhấn 'Trộn từ' để tạo khối từ xáo trộn.",
-        );
-    } else if (questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE') {
-      if (!targetWordNative.trim())
-        return Alert.alert(
-          'Lỗi',
-          'Chọn Ảnh: Vui lòng nhập "Từ vựng" cho câu hỏi.',
-        );
-    } else if (questionType === 'AUDIO_CHOICE') {
-      if (!audioUrlQuestions || !audioUrlQuestions.trim())
-        return Alert.alert(
-          'Lỗi',
-          'Câu hỏi Audio: Yêu cầu "URL Audio câu hỏi".',
-        );
-    } else if (questionType === 'MULTIPLE_CHOICE_TEXT_ONLY') {
-      if (!targetWordNative.trim())
-        return Alert.alert(
-          'Lỗi',
-          'Chọn câu hỏi Text: Vui lòng nhập "Nội dung/Đáp án chính".',
-        );
-    }
-
-    if (questionType !== 'WORD_ORDER') {
-      if (currentQuestionChoices.length < 4)
-        return Alert.alert('Lỗi', 'Cần ít nhất 4 lựa chọn trả lời.');
-      let isCorrectChoiceSelected = false;
-      for (let i = 0; i < currentQuestionChoices.length; i++) {
-        const choice = currentQuestionChoices[i];
-        if (!choice.textForeign || !choice.textForeign.trim())
-          return Alert.alert(
-            'Lỗi',
-            `Lựa chọn ${
-              i + 1
-            }: "Nội dung tiếng nước ngoài" không được để trống.`,
-          );
-
-        if (questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE') {
-          if (!choice.imageUrl || !choice.imageUrl.trim())
-            return Alert.alert(
-              'Lỗi',
-              `Lựa chọn ${i + 1}: Yêu cầu "URL Hình ảnh".`,
-            );
-          if (!choice.textRomaji || !choice.textRomaji.trim())
-            return Alert.alert('Lỗi', `Lựa chọn ${i + 1}: Yêu cầu "Romaji".`);
-        } else if (
-          questionType === 'MULTIPLE_CHOICE_TEXT_ONLY' ||
-          questionType === 'AUDIO_CHOICE'
-        ) {
-          if (!choice.textRomaji || !choice.textRomaji.trim())
-            return Alert.alert('Lỗi', `Lựa chọn ${i + 1}: Yêu cầu "Romaji".`);
-        }
-        if (choice.isCorrect === true) isCorrectChoiceSelected = true;
-      }
-      if (!isCorrectChoiceSelected)
-        return Alert.alert('Lỗi', 'Vui lòng chọn một đáp án đúng.');
-    }
-
-    const choicesToSubmit: QuestionChoiceSubmitData[] =
-      currentQuestionChoices.map(clientChoice => {
-        const {
-          clientId,
-          _shuffledTextBlockDisplay,
-          id: clientSideId,
-          ...apiData
-        } = clientChoice; // Lấy id từ clientChoice (có thể là number hoặc undefined)
-        return {
-          id: typeof clientSideId === 'number' ? clientSideId : undefined, // Chỉ gửi id nếu nó là number (từ DB)
-          textForeign: apiData.textForeign,
-          textRomaji: apiData.textRomaji,
-          imageUrl: apiData.imageUrl,
-          audioUrlForeign:
-            questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' ||
-            questionType === 'MULTIPLE_CHOICE_TEXT_ONLY' ||
-            questionType === 'WORD_ORDER'
-              ? null
-              : apiData.audioUrlForeign,
-          textBlock: apiData.textBlock,
-          isCorrect: apiData.isCorrect,
-        };
-      });
-
-    onSubmit({
-      questionType: questionType,
-      promptTextTemplate: promptTextTemplate.trim(),
-      targetWordNative:
-        questionType === 'AUDIO_CHOICE' ? '' : targetWordNative.trim(),
-      audio_url_questions:
-        questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' ||
-        questionType === 'MULTIPLE_CHOICE_TEXT_ONLY'
-          ? null
-          : audioUrlQuestions.trim() || null,
-      questionChoices: choicesToSubmit,
-    });
-  };
-
-  const handleSelectQuestionType = (typeValue: string) => {
-    setQuestionType(typeValue);
-    setIsQuestionTypePickerVisible(false);
-  };
-
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}>
-      <Pressable style={formModalStyles.backdrop} onPress={Keyboard.dismiss}>
-        <Pressable
-          style={formModalStyles.modalViewContainer}
-          onPress={() => {}}>
-          <View style={formModalStyles.modalViewContent}>
-            <View style={formModalStyles.header}>
-              <TouchableOpacity
-                onPress={onClose}
-                style={formModalStyles.backButton}>
-                <Image
-                  source={BACK_ARROW_ICON}
-                  style={formModalStyles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text style={formModalStyles.headerTitle}>
-                {mode === 'add' ? 'Thêm Câu Hỏi Mới' : 'Chỉnh Sửa Câu Hỏi'}
-              </Text>
-              <View
-                style={{
-                  width:
-                    formModalStyles.backIcon.width +
-                    (formModalStyles.backButton.paddingHorizontal ||
-                      formModalStyles.backButton.padding ||
-                      5) *
-                      2,
-                }}
-              />
-            </View>
-            <ScrollView
-              style={formModalStyles.formContainer}
-              contentContainerStyle={{paddingBottom: SIZES.padding * 10}}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled">
-              <View style={formModalStyles.inputGroup}>
-                <Text style={formModalStyles.label}>
-                  Loại câu hỏi{' '}
-                  <Text style={formModalStyles.requiredStar}>*</Text>
-                </Text>
-                {mode === 'edit' && initialData ? (
-                  <TextInput
-                    style={[
-                      formModalStyles.input,
-                      formModalStyles.readOnlyInput,
-                    ]}
-                    value={getDisplayQuestionTypeLabel(questionType)}
-                    editable={false}
-                  />
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      formModalStyles.input,
-                      formModalStyles.pickerDisplayButton,
-                    ]}
-                    onPress={() => setIsQuestionTypePickerVisible(true)}>
-                    <Text style={formModalStyles.pickerDisplayText}>
-                      {getDisplayQuestionTypeLabel(questionType) ||
-                        'Chọn loại câu hỏi'}
-                    </Text>
-                    <Text style={formModalStyles.pickerDropdownIcon}>▼</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={formModalStyles.inputGroup}>
-                <Text style={[formModalStyles.label, {fontWeight: 'bold'}]}>
-                  Mẫu câu hỏi/Yêu cầu{' '}
-                  <Text style={formModalStyles.requiredStar}>*</Text>
-                </Text>
-                <TextInput
-                  style={[
-                    formModalStyles.input,
-                    {height: 80, textAlignVertical: 'top'},
-                  ]}
-                  placeholder="Nhập yêu cầu hoặc mẫu câu hỏi"
-                  value={promptTextTemplate}
-                  onChangeText={setPromptTextTemplate}
-                  multiline
-                />
-              </View>
-
-              {questionType !== 'AUDIO_CHOICE' &&
-                questionType !== 'MULTIPLE_CHOICE_VOCAB_IMAGE' && (
-                  <View style={formModalStyles.inputGroup}>
-                    <Text style={[formModalStyles.label, {fontWeight: 'bold'}]}>
-                      Nội dung/Đáp án chính
-                      {questionType !== 'WORD_ORDER' && (
-                        <Text style={formModalStyles.requiredStar}>*</Text>
-                      )}
-                      {questionType === 'WORD_ORDER' && (
-                        <Text style={formModalStyles.requiredStar}>* </Text>
-                      )}
-                      (Câu đúng nếu là WORD_ORDER)
-                    </Text>
-                    <TextInput
-                      style={[
-                        formModalStyles.input,
-                        (questionType === 'WORD_ORDER' ||
-                          questionType === 'MULTIPLE_CHOICE_TEXT_ONLY') && {
-                          height: 80,
-                          textAlignVertical: 'top',
-                        },
-                      ]}
-                      placeholder={
-                        questionType === 'WORD_ORDER'
-                          ? 'Nhập câu đúng (vd: わたしは ごはんを たべます)'
-                          : 'Nhập nội dung hoặc đáp án'
-                      }
-                      value={targetWordNative}
-                      onChangeText={setTargetWordNative}
-                      multiline={
-                        questionType === 'WORD_ORDER' ||
-                        questionType === 'MULTIPLE_CHOICE_TEXT_ONLY'
-                      }
-                    />
-                  </View>
-                )}
-              {questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' && (
-                <View style={formModalStyles.inputGroup}>
-                  <Text style={[formModalStyles.label, {fontWeight: 'bold'}]}>
-                    Từ vựng (cho câu hỏi chọn ảnh){' '}
-                    <Text style={formModalStyles.requiredStar}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={formModalStyles.input}
-                    placeholder="Nhập từ vựng (vd: りんご)"
-                    value={targetWordNative}
-                    onChangeText={setTargetWordNative}
-                  />
-                </View>
-              )}
-
-              {(questionType === 'AUDIO_CHOICE' ||
-                questionType === 'WORD_ORDER') && (
-                <View style={formModalStyles.inputGroup}>
-                  <Text
-                    style={[
-                      formModalStyles.label,
-                      questionType === 'AUDIO_CHOICE' && {fontWeight: 'bold'},
-                    ]}>
-                    URL Audio câu hỏi{' '}
-                    {questionType === 'AUDIO_CHOICE' && (
-                      <Text style={formModalStyles.requiredStar}>*</Text>
-                    )}
-                  </Text>
-                  <TextInput
-                    style={formModalStyles.input}
-                    placeholder="https://example.com/audio.mp3 (tùy chọn cho WORD_ORDER)"
-                    value={audioUrlQuestions}
-                    onChangeText={setAudioUrlQuestions}
-                  />
-                </View>
-              )}
-
-              <Text style={formModalStyles.choicesHeader}>
-                {questionType === 'WORD_ORDER'
-                  ? 'Câu gốc & Khối từ xáo trộn'
-                  : 'Các lựa chọn trả lời'}
-              </Text>
-
-              {currentQuestionChoices.map((choice, index) => (
-                <View
-                  key={choice.clientId}
-                  style={formModalStyles.choiceItemContainer}>
-                  <View style={formModalStyles.choiceHeader}>
-                    <Text style={formModalStyles.choiceIndexText}>
-                      {questionType === 'WORD_ORDER'
-                        ? 'Dữ liệu câu sắp xếp'
-                        : `Lựa chọn ${index + 1}:`}
-                    </Text>
-                    {questionType !== 'WORD_ORDER' &&
-                      currentQuestionChoices.length > 4 && (
-                        <TouchableOpacity
-                          onPress={() => handleRemoveChoice(choice.clientId)}
-                          style={formModalStyles.deleteChoiceButtonSmall}>
-                          <Image
-                            source={DELETE_CHOICE_ICON}
-                            style={formModalStyles.deleteChoiceIconSmall}
-                          />
-                        </TouchableOpacity>
-                      )}
-                  </View>
-
-                  <Text style={formModalStyles.label}>
-                    {questionType === 'WORD_ORDER'
-                      ? 'Câu gốc (để tạo khối từ)'
-                      : 'Nội dung tiếng nước ngoài'}
-                    <Text style={formModalStyles.requiredStar}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={formModalStyles.input}
-                    placeholder={
-                      questionType === 'WORD_ORDER'
-                        ? 'VD: わたしは ごはんを たべます'
-                        : 'Nhập nội dung...'
-                    }
-                    value={choice.textForeign}
-                    onChangeText={text =>
-                      handleChoiceChange(choice.clientId, 'textForeign', text)
-                    }
-                  />
-
-                  {(questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' ||
-                    questionType === 'MULTIPLE_CHOICE_TEXT_ONLY' ||
-                    questionType === 'AUDIO_CHOICE') && (
-                    <View style={formModalStyles.inputGroup}>
-                      <Text style={formModalStyles.label}>
-                        Romaji{' '}
-                        <Text style={formModalStyles.requiredStar}>*</Text>
-                      </Text>
-                      <TextInput
-                        style={[formModalStyles.input]}
-                        placeholder="Nhập Romaji"
-                        value={choice.textRomaji || ''}
-                        onChangeText={text =>
-                          handleChoiceChange(
-                            choice.clientId,
-                            'textRomaji',
-                            text,
-                          )
-                        }
-                      />
-                    </View>
-                  )}
-
-                  {questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' && (
-                    <View style={formModalStyles.inputGroup}>
-                      <Text style={formModalStyles.label}>
-                        URL Hình ảnh{' '}
-                        <Text style={formModalStyles.requiredStar}>*</Text>
-                      </Text>
-                      <View style={formModalStyles.imageInputContainer}>
-                        <TextInput
-                          style={[
-                            formModalStyles.input,
-                            {flex: 1, marginRight: SIZES.base},
-                          ]}
-                          placeholder="https://example.com/image.png"
-                          value={choice.imageUrl || ''}
-                          onChangeText={text =>
-                            handleChoiceChange(
-                              choice.clientId,
-                              'imageUrl',
-                              text,
-                            )
-                          }
-                        />
-                        {choice.imageUrl ? (
-                          <Image
-                            source={{uri: choice.imageUrl}}
-                            style={formModalStyles.choiceImagePreview}
-                          />
-                        ) : (
-                          <View
-                            style={formModalStyles.choiceImagePlaceholder}
-                          />
-                        )}
-                      </View>
-                    </View>
-                  )}
-
-                  {questionType === 'WORD_ORDER' && (
-                    <>
-                      <View
-                        style={[
-                          formModalStyles.inputGroup,
-                          {marginTop: SIZES.base},
-                        ]}>
-                        <Text style={formModalStyles.label}>
-                          Các khối từ xáo trộn (JSON - tự động tạo):
-                        </Text>
-                        <TextInput
-                          style={[
-                            formModalStyles.input,
-                            formModalStyles.readOnlyInput,
-                            {minHeight: 60, textAlignVertical: 'top'},
-                          ]}
-                          value={choice.textBlock || 'Nhấn "Trộn từ" để tạo'}
-                          editable={false}
-                          multiline
-                        />
-                        <Text style={formModalStyles.label}>
-                          Xem trước xáo trộn:
-                        </Text>
-                        <TextInput
-                          style={[
-                            formModalStyles.input,
-                            formModalStyles.readOnlyInput,
-                            {
-                              minHeight: 40,
-                              textAlignVertical: 'top',
-                              marginTop: SIZES.base / 2,
-                            },
-                          ]}
-                          value={choice._shuffledTextBlockDisplay || ''}
-                          editable={false}
-                          multiline
-                        />
-                      </View>
-                      <TouchableOpacity
-                        style={[
-                          styles.addNewButton,
-                          {
-                            alignSelf: 'flex-start',
-                            marginTop: SIZES.base,
-                            backgroundColor: COLORS.secondary,
-                          },
-                        ]}
-                        onPress={() =>
-                          handleShuffleWordOrderChoice(choice.clientId)
-                        }>
-                        <Text style={styles.addNewButtonText}>Trộn từ</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-
-                  {questionType !== 'WORD_ORDER' && (
-                    <TouchableOpacity
-                      style={[
-                        formModalStyles.correctChoiceButton,
-                        choice.isCorrect === true &&
-                          formModalStyles.correctChoiceButtonSelected,
-                      ]}
-                      onPress={() => handleSetCorrectChoice(choice.clientId)}>
-                      <Text
-                        style={[
-                          formModalStyles.correctChoiceButtonText,
-                          choice.isCorrect === true &&
-                            formModalStyles.correctChoiceButtonTextSelected,
-                        ]}>
-                        {choice.isCorrect === true
-                          ? '✓ Đáp án đúng'
-                          : 'Chọn làm đáp án đúng'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-
-              {questionType !== 'WORD_ORDER' && (
-                <TouchableOpacity
-                  onPress={handleAddChoice}
-                  style={formModalStyles.addChoiceButton}>
-                  <Text style={formModalStyles.addChoiceButtonText}>
-                    Thêm lựa chọn
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                style={formModalStyles.submitButton}
-                onPress={handleSubmit}>
-                <Text style={formModalStyles.submitButtonText}>
-                  {mode === 'add' ? 'Thêm câu hỏi' : 'Lưu thay đổi'}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Pressable>
-      <Modal
-        transparent={true}
-        visible={isQuestionTypePickerVisible}
-        onRequestClose={() => setIsQuestionTypePickerVisible(false)}
-        animationType="fade">
-        <Pressable
-          style={formModalStyles.pickerBackdrop}
-          onPress={() => setIsQuestionTypePickerVisible(false)}>
-          <View style={formModalStyles.pickerModalContainer}>
-            <Text style={formModalStyles.pickerModalTitle}>
-              Chọn loại câu hỏi
-            </Text>
-            {QUESTION_TYPE_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.value}
-                style={formModalStyles.pickerModalOption}
-                onPress={() => handleSelectQuestionType(opt.value)}>
-                <Text style={formModalStyles.pickerModalOptionText}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
-    </Modal>
-  );
-};
-// --- END: AddEditContentModal ---
-
-// --- STYLES for AddEditContentModal ---
-// Đảm bảo formModalStyles được định nghĩa ở đây, bên ngoài component AddEditContentModal
-// nhưng trong cùng file để AddEditContentModal có thể truy cập.
+// --- STYLES for AddEditContentModal (GIỮ NGUYÊN) ---
 const formModalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
@@ -1125,7 +276,7 @@ const formModalStyles = StyleSheet.create({
   formContainer: {
     paddingHorizontal: 20,
     paddingTop: 15,
-    maxHeight: SIZES.height * 0.85,
+    maxHeight: SIZES.height * 0.85 - 60,
   },
   inputGroup: {marginBottom: 15},
   label: {fontSize: 15, color: '#444', marginBottom: 8, fontWeight: '500'},
@@ -1227,25 +378,6 @@ const formModalStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.gray,
   },
-  wordOrderCorrectContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: SIZES.base,
-    justifyContent: 'flex-start',
-  },
-  labelInline: {fontSize: 14, color: '#444', marginRight: SIZES.base},
-  inputSmall: {
-    width: 60,
-    height: 40,
-    textAlign: 'center',
-    paddingVertical: Platform.OS === 'ios' ? 8 : 2,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#f9f9f9',
-    marginLeft: SIZES.base,
-  },
   correctChoiceButton: {
     backgroundColor: COLORS.lightGray2,
     paddingVertical: 10,
@@ -1281,25 +413,6 @@ const formModalStyles = StyleSheet.create({
     color: COLORS.darkGray,
     opacity: 0.7,
   },
-  audioPreviewButton: {
-    // Style này chưa được dùng trong code modal, bạn có thể bỏ nếu không cần
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.lightGray,
-    paddingVertical: SIZES.base / 1.5,
-    paddingHorizontal: SIZES.base,
-    borderRadius: SIZES.radius,
-    marginTop: SIZES.base,
-    alignSelf: 'flex-start',
-  },
-  audioPreviewIcon: {
-    // Style này chưa được dùng trong code modal
-    width: 18,
-    height: 18,
-    tintColor: COLORS.primary,
-    marginRight: SIZES.base / 2,
-  },
-  audioPreviewText: {color: COLORS.primary, fontSize: SIZES.font * 0.9}, // Style này chưa được dùng
   submitButton: {
     backgroundColor: COLORS.primary || '#28a745',
     paddingVertical: 14,
@@ -1309,20 +422,1007 @@ const formModalStyles = StyleSheet.create({
     marginBottom: Platform.OS === 'ios' ? 40 : 25,
   },
   submitButtonText: {color: 'white', fontSize: 17, fontWeight: 'bold'},
+  submitButtonDisabled: {backgroundColor: COLORS.gray},
 });
 
-type ContentAdminScreenRouteProp = RouteProp<
-  RootStackParamList,
-  'ContentAdmin'
->;
-type ContentAdminScreenNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  'ContentAdmin'
->;
+// --- AddEditContentModal Component Definition ---
+interface AddEditContentModalProps {
+  visible: boolean;
+  mode: 'add' | 'edit';
+  initialData?: ApiQuestion | null;
+  onClose: () => void;
+  onSubmit: (data: RequestLessonQuestionDTOForAPI) => Promise<void>;
+  playSoundInModal?: (url: string | null) => void;
+  isSubmitting: boolean;
+}
+
+const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
+  visible,
+  mode,
+  initialData,
+  onClose,
+  onSubmit,
+  playSoundInModal,
+  isSubmitting,
+}) => {
+  const [questionType, setQuestionType] = useState(
+    QUESTION_TYPE_OPTIONS[0].value,
+  );
+  const [promptTextTemplate, setPromptTextTemplate] = useState('');
+  const [targetWordNative, setTargetWordNative] = useState('');
+  const [audioUrlQuestionsForm, setAudioUrlQuestionsForm] = useState('');
+  const [currentQuestionChoices, setCurrentQuestionChoices] = useState<
+    EditableQuestionChoiceClient[]
+  >([]);
+  const [isQuestionTypePickerVisible, setIsQuestionTypePickerVisible] =
+    useState(false);
+
+  const isInitialMountForVisibleModal = useRef(true);
+
+  const getDisplayQuestionTypeLabel = (value: string) => {
+    return (
+      QUESTION_TYPE_OPTIONS.find(opt => opt.value === value)?.label || value
+    );
+  };
+
+  const getShuffledDisplayFromTextBlock = (
+    textBlockString: string | null | undefined,
+  ): string => {
+    if (
+      textBlockString &&
+      String(textBlockString).trim() !== '' &&
+      textBlockString !== '[]' &&
+      textBlockString !== 'null'
+    ) {
+      try {
+        const parsedArray = JSON.parse(textBlockString);
+        if (Array.isArray(parsedArray)) {
+          return parsedArray.join(' / ');
+        } else {
+          return '[Lỗi dữ liệu khối từ]';
+        }
+      } catch (error) {
+        // console.error("Error parsing textBlock:", error, textBlockString);
+        return '[Lỗi parse khối từ]';
+      }
+    }
+    return '';
+  };
+
+  const shuffleWordsForTextBlock = (text: string): string[] => {
+    if (!text || text.trim() === '') return [];
+    const words =
+      text.match(
+        /[\u3000\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uFF65-\uFF9F0-9a-zA-Z]+|[.,?!;:]+|\S/g,
+      ) || [];
+    const nonEmptyWords = words.filter(w => w.trim() !== '');
+    for (let i = nonEmptyWords.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [nonEmptyWords[i], nonEmptyWords[j]] = [
+        nonEmptyWords[j],
+        nonEmptyWords[i],
+      ];
+    }
+    return nonEmptyWords;
+  };
+
+  const initializeChoices = useCallback(
+    (
+      type: string,
+      existingApiChoices?: ApiQuestionChoice[],
+      baseTargetWord?: string,
+    ) => {
+      let newChoices: EditableQuestionChoiceClient[] = [];
+      const currentInitialDataForChoices =
+        mode === 'edit' && initialData && initialData.questionType === type
+          ? initialData.questionChoices
+          : existingApiChoices || [];
+
+      if (
+        currentInitialDataForChoices &&
+        currentInitialDataForChoices.length > 0
+      ) {
+        newChoices = currentInitialDataForChoices.map((c, index) => ({
+          ...c,
+          clientId: c.id ? `db-${c.id}` : `edit-temp-${Date.now()}-${index}`,
+          id: c.id,
+          isCorrect: c.isCorrect === 1 || c.isCorrect === true,
+          _shuffledTextBlockDisplay: getShuffledDisplayFromTextBlock(
+            c.textBlock,
+          ),
+          textRomaji: c.textRomaji === undefined ? null : c.textRomaji,
+          audioUrlForeign:
+            c.audioUrlForeign === undefined ? null : c.audioUrlForeign,
+          imageUrl: c.imageUrl === undefined ? null : c.imageUrl,
+          textBlock: c.textBlock === undefined ? null : c.textBlock,
+        }));
+      }
+
+      if (type === 'WORD_ORDER') {
+        const textForWordOrder =
+          baseTargetWord ||
+          (mode === 'edit' &&
+          initialData &&
+          initialData.questionType === 'WORD_ORDER' &&
+          initialData.targetWordNative
+            ? initialData.targetWordNative
+            : newChoices.length > 0 && newChoices[0].textForeign
+            ? newChoices[0].textForeign
+            : ''); // Giữ lại textForeign nếu có từ lần init trước
+        const existingChoice = newChoices.length > 0 ? newChoices[0] : null;
+        let currentTextBlock = existingChoice?.textBlock || null;
+        // Nếu textForWordOrder có giá trị và (textBlock rỗng HOẶC textForeign của choice không khớp với textForWordOrder mới)
+        // thì tạo textBlock mới.
+        if (
+          textForWordOrder &&
+          (!currentTextBlock ||
+            currentTextBlock === '[]' ||
+            (existingChoice && existingChoice.textForeign !== textForWordOrder))
+        ) {
+          currentTextBlock = JSON.stringify(
+            shuffleWordsForTextBlock(textForWordOrder),
+          );
+        }
+
+        newChoices = [
+          {
+            clientId: existingChoice?.clientId || `temp-wo-${Date.now()}`,
+            id: existingChoice?.id,
+            textForeign: textForWordOrder,
+            textRomaji: null,
+            imageUrl: null,
+            audioUrlForeign: null,
+            textBlock: currentTextBlock,
+            _shuffledTextBlockDisplay:
+              getShuffledDisplayFromTextBlock(currentTextBlock),
+            isCorrect: true,
+          },
+        ];
+      } else {
+        // Các loại câu hỏi khác
+        const minChoices = 4;
+        // Giữ lại các choices đã có nếu có, chỉ thêm vào nếu thiếu
+        const currentValidChoices = newChoices.filter(
+          c => c.textForeign || c.imageUrl,
+        ); // Ví dụ điều kiện choice hợp lệ
+        while (currentValidChoices.length < minChoices) {
+          currentValidChoices.push({
+            clientId: `temp-${Date.now()}-${currentValidChoices.length}`,
+            textForeign: '',
+            textRomaji: '',
+            imageUrl: null,
+            audioUrlForeign: null,
+            isCorrect: false,
+            textBlock: null,
+            _shuffledTextBlockDisplay: '',
+          });
+        }
+        newChoices = currentValidChoices;
+      }
+      setCurrentQuestionChoices(newChoices);
+    },
+    [mode, initialData],
+  );
+
+  useEffect(() => {
+    if (visible) {
+      isInitialMountForVisibleModal.current = true;
+      if (mode === 'edit' && initialData) {
+        setQuestionType(initialData.questionType);
+        setPromptTextTemplate(initialData.promptTextTemplate || '');
+        setTargetWordNative(initialData.targetWordNative || '');
+        setAudioUrlQuestionsForm(initialData.audio_url_questions || '');
+        initializeChoices(
+          initialData.questionType,
+          initialData.questionChoices,
+          initialData.targetWordNative,
+        );
+      } else {
+        const defaultType = QUESTION_TYPE_OPTIONS[0].value;
+        setQuestionType(defaultType);
+        setPromptTextTemplate('');
+        setTargetWordNative('');
+        setAudioUrlQuestionsForm('');
+        initializeChoices(defaultType, [], '');
+      }
+    }
+  }, [visible, mode, initialData, initializeChoices]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (isInitialMountForVisibleModal.current) {
+      isInitialMountForVisibleModal.current = false;
+      return;
+    }
+    // Khi người dùng thay đổi questionType, targetWordNative hiện tại được dùng làm base nếu loại mới là WORD_ORDER
+    initializeChoices(questionType, [], targetWordNative);
+
+    if (questionType === 'AUDIO_CHOICE') {
+      setTargetWordNative('');
+    }
+  }, [visible, questionType, initializeChoices, targetWordNative]); // Thêm targetWordNative vì initializeChoices có thể dùng nó
+
+  useEffect(() => {
+    if (!visible || questionType !== 'WORD_ORDER') return;
+    // Không set targetWordNative ở đây nữa, vì nó là nguồn
+    // Thay vào đó, cập nhật choice dựa trên targetWordNative
+    setCurrentQuestionChoices(prevChoices => {
+      if (prevChoices.length === 1) {
+        const choice = prevChoices[0];
+        if (
+          choice.textForeign !== targetWordNative ||
+          !choice.textBlock ||
+          choice.textBlock === '[]'
+        ) {
+          const newTextBlock = JSON.stringify(
+            shuffleWordsForTextBlock(targetWordNative),
+          );
+          return [
+            {
+              ...choice,
+              textForeign: targetWordNative,
+              textBlock: newTextBlock,
+              _shuffledTextBlockDisplay:
+                getShuffledDisplayFromTextBlock(newTextBlock),
+            },
+          ];
+        }
+      } else if (targetWordNative && prevChoices.length === 0) {
+        // Nếu chưa có choice nào, tạo mới
+        const newTextBlock = JSON.stringify(
+          shuffleWordsForTextBlock(targetWordNative),
+        );
+        return [
+          {
+            clientId: `temp-wo-${Date.now()}`,
+            id: undefined,
+            textForeign: targetWordNative,
+            textRomaji: null,
+            imageUrl: null,
+            audioUrlForeign: null,
+            textBlock: newTextBlock,
+            _shuffledTextBlockDisplay:
+              getShuffledDisplayFromTextBlock(newTextBlock),
+            isCorrect: true,
+          },
+        ];
+      }
+      return prevChoices;
+    });
+  }, [visible, questionType, targetWordNative]);
+
+  const handleChoiceChange = (
+    choiceClientId: string,
+    field: keyof Omit<
+      EditableQuestionChoiceClient,
+      'id' | 'clientId' | '_shuffledTextBlockDisplay'
+    >,
+    value: string | boolean | number | null,
+  ) => {
+    setCurrentQuestionChoices(prevChoices =>
+      prevChoices.map(choice => {
+        if (choice.clientId === choiceClientId) {
+          return {...choice, [field]: value};
+        }
+        return choice;
+      }),
+    );
+  };
+
+  const handleSetCorrectChoice = (choiceClientId: string) => {
+    if (questionType === 'WORD_ORDER') return;
+    setCurrentQuestionChoices(prevChoices =>
+      prevChoices.map(choice => ({
+        ...choice,
+        isCorrect: choice.clientId === choiceClientId,
+      })),
+    );
+  };
+
+  const handleAddChoice = () => {
+    if (questionType === 'WORD_ORDER') {
+      Alert.alert(
+        'Thông báo',
+        'Loại câu hỏi Sắp xếp từ chỉ có một trường nhập câu gốc.',
+      );
+      return;
+    }
+    if (currentQuestionChoices.length >= 10) {
+      Alert.alert('Thông báo', 'Đã đạt số lượng lựa chọn tối đa (10).');
+      return;
+    }
+    setCurrentQuestionChoices(prev => [
+      ...prev,
+      {
+        clientId: `temp-${Date.now()}-${prev.length}`,
+        textForeign: '',
+        textRomaji: '',
+        imageUrl: null,
+        audioUrlForeign: null,
+        isCorrect: false,
+        textBlock: null,
+        _shuffledTextBlockDisplay: '',
+      },
+    ]);
+  };
+
+  const handleRemoveChoice = (choiceClientId: string) => {
+    const minChoices = questionType === 'WORD_ORDER' ? 1 : 4;
+    if (currentQuestionChoices.length <= minChoices) {
+      Alert.alert('Thông báo', `Cần ít nhất ${minChoices} lựa chọn trả lời.`);
+      return;
+    }
+    if (questionType === 'WORD_ORDER') return;
+    setCurrentQuestionChoices(prev =>
+      prev.filter(choice => choice.clientId !== choiceClientId),
+    );
+  };
+
+  const handleShuffleWordOrderChoice = (choiceClientId: string) => {
+    const choiceIndex = currentQuestionChoices.findIndex(
+      c => c.clientId === choiceClientId,
+    );
+    if (questionType !== 'WORD_ORDER' || choiceIndex === -1) return;
+
+    const originalText = currentQuestionChoices[choiceIndex].textForeign;
+    if (!originalText || originalText.trim() === '') {
+      Alert.alert(
+        'Lỗi',
+        'Vui lòng nhập nội dung câu gốc (Text Foreign) trước khi trộn.',
+      );
+      return;
+    }
+    const shuffledWordsArray = shuffleWordsForTextBlock(originalText);
+    if (shuffledWordsArray.length === 0) {
+      Alert.alert(
+        'Lỗi',
+        'Không thể tách từ từ câu gốc để trộn. Vui lòng kiểm tra lại câu gốc.',
+      );
+      return;
+    }
+    const shuffledJsonString = JSON.stringify(shuffledWordsArray);
+    setCurrentQuestionChoices(prevChoices =>
+      prevChoices.map(c =>
+        c.clientId === choiceClientId
+          ? {
+              ...c,
+              textBlock: shuffledJsonString,
+              _shuffledTextBlockDisplay: shuffledWordsArray.join(' / '),
+            }
+          : c,
+      ),
+    );
+    showMessage({message: 'Đã trộn và cập nhật Text Block!', type: 'success'});
+  };
+
+  const handleSubmitInternal = () => {
+    if (isSubmitting) return;
+
+    let currentPromptText = promptTextTemplate.trim();
+    if (
+      questionType === 'WORD_ORDER' &&
+      !currentPromptText &&
+      targetWordNative.trim()
+    ) {
+      currentPromptText = `Sắp xếp các từ sau thành câu: ${targetWordNative.trim()}`;
+    } else if (!currentPromptText && questionType !== 'WORD_ORDER') {
+      return Alert.alert('Lỗi', 'Vui lòng nhập "Mẫu câu hỏi/Yêu cầu".');
+    }
+
+    if (questionType === 'WORD_ORDER') {
+      if (!targetWordNative.trim()) {
+        return Alert.alert(
+          'Lỗi',
+          'WORD_ORDER: Vui lòng nhập "Nội dung/Đáp án chính" (câu đúng).',
+        );
+      }
+      if (currentQuestionChoices.length !== 1) {
+        Alert.alert(
+          'Lỗi',
+          'Lỗi cấu hình: Câu hỏi WORD_ORDER cần đúng 1 lựa chọn.',
+        );
+        return;
+      }
+      const choice = currentQuestionChoices[0];
+      if (
+        !choice.textForeign.trim() ||
+        targetWordNative.trim() !== choice.textForeign.trim()
+      ) {
+        return Alert.alert(
+          'Lỗi',
+          "WORD_ORDER: 'Nội dung/Đáp án chính' phải khớp với 'Câu gốc' trong lựa chọn và không được rỗng.",
+        );
+      }
+      if (
+        !choice.textBlock ||
+        choice.textBlock.trim() === '' ||
+        choice.textBlock === '[]'
+      ) {
+        return Alert.alert(
+          'Lỗi',
+          "WORD_ORDER: Vui lòng nhấn 'Trộn từ' hoặc đảm bảo 'Câu gốc' có nội dung để tạo khối từ xáo trộn.",
+        );
+      }
+    } else if (questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE') {
+      if (!targetWordNative.trim()) {
+        return Alert.alert(
+          'Lỗi',
+          'Chọn Ảnh: Vui lòng nhập "Từ vựng" cho câu hỏi.',
+        );
+      }
+    } else if (questionType === 'AUDIO_CHOICE') {
+      if (!audioUrlQuestionsForm || !audioUrlQuestionsForm.trim()) {
+        return Alert.alert(
+          'Lỗi',
+          'Câu hỏi Audio: Yêu cầu "URL Audio câu hỏi".',
+        );
+      }
+    } else if (questionType === 'MULTIPLE_CHOICE_TEXT_ONLY') {
+      if (!targetWordNative.trim()) {
+        return Alert.alert(
+          'Lỗi',
+          'Chọn câu hỏi Text: Vui lòng nhập "Nội dung/Đáp án chính".',
+        );
+      }
+    }
+
+    if (questionType !== 'WORD_ORDER') {
+      if (currentQuestionChoices.length < 4) {
+        return Alert.alert('Lỗi', 'Cần ít nhất 4 lựa chọn trả lời.');
+      }
+      let isCorrectChoiceSelected = false;
+      for (let i = 0; i < currentQuestionChoices.length; i++) {
+        const choice = currentQuestionChoices[i];
+        if (!choice.textForeign || !choice.textForeign.trim()) {
+          return Alert.alert(
+            'Lỗi',
+            `Lựa chọn ${
+              i + 1
+            }: "Nội dung tiếng nước ngoài" không được để trống.`,
+          );
+        }
+        if (questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE') {
+          if (!choice.imageUrl || !choice.imageUrl.trim()) {
+            return Alert.alert(
+              'Lỗi',
+              `Lựa chọn ${i + 1}: Yêu cầu "URL Hình ảnh".`,
+            );
+          }
+          if (!choice.textRomaji || !choice.textRomaji.trim()) {
+            return Alert.alert('Lỗi', `Lựa chọn ${i + 1}: Yêu cầu "Romaji".`);
+          }
+        } else if (
+          questionType === 'MULTIPLE_CHOICE_TEXT_ONLY' ||
+          questionType === 'AUDIO_CHOICE'
+        ) {
+          if (!choice.textRomaji || !choice.textRomaji.trim()) {
+            return Alert.alert('Lỗi', `Lựa chọn ${i + 1}: Yêu cầu "Romaji".`);
+          }
+        }
+        if (choice.isCorrect === true) isCorrectChoiceSelected = true;
+      }
+      if (!isCorrectChoiceSelected) {
+        return Alert.alert('Lỗi', 'Vui lòng chọn một đáp án đúng.');
+      }
+    }
+
+    const choicesToSubmitAPI: QuestionChoiceDTOForAPI[] =
+      currentQuestionChoices.map(clientChoice => {
+        const {
+          clientId,
+          _shuffledTextBlockDisplay,
+          id: clientSideId,
+          ...apiData
+        } = clientChoice;
+        return {
+          id: typeof clientSideId === 'number' ? clientSideId : undefined,
+          textForeign: apiData.textForeign,
+          textRomaji: apiData.textRomaji,
+          imageUrl: apiData.imageUrl,
+          audioUrlForeign:
+            questionType === 'AUDIO_CHOICE' || questionType === 'WORD_ORDER'
+              ? null
+              : apiData.audioUrlForeign,
+          textBlock: questionType === 'WORD_ORDER' ? apiData.textBlock : null,
+          isCorrect: !!apiData.isCorrect,
+        };
+      });
+
+    const formData: RequestLessonQuestionDTOForAPI = {
+      questionType: questionType,
+      promptTextTemplate: currentPromptText,
+      targetWordNative:
+        questionType === 'AUDIO_CHOICE' ? '' : targetWordNative.trim(),
+      targetLanguageCode: initialData?.targetLanguageCode || 'ja',
+      optionsLanguageCode: initialData?.optionsLanguageCode || 'vi',
+      audioUrlQuestions: audioUrlQuestionsForm.trim() || null,
+      questionChoices: choicesToSubmitAPI,
+    };
+    onSubmit(formData);
+  };
+
+  const handleSelectQuestionType = (typeValue: string) => {
+    setQuestionType(typeValue); // Điều này sẽ trigger useEffect thứ 2
+    setIsQuestionTypePickerVisible(false);
+  };
+
+  // --- JSX CỦA MODAL ---
+  // Phần JSX bên trong AddEditContentModal được giữ nguyên như trong phiên bản trước
+  // (bao gồm các input, button, scrollview, v.v.)
+  // Bạn có thể copy phần return (...) của AddEditContentModal từ phiên bản trước đó vào đây.
+  // Vì phần JSX rất dài và không thay đổi logic, tôi sẽ không lặp lại ở đây để câu trả lời ngắn gọn hơn.
+  // Đảm bảo rằng các tham chiếu state (questionType, promptTextTemplate, ...) và hàm (handleChoiceChange, ...) là chính xác.
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}>
+      <Pressable style={formModalStyles.backdrop} onPress={Keyboard.dismiss}>
+        <Pressable
+          style={formModalStyles.modalViewContainer}
+          onPress={() => {}}>
+          <View style={formModalStyles.modalViewContent}>
+            <View style={formModalStyles.header}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={formModalStyles.backButton}>
+                <Image
+                  source={BACK_ARROW_ICON}
+                  style={formModalStyles.backIcon}
+                />
+              </TouchableOpacity>
+              <Text style={formModalStyles.headerTitle}>
+                {mode === 'add' ? 'Thêm Câu Hỏi Mới' : 'Chỉnh Sửa Câu Hỏi'}
+              </Text>
+              <View
+                style={{
+                  width:
+                    formModalStyles.backIcon.width +
+                    ((formModalStyles.backButton.paddingHorizontal as number) ||
+                      5) *
+                      2,
+                }}
+              />
+            </View>
+            <ScrollView
+              style={formModalStyles.formContainer}
+              contentContainerStyle={{paddingBottom: SIZES.padding * 10}}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled">
+              <View style={formModalStyles.inputGroup}>
+                <Text style={formModalStyles.label}>
+                  Loại câu hỏi{' '}
+                  <Text style={formModalStyles.requiredStar}>*</Text>
+                </Text>
+                {mode === 'edit' && initialData ? (
+                  <TextInput
+                    style={[
+                      formModalStyles.input,
+                      formModalStyles.readOnlyInput,
+                    ]}
+                    value={getDisplayQuestionTypeLabel(questionType)}
+                    editable={false}
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      formModalStyles.input,
+                      formModalStyles.pickerDisplayButton,
+                    ]}
+                    onPress={() => setIsQuestionTypePickerVisible(true)}>
+                    <Text style={formModalStyles.pickerDisplayText}>
+                      {getDisplayQuestionTypeLabel(questionType) ||
+                        'Chọn loại câu hỏi'}
+                    </Text>
+                    <Text style={formModalStyles.pickerDropdownIcon}>▼</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {questionType !== 'WORD_ORDER' && (
+                <View style={formModalStyles.inputGroup}>
+                  <Text style={[formModalStyles.label, {fontWeight: 'bold'}]}>
+                    Mẫu câu hỏi/Yêu cầu{' '}
+                    <Text style={formModalStyles.requiredStar}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      formModalStyles.input,
+                      {height: 80, textAlignVertical: 'top'},
+                    ]}
+                    placeholder="Nhập yêu cầu hoặc mẫu câu hỏi"
+                    value={promptTextTemplate}
+                    onChangeText={setPromptTextTemplate}
+                    multiline
+                    editable={!isSubmitting}
+                  />
+                </View>
+              )}
+
+              {questionType !== 'AUDIO_CHOICE' && (
+                <View style={formModalStyles.inputGroup}>
+                  <Text style={[formModalStyles.label, {fontWeight: 'bold'}]}>
+                    {questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE'
+                      ? 'Từ vựng (cho câu hỏi chọn ảnh)'
+                      : 'Nội dung/Đáp án chính'}{' '}
+                    <Text style={formModalStyles.requiredStar}>*</Text>
+                    {questionType === 'WORD_ORDER' && ' (Câu đúng)'}
+                  </Text>
+                  <TextInput
+                    style={[
+                      formModalStyles.input,
+                      (questionType === 'WORD_ORDER' ||
+                        questionType === 'MULTIPLE_CHOICE_TEXT_ONLY') && {
+                        height: 80,
+                        textAlignVertical: 'top',
+                      },
+                    ]}
+                    placeholder={
+                      questionType === 'WORD_ORDER'
+                        ? 'Nhập câu đúng (vd: わたしは ごはんを たべます)'
+                        : questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE'
+                        ? 'Nhập từ vựng (vd: りんご)'
+                        : 'Nhập nội dung hoặc đáp án'
+                    }
+                    value={targetWordNative}
+                    onChangeText={setTargetWordNative}
+                    multiline={
+                      questionType === 'WORD_ORDER' ||
+                      questionType === 'MULTIPLE_CHOICE_TEXT_ONLY'
+                    }
+                    editable={!isSubmitting}
+                  />
+                </View>
+              )}
+
+              {(questionType === 'AUDIO_CHOICE' ||
+                questionType === 'WORD_ORDER') && (
+                <View style={formModalStyles.inputGroup}>
+                  <Text
+                    style={[
+                      formModalStyles.label,
+                      questionType === 'AUDIO_CHOICE' && {fontWeight: 'bold'},
+                    ]}>
+                    URL Audio câu hỏi{' '}
+                    {questionType === 'AUDIO_CHOICE' && (
+                      <Text style={formModalStyles.requiredStar}>*</Text>
+                    )}
+                  </Text>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <TextInput
+                      style={[
+                        formModalStyles.input,
+                        {
+                          flex: 1,
+                          marginRight:
+                            audioUrlQuestionsForm && playSoundInModal
+                              ? SIZES.base
+                              : 0,
+                        },
+                      ]}
+                      placeholder="https://example.com/audio.mp3"
+                      value={audioUrlQuestionsForm}
+                      onChangeText={setAudioUrlQuestionsForm}
+                      keyboardType="url"
+                      editable={!isSubmitting}
+                    />
+                    {audioUrlQuestionsForm && playSoundInModal && (
+                      <TouchableOpacity
+                        onPress={() => playSoundInModal(audioUrlQuestionsForm)}
+                        style={styles.audioPlayButtonSmallModal}>
+                        <Image
+                          source={AUDIO_PLAY_ICON}
+                          style={styles.audioIconInListSmallModal}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              <Text style={formModalStyles.choicesHeader}>
+                {questionType === 'WORD_ORDER'
+                  ? 'Câu gốc & Khối từ xáo trộn'
+                  : 'Các lựa chọn trả lời'}
+              </Text>
+
+              {currentQuestionChoices.map((choice, index) => (
+                <View
+                  key={choice.clientId}
+                  style={formModalStyles.choiceItemContainer}>
+                  <View style={formModalStyles.choiceHeader}>
+                    <Text style={formModalStyles.choiceIndexText}>
+                      {questionType === 'WORD_ORDER'
+                        ? 'Dữ liệu câu sắp xếp'
+                        : `Lựa chọn ${index + 1}:`}
+                    </Text>
+                    {questionType !== 'WORD_ORDER' &&
+                      currentQuestionChoices.length > 4 && (
+                        <TouchableOpacity
+                          onPress={() => handleRemoveChoice(choice.clientId)}
+                          style={formModalStyles.deleteChoiceButtonSmall}>
+                          <Image
+                            source={DELETE_CHOICE_ICON}
+                            style={formModalStyles.deleteChoiceIconSmall}
+                          />
+                        </TouchableOpacity>
+                      )}
+                  </View>
+
+                  <Text style={formModalStyles.label}>
+                    {questionType === 'WORD_ORDER'
+                      ? 'Câu gốc (đồng bộ từ "Nội dung/Đáp án chính")'
+                      : 'Nội dung tiếng nước ngoài'}
+                    <Text style={formModalStyles.requiredStar}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      formModalStyles.input,
+                      questionType === 'WORD_ORDER' && styles.readOnlyInput,
+                    ]}
+                    placeholder={
+                      questionType === 'WORD_ORDER'
+                        ? 'Tự động điền'
+                        : 'Nhập nội dung...'
+                    }
+                    value={choice.textForeign}
+                    onChangeText={text =>
+                      handleChoiceChange(choice.clientId, 'textForeign', text)
+                    }
+                    editable={!isSubmitting && questionType !== 'WORD_ORDER'}
+                  />
+
+                  {questionType !== 'AUDIO_CHOICE' &&
+                    questionType !== 'WORD_ORDER' && (
+                      <View style={formModalStyles.inputGroup}>
+                        <Text style={formModalStyles.label}>
+                          URL Audio lựa chọn
+                        </Text>
+                        <View
+                          style={{flexDirection: 'row', alignItems: 'center'}}>
+                          <TextInput
+                            style={[
+                              formModalStyles.input,
+                              {
+                                flex: 1,
+                                marginRight:
+                                  choice.audioUrlForeign && playSoundInModal
+                                    ? SIZES.base
+                                    : 0,
+                              },
+                            ]}
+                            placeholder="URL audio cho lựa chọn này (nếu có)"
+                            value={choice.audioUrlForeign || ''}
+                            onChangeText={text =>
+                              handleChoiceChange(
+                                choice.clientId,
+                                'audioUrlForeign',
+                                text,
+                              )
+                            }
+                            keyboardType="url"
+                            editable={!isSubmitting}
+                          />
+                          {choice.audioUrlForeign && playSoundInModal && (
+                            <TouchableOpacity
+                              onPress={() =>
+                                playSoundInModal(choice.audioUrlForeign)
+                              }
+                              style={styles.audioPlayButtonSmallModal}>
+                              <Image
+                                source={AUDIO_PLAY_ICON}
+                                style={styles.audioIconInListSmallModal}
+                              />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    )}
+
+                  {(questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' ||
+                    questionType === 'MULTIPLE_CHOICE_TEXT_ONLY' ||
+                    questionType === 'AUDIO_CHOICE') && (
+                    <View style={formModalStyles.inputGroup}>
+                      <Text style={formModalStyles.label}>
+                        Romaji{' '}
+                        <Text style={formModalStyles.requiredStar}>*</Text>
+                      </Text>
+                      <TextInput
+                        style={[formModalStyles.input]}
+                        placeholder="Nhập Romaji"
+                        value={choice.textRomaji || ''}
+                        onChangeText={text =>
+                          handleChoiceChange(
+                            choice.clientId,
+                            'textRomaji',
+                            text,
+                          )
+                        }
+                        editable={!isSubmitting}
+                      />
+                    </View>
+                  )}
+
+                  {questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' && (
+                    <View style={formModalStyles.inputGroup}>
+                      <Text style={formModalStyles.label}>
+                        URL Hình ảnh{' '}
+                        <Text style={formModalStyles.requiredStar}>*</Text>
+                      </Text>
+                      <View style={formModalStyles.imageInputContainer}>
+                        <TextInput
+                          style={[
+                            formModalStyles.input,
+                            {flex: 1, marginRight: SIZES.base},
+                          ]}
+                          placeholder="https://example.com/image.png"
+                          value={choice.imageUrl || ''}
+                          onChangeText={text =>
+                            handleChoiceChange(
+                              choice.clientId,
+                              'imageUrl',
+                              text,
+                            )
+                          }
+                          editable={!isSubmitting}
+                        />
+                        {choice.imageUrl ? (
+                          <Image
+                            source={{uri: choice.imageUrl}}
+                            style={formModalStyles.choiceImagePreview}
+                          />
+                        ) : (
+                          <View
+                            style={formModalStyles.choiceImagePlaceholder}
+                          />
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  {questionType === 'WORD_ORDER' && (
+                    <>
+                      <View
+                        style={[
+                          formModalStyles.inputGroup,
+                          {marginTop: SIZES.base},
+                        ]}>
+                        <Text style={formModalStyles.label}>
+                          Các khối từ xáo trộn (JSON - tự động tạo):
+                        </Text>
+                        <TextInput
+                          style={[
+                            formModalStyles.input,
+                            formModalStyles.readOnlyInput,
+                            {minHeight: 60, textAlignVertical: 'top'},
+                          ]}
+                          value={choice.textBlock || 'Tự động tạo từ "Câu gốc"'}
+                          editable={false}
+                          multiline
+                        />
+                        <Text style={formModalStyles.label}>
+                          Xem trước xáo trộn:
+                        </Text>
+                        <TextInput
+                          style={[
+                            formModalStyles.input,
+                            formModalStyles.readOnlyInput,
+                            {
+                              minHeight: 40,
+                              textAlignVertical: 'top',
+                              marginTop: SIZES.base / 2,
+                            },
+                          ]}
+                          value={choice._shuffledTextBlockDisplay || ''}
+                          editable={false}
+                          multiline
+                        />
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.addNewButton,
+                          {
+                            alignSelf: 'flex-start',
+                            marginTop: SIZES.base,
+                            backgroundColor: COLORS.secondary,
+                          },
+                        ]}
+                        onPress={() =>
+                          handleShuffleWordOrderChoice(choice.clientId)
+                        }
+                        disabled={isSubmitting || !choice.textForeign?.trim()}>
+                        <Text style={styles.addNewButtonText}>Trộn từ</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+
+                  {questionType !== 'WORD_ORDER' && (
+                    <TouchableOpacity
+                      style={[
+                        formModalStyles.correctChoiceButton,
+                        choice.isCorrect === true &&
+                          formModalStyles.correctChoiceButtonSelected,
+                      ]}
+                      onPress={() => handleSetCorrectChoice(choice.clientId)}
+                      disabled={isSubmitting}>
+                      <Text
+                        style={[
+                          formModalStyles.correctChoiceButtonText,
+                          choice.isCorrect === true &&
+                            formModalStyles.correctChoiceButtonTextSelected,
+                        ]}>
+                        {choice.isCorrect === true
+                          ? '✓ Đáp án đúng'
+                          : 'Chọn làm đáp án đúng'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+
+              {questionType !== 'WORD_ORDER' && (
+                <TouchableOpacity
+                  onPress={handleAddChoice}
+                  style={formModalStyles.addChoiceButton}
+                  disabled={isSubmitting}>
+                  <Text style={formModalStyles.addChoiceButtonText}>
+                    Thêm lựa chọn
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  formModalStyles.submitButton,
+                  isSubmitting && formModalStyles.submitButtonDisabled,
+                ]}
+                onPress={handleSubmitInternal}
+                disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={formModalStyles.submitButtonText}>
+                    {mode === 'add' ? 'Thêm câu hỏi' : 'Lưu thay đổi'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Pressable>
+      <Modal
+        transparent={true}
+        visible={isQuestionTypePickerVisible}
+        onRequestClose={() => setIsQuestionTypePickerVisible(false)}
+        animationType="fade">
+        <Pressable
+          style={formModalStyles.pickerBackdrop}
+          onPress={() => setIsQuestionTypePickerVisible(false)}>
+          <View style={formModalStyles.pickerModalContainer}>
+            <Text style={formModalStyles.pickerModalTitle}>
+              Chọn loại câu hỏi
+            </Text>
+            {QUESTION_TYPE_OPTIONS.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={formModalStyles.pickerModalOption}
+                onPress={() => handleSelectQuestionType(opt.value)}>
+                <Text style={formModalStyles.pickerModalOptionText}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </Modal>
+  );
+};
 
 const ContensAdminScreen: React.FC = () => {
-  const route = useRoute<ContentAdminScreenRouteProp>();
-  const navigation = useNavigation<ContentAdminScreenNavigationProp>();
+  const route = useRoute<ContensAdminScreenRouteProp>();
+  const navigation = useNavigation<ContensAdminScreenNavigationProp>();
   const {logout} = useAuth();
   const {lesson_code: currentLessonCode, lesson_name: currentLessonName} =
     route.params;
@@ -1330,19 +1430,35 @@ const ContensAdminScreen: React.FC = () => {
   const [questions, setQuestions] = useState<ApiQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
     id: number;
     name: string;
   } | null>(null);
   const [deletingItemCode, setDeletingItemCode] = useState<number | null>(null);
-
   const [isAddEditModalVisible, setIsAddEditModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [currentEditingItem, setCurrentEditingItem] =
     useState<ApiQuestion | null>(null);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
+
+  const audioRef = useRef<VideoRef>(null);
+  const [audioURLToPlay, setAudioUrlToPlayState] = useState<string | null>(
+    null,
+  );
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [audioErrorState, setAudioErrorState] = useState('');
+  const audioUrlToPlayRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const getToken = useCallback(async () => {
     const token = await AsyncStorage.getItem('token');
@@ -1357,59 +1473,53 @@ const ContensAdminScreen: React.FC = () => {
     return token;
   }, [logout]);
 
+  const API_BASE_URL = 'http://10.0.2.2:8080/api/admin/lesson-question';
+
   const fetchQuestions = useCallback(async () => {
-    if (currentLessonCode === undefined || currentLessonCode === null) {
-      setError('Không có ID bài học để tải câu hỏi.');
-      setIsLoading(false);
+    if (!currentLessonCode) {
+      if (isMountedRef.current) setError('Không có ID bài học.');
+      if (isMountedRef.current) setIsLoading(false);
       return;
     }
+    if (!isMountedRef.current) return;
     setIsLoading(true);
     setError(null);
     try {
       const token = await getToken();
       const response = await axios.get<ApiQuestion[]>(
-        `http://10.0.2.2:8080/api/admin/lesson-question/lesson?lessonId=${currentLessonCode}`,
+        `${API_BASE_URL}/lesson?lessonId=${currentLessonCode}`,
         {headers: {Authorization: `Bearer ${token}`}},
       );
-      if (response.data && Array.isArray(response.data)) {
-        setQuestions(response.data);
-      } else {
-        setQuestions([]);
+      if (isMountedRef.current) {
+        const fetchedQuestions =
+          response.data && Array.isArray(response.data) ? response.data : [];
+        const standardizedQuestions = fetchedQuestions.map(q => ({
+          ...q,
+          audio_url_questions:
+            q.audio_url_questions || (q as any).audioUrlQuestions || null,
+        }));
+        setQuestions(standardizedQuestions);
       }
     } catch (err: any) {
-      console.error(
-        'ContentAdminScreen: Lỗi tải câu hỏi:',
-        JSON.stringify(err, null, 2),
-      );
-      if (axios.isAxiosError(err) && err.response) {
-        console.error(
-          'Axios error data:',
-          JSON.stringify(err.response.data, null, 2),
-        );
-        setError(
-          err.response.data.message ||
-            err.message ||
-            'Không thể tải danh sách câu hỏi.',
-        );
-      } else {
-        setError(err.message || 'Không thể tải danh sách câu hỏi.');
-      }
+      if (!isMountedRef.current) return;
+      const msg =
+        err.response?.data?.message || err.message || 'Không thể tải câu hỏi.';
+      setError(msg);
+      showMessage({message: msg, type: 'danger'});
       setQuestions([]);
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [currentLessonCode, getToken]);
 
   useEffect(() => {
-    if (currentLessonCode !== undefined && currentLessonCode !== null) {
+    if (currentLessonCode) {
       fetchQuestions();
     }
   }, [currentLessonCode, fetchQuestions]);
 
   const getDisplayQuestionType = (type: string): string => {
-    const foundType = QUESTION_TYPE_OPTIONS.find(
-      (opt: QuestionTypeOption) => opt.value === type,
-    );
+    const foundType = QUESTION_TYPE_OPTIONS.find(opt => opt.value === type);
     return foundType ? foundType.label : type;
   };
 
@@ -1430,39 +1540,40 @@ const ContensAdminScreen: React.FC = () => {
     );
   }, [logout]);
 
-  const performDeleteItem = useCallback(async (questionId: number) => {
-    setDeletingItemCode(questionId);
-    setQuestions(prev => prev.filter(item => item.id !== questionId));
-    showMessage({
-      message: `Đã xóa câu hỏi ID: ${questionId} (client-side)`,
-      type: 'info',
-    });
-    setDeletingItemCode(null);
-    setIsDeleteConfirmVisible(false);
-    setItemToDelete(null);
-  }, []);
-
-  const handleCloseDeleteConfirm = useCallback(() => {
-    setIsDeleteConfirmVisible(false);
-    setItemToDelete(null);
-  }, []);
-
-  const handleConfirmDelete = useCallback(() => {
-    if (itemToDelete) performDeleteItem(itemToDelete.id);
-  }, [itemToDelete, performDeleteItem]);
-
-  const handleDeletePress = useCallback((questionId: number, name: string) => {
-    Keyboard.dismiss();
-    setItemToDelete({id: questionId, name: name});
-    setIsDeleteConfirmVisible(true);
-  }, []);
+  const playSound = useCallback(
+    (audioUrlToPlayParam: string | null) => {
+      if (!isMountedRef.current) return;
+      if (!audioUrlToPlayParam) {
+        setAudioUrlToPlayState(null);
+        setIsAudioPlaying(false);
+        setIsAudioLoading(false);
+        return;
+      }
+      if (
+        audioRef.current &&
+        isAudioPlaying &&
+        audioUrlToPlayRef.current === audioUrlToPlayParam
+      ) {
+        audioRef.current.pause();
+        setIsAudioPlaying(false);
+        return;
+      }
+      setAudioUrlToPlayState(null);
+      audioUrlToPlayRef.current = audioUrlToPlayParam;
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          setAudioUrlToPlayState(audioUrlToPlayParam);
+        }
+      }, 50);
+    },
+    [isAudioPlaying],
+  );
 
   const handleAddNewItem = () => {
     setModalMode('add');
     setCurrentEditingItem(null);
     setIsAddEditModalVisible(true);
   };
-
   const handleEditItem = (item: ApiQuestion) => {
     setModalMode('edit');
     setCurrentEditingItem(item);
@@ -1470,82 +1581,136 @@ const ContensAdminScreen: React.FC = () => {
   };
 
   const handleFormSubmit = useCallback(
-    (formData: AddEditContentModalFormData) => {
-      const ensureFullApiQuestionChoice = (
-        choiceData: QuestionChoiceSubmitData,
-        index: number,
-      ): ApiQuestionChoice => {
-        let idForClientState: number;
-        if (choiceData.id !== undefined && typeof choiceData.id === 'number') {
-          idForClientState = choiceData.id;
-        } else {
-          idForClientState =
-            Date.now() + index + Math.floor(Math.random() * 10000);
-        }
-        return {
-          id: idForClientState,
-          textForeign: choiceData.textForeign || '',
-          textRomaji:
-            choiceData.textRomaji === undefined ? null : choiceData.textRomaji,
-          imageUrl:
-            choiceData.imageUrl === undefined ? null : choiceData.imageUrl,
-          audioUrlForeign:
-            choiceData.audioUrlForeign === undefined
-              ? null
-              : choiceData.audioUrlForeign,
-          textBlock:
-            choiceData.textBlock === undefined ? null : choiceData.textBlock,
-          isCorrect:
-            choiceData.isCorrect === undefined ? null : choiceData.isCorrect,
-        };
+    async (formDataFromModal: RequestLessonQuestionDTOForAPI) => {
+      if (!currentLessonCode) {
+        showMessage({
+          message: 'Không có ID bài học, không thể lưu.',
+          type: 'danger',
+        });
+        return;
+      }
+      if (!isMountedRef.current) return;
+      setIsSubmittingForm(true);
+
+      const payload: RequestLessonQuestionDTOForAPI = {
+        ...formDataFromModal,
+        lessonId: Number(currentLessonCode),
       };
 
-      if (modalMode === 'add') {
-        const newItem: ApiQuestion = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          questionType: formData.questionType,
-          promptTextTemplate: formData.promptTextTemplate,
-          targetWordNative: formData.targetWordNative,
-          audio_url_questions: formData.audio_url_questions,
-          targetLanguageCode: 'ja',
-          optionsLanguageCode: 'vi',
-          questionChoices: formData.questionChoices.map((qc, index) =>
-            ensureFullApiQuestionChoice(qc, index),
-          ),
-        };
-        setQuestions(prev => [newItem, ...prev].sort((a, b) => a.id - b.id));
-        showMessage({
-          message: `Đã thêm câu hỏi "${newItem.promptTextTemplate}"! (client-side)`,
-          type: 'success',
+      let url = '';
+      let successMessage = '';
+
+      try {
+        const token = await getToken();
+        if (modalMode === 'add') {
+          url = `${API_BASE_URL}/createFull`;
+          successMessage = 'Thêm câu hỏi thành công!';
+          delete payload.lessonQuestionID;
+          console.log(
+            'Payload gửi đi cho /createFull:',
+            JSON.stringify(payload, null, 2),
+          ); // << THÊM LOG NÀY
+        } else {
+          if (!currentEditingItem || !currentEditingItem.id) {
+            throw new Error('Không tìm thấy ID câu hỏi để cập nhật.');
+          }
+          payload.lessonQuestionID = currentEditingItem.id;
+          url = `${API_BASE_URL}/updateFull`;
+          successMessage = 'Cập nhật câu hỏi thành công!';
+          console.log(
+            'Payload gửi đi cho /update:',
+            JSON.stringify(payload, null, 2),
+          ); // << THÊM LOG NÀY
+        }
+
+        await axios.post(url, payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
-      } else if (modalMode === 'edit' && currentEditingItem) {
-        const updatedQuestion: ApiQuestion = {
-          ...currentEditingItem,
-          questionType: formData.questionType,
-          promptTextTemplate: formData.promptTextTemplate,
-          targetWordNative: formData.targetWordNative,
-          audio_url_questions: formData.audio_url_questions,
-          targetLanguageCode: currentEditingItem.targetLanguageCode || 'ja',
-          optionsLanguageCode: currentEditingItem.optionsLanguageCode || 'vi',
-          questionChoices: formData.questionChoices.map((qc, index) =>
-            ensureFullApiQuestionChoice(qc, index),
-          ),
-        };
-        setQuestions(prev =>
-          prev.map(item =>
-            item.id === currentEditingItem.id ? updatedQuestion : item,
-          ),
+
+        if (!isMountedRef.current) return;
+        showMessage({message: successMessage, type: 'success'});
+        fetchQuestions();
+        setIsAddEditModalVisible(false);
+        setCurrentEditingItem(null);
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        console.error(
+          `Lỗi khi ${modalMode === 'add' ? 'thêm' : 'sửa'} câu hỏi:`,
+          err.response?.data || err.request || err.message || err,
         );
-        showMessage({
-          message: `Đã cập nhật câu hỏi "${formData.promptTextTemplate}"! (client-side)`,
-          type: 'success',
-        });
+        const responseData = err.response?.data;
+        let backendMessage = 'Thao tác thất bại. Vui lòng thử lại.';
+        if (typeof responseData === 'string') {
+          backendMessage = responseData;
+        } else if (responseData && responseData.message) {
+          backendMessage = responseData.message;
+        } else if (err.message) {
+          backendMessage = err.message;
+        }
+
+        showMessage({message: backendMessage, type: 'danger', duration: 5000});
+      } finally {
+        if (isMountedRef.current) setIsSubmittingForm(false);
       }
-      setIsAddEditModalVisible(false);
-      setCurrentEditingItem(null);
     },
-    [modalMode, currentEditingItem],
+    [
+      modalMode,
+      currentLessonCode,
+      currentEditingItem,
+      getToken,
+      fetchQuestions,
+      API_BASE_URL,
+    ],
   );
+
+  const performDeleteItem = useCallback(
+    async (questionId: number) => {
+      if (!isMountedRef.current) return;
+      setDeletingItemCode(questionId);
+      try {
+        // const token = await getToken();
+        // GHI CHÚ: API xóa cần được cung cấp và cập nhật ở đây.
+        // Ví dụ: await axios.delete(`${API_BASE_URL}/${questionId}`, { headers: { Authorization: `Bearer ${token}` } });
+
+        Alert.alert(
+          'Thông báo',
+          'Chức năng xóa chưa được cấu hình API endpoint. Vui lòng kiểm tra lại backend.',
+        );
+        // showMessage({ message: `Đã xóa câu hỏi ID: ${questionId}`, type: 'success' });
+        // fetchQuestions();
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        const msg =
+          err.response?.data?.message ||
+          err.message ||
+          'Không thể xóa câu hỏi.';
+        showMessage({message: msg, type: 'danger'});
+      } finally {
+        if (isMountedRef.current) {
+          setDeletingItemCode(null);
+          setIsDeleteConfirmVisible(false);
+          setItemToDelete(null);
+        }
+      }
+    },
+    [getToken, fetchQuestions, API_BASE_URL],
+  );
+
+  const handleCloseDeleteConfirm = useCallback(() => {
+    setIsDeleteConfirmVisible(false);
+    setItemToDelete(null);
+  }, []);
+  const handleConfirmDelete = useCallback(() => {
+    if (itemToDelete) performDeleteItem(itemToDelete.id);
+  }, [itemToDelete, performDeleteItem]);
+  const handleDeletePress = useCallback((questionId: number, name: string) => {
+    Keyboard.dismiss();
+    setItemToDelete({id: questionId, name: name});
+    setIsDeleteConfirmVisible(true);
+  }, []);
 
   const renderContentItem = useCallback(
     ({item}: {item: ApiQuestion}) => (
@@ -1557,27 +1722,19 @@ const ContensAdminScreen: React.FC = () => {
           <Text style={styles.itemDetailText} numberOfLines={1}>
             Loại: {getDisplayQuestionType(item.questionType)}
           </Text>
-          {item.questionType !== 'AUDIO_CHOICE' &&
-            item.questionType !== 'MULTIPLE_CHOICE_VOCAB_IMAGE' && (
-              <Text style={styles.itemDetailExtraText} numberOfLines={2}>
-                Đáp án: {item.targetWordNative}
-              </Text>
-            )}
+          {item.questionType !== 'AUDIO_CHOICE' && item.targetWordNative && (
+            <Text style={styles.itemDetailExtraText} numberOfLines={2}>
+              Đáp án: {item.targetWordNative}
+            </Text>
+          )}
         </View>
-
         {item.audio_url_questions && (
           <TouchableOpacity
             style={styles.audioPlayButton}
-            onPress={() =>
-              Alert.alert(
-                'Phát Audio Câu Hỏi',
-                item.audio_url_questions || 'Không có URL',
-              )
-            }>
+            onPress={() => playSound(item.audio_url_questions)}>
             <Image source={AUDIO_PLAY_ICON} style={styles.audioIconInList} />
           </TouchableOpacity>
         )}
-
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity
             style={styles.actionButton}
@@ -1605,6 +1762,7 @@ const ContensAdminScreen: React.FC = () => {
       getDisplayQuestionType,
       handleEditItem,
       handleDeletePress,
+      playSound,
     ],
   );
 
@@ -1652,11 +1810,7 @@ const ContensAdminScreen: React.FC = () => {
           style={{
             width:
               styles.backIconSubHeader.width +
-              (styles.backButtonSubHeader.padding ||
-                styles.backButtonSubHeader.padding ||
-                styles.backButtonSubHeader.padding ||
-                0) *
-                2,
+              ((styles.backButtonSubHeader.padding as number) || 0) * 2,
           }}
         />
       </View>
@@ -1668,6 +1822,51 @@ const ContensAdminScreen: React.FC = () => {
           <Text style={styles.addNewButtonText}>Thêm Câu Hỏi</Text>
         </TouchableOpacity>
       </View>
+
+      {audioURLToPlay && (
+        <Video
+          ref={audioRef}
+          source={{uri: audioURLToPlay}}
+          paused={!isAudioPlaying}
+          playInBackground={Platform.OS === 'ios'}
+          playWhenInactive={Platform.OS === 'ios'}
+          ignoreSilentSwitch="ignore"
+          onLoadStart={() => {
+            if (isMountedRef.current) {
+              setIsAudioLoading(true);
+              setAudioErrorState('');
+            }
+          }}
+          onLoad={(data: OnLoadData) => {
+            if (isMountedRef.current) {
+              setIsAudioLoading(false);
+              setIsAudioPlaying(true);
+              audioRef.current?.seek(0);
+            }
+          }}
+          onEnd={() => {
+            if (isMountedRef.current) setIsAudioPlaying(false);
+          }}
+          onError={(videoError: any) => {
+            if (isMountedRef.current) {
+              console.error('ContensAdmin Audio Error:', videoError);
+              setAudioErrorState('Lỗi phát audio.');
+              setIsAudioLoading(false);
+              setIsAudioPlaying(false);
+            }
+          }}
+          style={{height: 0, width: 0}}
+        />
+      )}
+      {isAudioLoading && (
+        <ActivityIndicator
+          style={styles.audioActivityIndicator}
+          color={COLORS.primary}
+        />
+      )}
+      {audioErrorState !== '' && (
+        <Text style={styles.audioErrorText}>{audioErrorState}</Text>
+      )}
 
       {isLoading ? (
         <View style={styles.loadingContainerFull}>
@@ -1716,6 +1915,8 @@ const ContensAdminScreen: React.FC = () => {
           setCurrentEditingItem(null);
         }}
         onSubmit={handleFormSubmit}
+        playSoundInModal={playSound}
+        isSubmitting={isSubmittingForm}
       />
       <Modal
         animationType="fade"
@@ -1745,6 +1946,7 @@ const ContensAdminScreen: React.FC = () => {
   );
 };
 
+// --- Styles (GIỮ NGUYÊN) ---
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.background || '#FFFFFF'},
   mainHeader: {
@@ -1827,8 +2029,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'space-around',
+    marginLeft: SIZES.base,
   },
-  actionButton: {padding: 6},
+  actionButton: {padding: SIZES.base / 2},
   actionIcon: {
     width: 20,
     height: 20,
@@ -1871,17 +2074,19 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray,
     opacity: 0.7,
   },
-  audioPlayButton: {
-    padding: SIZES.base / 2,
-    marginLeft: SIZES.base,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  audioPlayButton: {padding: SIZES.base / 1.5, marginRight: SIZES.base / 2},
   audioIconInList: {width: 24, height: 24},
+  audioPlayButtonSmallModal: {marginLeft: SIZES.base, padding: SIZES.base / 2},
+  audioIconInListSmallModal: {
+    width: 20,
+    height: 20,
+    tintColor: COLORS.secondary,
+  },
   audioActivityIndicator: {
     position: 'absolute',
     bottom: 80,
     alignSelf: 'center',
+    zIndex: 10,
   },
   audioErrorText: {
     position: 'absolute',
@@ -1891,6 +2096,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     padding: 5,
     borderRadius: 3,
+    zIndex: 10,
   },
 });
 
@@ -1919,6 +2125,5 @@ const profileMenuStyles = StyleSheet.create({
   menuIcon: {width: 20, height: 20, marginRight: 12, tintColor: '#555'},
   menuText: {fontSize: 16, color: '#333'},
 });
-// --- END: Styles ---
 
 export default ContensAdminScreen;

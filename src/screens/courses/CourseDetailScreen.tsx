@@ -1,5 +1,5 @@
 // src/screens/courses/CourseDetailScreen.tsx
-import React, {useMemo, useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {
   View,
   Text,
@@ -11,79 +11,38 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
+// SỬA Ở ĐÂY: Sử dụng CoursesStackParamList cho cả RouteProp và StackNavigationProp
+// vì CourseDetailScreen và các màn hình nó điều hướng tới chủ yếu nằm trong CoursesStack
 import {CoursesStackParamList} from '../../navigation';
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import {Image} from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {Video, VideoRef, OnLoadData} from 'react-native-video';
+import {showMessage} from 'react-native-flash-message';
+import {useAuth} from '../auth/AuthContext';
 
-// --- Dữ liệu bảng chữ cái bạn cung cấp ---
-interface KanaCharacter {
-  romaji: string;
-  hiragana: string;
-  katakana: string;
+// --- Dữ liệu bảng chữ cái từ API ---
+interface ApiAlphabetCharacter {
+  id: number;
+  urlAudio: string;
+  alphabetType: 'HIRA' | 'KATA';
+  alphabetCharacter: string;
+  pronunciations: string;
 }
-const fullKanaChartData: KanaCharacter[] = [
-  {romaji: 'a', hiragana: 'あ', katakana: 'ア'},
-  {romaji: 'i', hiragana: 'い', katakana: 'イ'},
-  {romaji: 'u', hiragana: 'う', katakana: 'ウ'},
-  {romaji: 'e', hiragana: 'え', katakana: 'エ'},
-  {romaji: 'o', hiragana: 'お', katakana: 'オ'},
-  {romaji: 'ka', hiragana: 'か', katakana: 'カ'},
-  {romaji: 'ki', hiragana: 'き', katakana: 'キ'},
-  {romaji: 'ku', hiragana: 'く', katakana: 'ク'},
-  {romaji: 'ke', hiragana: 'け', katakana: 'ケ'},
-  {romaji: 'ko', hiragana: 'こ', katakana: 'コ'},
-  {romaji: 'sa', hiragana: 'さ', katakana: 'サ'},
-  {romaji: 'shi', hiragana: 'し', katakana: 'シ'},
-  {romaji: 'su', hiragana: 'す', katakana: 'ス'},
-  {romaji: 'se', hiragana: 'せ', katakana: 'セ'},
-  {romaji: 'so', hiragana: 'そ', katakana: 'ソ'},
-  {romaji: 'ta', hiragana: 'た', katakana: 'タ'},
-  {romaji: 'chi', hiragana: 'ち', katakana: 'チ'},
-  {romaji: 'tsu', hiragana: 'つ', katakana: 'ツ'},
-  {romaji: 'te', hiragana: 'て', katakana: 'テ'},
-  {romaji: 'to', hiragana: 'と', katakana: 'ト'},
-  {romaji: 'na', hiragana: 'な', katakana: 'ナ'},
-  {romaji: 'ni', hiragana: 'に', katakana: 'ニ'},
-  {romaji: 'nu', hiragana: 'ぬ', katakana: 'ヌ'},
-  {romaji: 'ne', hiragana: 'ね', katakana: 'ネ'},
-  {romaji: 'no', hiragana: 'の', katakana: 'ノ'},
-  {romaji: 'ha', hiragana: 'は', katakana: 'ハ'},
-  {romaji: 'hi', hiragana: 'ひ', katakana: 'ヒ'},
-  {romaji: 'fu', hiragana: 'ふ', katakana: 'フ'},
-  {romaji: 'he', hiragana: 'へ', katakana: 'ヘ'},
-  {romaji: 'ho', hiragana: 'ほ', katakana: 'ホ'},
-  {romaji: 'ma', hiragana: 'ま', katakana: 'マ'},
-  {romaji: 'mi', hiragana: 'み', katakana: 'ミ'},
-  {romaji: 'mu', hiragana: 'む', katakana: 'ム'},
-  {romaji: 'me', hiragana: 'め', katakana: 'メ'},
-  {romaji: 'mo', hiragana: 'も', katakana: 'モ'},
-  {romaji: 'ya', hiragana: 'や', katakana: 'ヤ'},
-  {romaji: 'yu', hiragana: 'ゆ', katakana: 'ユ'},
-  {romaji: 'yo', hiragana: 'よ', katakana: 'ヨ'},
-  {romaji: 'ra', hiragana: 'ら', katakana: 'ラ'},
-  {romaji: 'ri', hiragana: 'り', katakana: 'リ'},
-  {romaji: 'ru', hiragana: 'る', katakana: 'ル'},
-  {romaji: 're', hiragana: 'れ', katakana: 'レ'},
-  {romaji: 'ro', hiragana: 'ろ', katakana: 'ロ'},
-  {romaji: 'wa', hiragana: 'わ', katakana: 'ワ'},
-  {romaji: 'wo', hiragana: 'を', katakana: 'ヲ'},
-  {romaji: 'n', hiragana: 'ん', katakana: 'ン'},
-];
-// --- Kết thúc dữ liệu bảng chữ cái ---
 
-// Interface cho một item trong FlatList hiển thị bảng chữ cái
 interface KanaDisplayItem {
   id: string;
   kana: string;
   romaji: string;
+  urlAudio: string | null;
 }
+// --- Kết thúc dữ liệu bảng chữ cái ---
 
-// Interfaces cho API data (giữ nguyên)
 interface Lesson {
   lesson_code: number;
   lesson_name: string;
@@ -117,14 +76,16 @@ interface ApiTopicViewResponse {
   examResponseDTO: ApiExamResponseDTO | null;
 }
 
+// SỬA TYPE CHO ROUTE VÀ NAVIGATION PROP
 type CourseDetailScreenRouteProp = RouteProp<
   CoursesStackParamList,
   'CourseDetail'
 >;
 type CourseDetailScreenNavigationProp = StackNavigationProp<
   CoursesStackParamList,
-  'Lesson' | 'ContentsLyThuyetScreen' | 'ContentsScreen'
+  'CourseDetail'
 >;
+// Với type trên, navigation.navigate sẽ được kiểm tra dựa trên các màn hình có trong CoursesStackParamList
 
 const LessonStatusIcon = ({status}: {status?: Lesson['status']}) => {
   if (status === 'completed') {
@@ -146,22 +107,65 @@ const LessonStatusIcon = ({status}: {status?: Lesson['status']}) => {
 const CourseDetailScreen: React.FC = () => {
   const route = useRoute<CourseDetailScreenRouteProp>();
   const navigation = useNavigation<CourseDetailScreenNavigationProp>();
+  const {logout} = useAuth();
 
   const {courseId, title: initialTopicTitle} = route.params || {};
 
-  const [allScreenItems, setAllScreenItems] = useState<Lesson[]>([]); // Dùng cho dữ liệu từ API (không phải bảng chữ cái)
+  const [allScreenItems, setAllScreenItems] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeSegment, setActiveSegment] = useState<'Hira' | 'Kata'>('Hira'); // Dùng cho cả 2 chế độ
+  const [activeSegment, setActiveSegment] = useState<'Hira' | 'Kata'>('Hira');
   const [displayTitle, setDisplayTitle] = useState<string>(
     initialTopicTitle || 'Chi tiết chủ đề',
   );
 
+  const [hiraganaChars, setHiraganaChars] = useState<ApiAlphabetCharacter[]>(
+    [],
+  );
+  const [katakanaChars, setKatakanaChars] = useState<ApiAlphabetCharacter[]>(
+    [],
+  );
+  const [isLoadingAlphabet, setIsLoadingAlphabet] = useState<boolean>(false);
+  const [alphabetError, setAlphabetError] = useState<string | null>(null);
+
+  const audioRef = useRef<VideoRef>(null);
+  const [audioURLToPlay, setAudioUrlToPlayState] = useState<string | null>(
+    null,
+  );
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [audioErrorState, setAudioErrorState] = useState('');
+  const audioUrlToPlayRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const getToken = useCallback(async () => {
+    const token = await AsyncStorage.getItem('token');
+    if (!token) {
+      if (isMountedRef.current) {
+        showMessage({
+          message: 'Lỗi xác thực hoặc phiên đã hết hạn.',
+          type: 'danger',
+        });
+        logout();
+      }
+      throw new Error('Token not found');
+    }
+    return token;
+  }, [logout]);
+
   const currentTopicIdAsNumber = useMemo(() => {
     if (typeof courseId === 'string' && courseId.trim() !== '') {
-      return parseInt(courseId, 10);
+      const parsedId = parseInt(courseId, 10);
+      return !isNaN(parsedId) ? parsedId : null;
     }
-    return NaN;
+    return null;
   }, [courseId]);
 
   const isAlphabetTopic = useMemo(
@@ -169,88 +173,148 @@ const CourseDetailScreen: React.FC = () => {
     [displayTitle],
   );
 
+  const fetchAlphabets = useCallback(
+    async (topicIdToFetch: number) => {
+      if (!isMountedRef.current) return;
+      setIsLoadingAlphabet(true);
+      setAlphabetError(null);
+      try {
+        const token = await getToken();
+
+        const response = await axios.get<ApiAlphabetCharacter[]>(
+          `http://10.0.2.2:8080/api/user/alphabets?topicId=${topicIdToFetch}`,
+          {headers: {Authorization: `Bearer ${token}`}},
+        );
+
+        if (isMountedRef.current) {
+          if (response.data && Array.isArray(response.data)) {
+            const hira: ApiAlphabetCharacter[] = [];
+            const kata: ApiAlphabetCharacter[] = [];
+            response.data.forEach(char => {
+              if (char.alphabetType === 'HIRA') hira.push(char);
+              else if (char.alphabetType === 'KATA') kata.push(char);
+            });
+            setHiraganaChars(hira);
+            setKatakanaChars(kata);
+          } else {
+            setAlphabetError('Dữ liệu bảng chữ cái không hợp lệ.');
+            setHiraganaChars([]);
+            setKatakanaChars([]);
+          }
+        }
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        console.error(
+          'Lỗi tải bảng chữ cái:',
+          err.response?.data || err.message,
+        );
+        if (err.message !== 'Token not found') {
+          const msg =
+            err.response?.data?.message ||
+            err.message ||
+            'Không thể tải bảng chữ cái.';
+          setAlphabetError(msg);
+        }
+        setHiraganaChars([]);
+        setKatakanaChars([]);
+      } finally {
+        if (isMountedRef.current) setIsLoadingAlphabet(false);
+      }
+    },
+    [getToken],
+  );
+
   const fetchTopicDetails = useCallback(
     async (topicIdToFetch: number, userId: string) => {
-      // ... (Nội dung hàm fetchTopicDetails giữ nguyên như code bạn đã cung cấp lần trước)
-      // Chỉ đảm bảo nó không bị gọi nếu isAlphabetTopic là true
       if (isNaN(topicIdToFetch) || !userId) {
-        setError('ID chủ đề hoặc UserId không hợp lệ.');
-        setIsLoading(false);
-        setAllScreenItems([]);
+        if (isMountedRef.current) {
+          setError('ID chủ đề hoặc UserId không hợp lệ.');
+          setIsLoading(false);
+          setAllScreenItems([]);
+        }
         return;
       }
+      if (!isMountedRef.current) return;
       setIsLoading(true);
       setError(null);
       try {
-        const token = await AsyncStorage.getItem('token');
-        if (!token) throw new Error('Không tìm thấy token.');
+        const token = await getToken();
         const response = await axios.get<ApiTopicViewResponse>(
           `http://10.0.2.2:8080/api/user/topic/view?topicId=${topicIdToFetch}&idUser=${userId}`,
           {headers: {Authorization: `Bearer ${token}`}},
         );
-        if (response.data) {
-          const topicData = response.data;
-          setDisplayTitle(
-            topicData.name || initialTopicTitle || 'Chi tiết chủ đề',
-          );
-          const combinedItems: Lesson[] = [];
-          if (topicData.theoryDTO)
-            combinedItems.push({
-              lesson_code: topicData.theoryDTO.id,
-              lesson_name: topicData.theoryDTO.name,
-              status:
-                topicData.theoryDTO.isComplete === true
-                  ? 'completed'
-                  : 'pending',
-              lesson_type: 'common',
-              lesson_description: '',
-              quantity_content: 0,
-              day_creation: '',
-              topic_code: topicIdToFetch,
-            });
-          if (topicData.lessons?.length)
-            topicData.lessons.forEach(apiLesson =>
+        if (isMountedRef.current) {
+          if (response.data) {
+            const topicData = response.data;
+            setDisplayTitle(
+              topicData.name || initialTopicTitle || 'Chi tiết chủ đề',
+            );
+            const combinedItems: Lesson[] = [];
+            if (topicData.theoryDTO)
               combinedItems.push({
-                lesson_code: apiLesson.id,
-                lesson_name: apiLesson.name,
-                status: apiLesson.isComplete === true ? 'completed' : 'pending',
+                lesson_code: topicData.theoryDTO.id,
+                lesson_name: topicData.theoryDTO.name,
+                status:
+                  topicData.theoryDTO.isComplete === true
+                    ? 'completed'
+                    : 'pending',
                 lesson_type: 'common',
                 lesson_description: '',
                 quantity_content: 0,
                 day_creation: '',
                 topic_code: topicIdToFetch,
-              }),
-            );
-          if (topicData.examResponseDTO)
-            combinedItems.push({
-              lesson_code: topicData.examResponseDTO.id,
-              lesson_name: topicData.examResponseDTO.name,
-              status:
-                topicData.examResponseDTO.isComplete === true
-                  ? 'completed'
-                  : 'pending',
-              lesson_type: 'common',
-              lesson_description: '',
-              quantity_content: 0,
-              day_creation: '',
-              topic_code: topicIdToFetch,
-            });
-          setAllScreenItems(combinedItems);
-        } else {
-          setAllScreenItems([]);
-          setError('Không nhận được dữ liệu API.');
+              });
+            if (topicData.lessons?.length)
+              topicData.lessons.forEach(apiLesson =>
+                combinedItems.push({
+                  lesson_code: apiLesson.id,
+                  lesson_name: apiLesson.name,
+                  status:
+                    apiLesson.isComplete === true ? 'completed' : 'pending',
+                  lesson_type: 'common',
+                  lesson_description: '',
+                  quantity_content: 0,
+                  day_creation: '',
+                  topic_code: topicIdToFetch,
+                }),
+              );
+            if (topicData.examResponseDTO)
+              combinedItems.push({
+                lesson_code: topicData.examResponseDTO.id,
+                lesson_name: topicData.examResponseDTO.name,
+                status:
+                  topicData.examResponseDTO.isComplete === true
+                    ? 'completed'
+                    : 'pending',
+                lesson_type: 'common',
+                lesson_description: '',
+                quantity_content: 0,
+                day_creation: '',
+                topic_code: topicIdToFetch,
+              });
+            setAllScreenItems(combinedItems);
+          } else {
+            setAllScreenItems([]);
+            setError('Không nhận được dữ liệu API.');
+          }
         }
-      } catch (err) {
-        /* ... xử lý lỗi ... */ setError('Lỗi tải dữ liệu.');
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        if (err.message !== 'Token not found') {
+          setError('Lỗi tải dữ liệu chi tiết chủ đề.');
+        }
+        console.error(
+          'Fetch Topic Details Error:',
+          err.response?.data || err.message,
+        );
       } finally {
-        setIsLoading(false);
+        if (isMountedRef.current) setIsLoading(false);
       }
     },
-    [initialTopicTitle],
+    [initialTopicTitle, getToken],
   );
 
   useEffect(() => {
-    // Cập nhật displayTitle từ initialTopicTitle khi component mount hoặc initialTopicTitle thay đổi
     if (initialTopicTitle) {
       setDisplayTitle(initialTopicTitle);
     }
@@ -258,65 +322,103 @@ const CourseDetailScreen: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      // Xác định isAlphabetTopic dựa trên displayTitle đã được cập nhật
+      if (!isMountedRef.current) return;
       const isAlphabet = (displayTitle || '').toLowerCase() === 'bảng chữ cái';
-      console.log(
-        'CourseDetailScreen: isAlphabetTopic =',
-        isAlphabet,
-        'displayTitle =',
-        displayTitle,
-      );
 
       if (isAlphabet) {
-        setIsLoading(false); // Không loading API
-        setAllScreenItems([]); // Xóa dữ liệu API (nếu có)
-        setError(null);
-        // Dữ liệu bảng chữ cái sẽ được xử lý bởi alphabetDisplayData
-      } else if (!isNaN(currentTopicIdAsNumber)) {
+        if (currentTopicIdAsNumber !== null) {
+          fetchAlphabets(currentTopicIdAsNumber);
+        } else {
+          if (isMountedRef.current)
+            setAlphabetError('ID chủ đề bảng chữ cái không hợp lệ.');
+        }
+        if (isMountedRef.current) {
+          setIsLoading(false);
+          setAllScreenItems([]);
+          setError(null);
+        }
+      } else if (currentTopicIdAsNumber !== null) {
         try {
           const storedUserId = await AsyncStorage.getItem('UserId');
           if (storedUserId) {
             fetchTopicDetails(currentTopicIdAsNumber, storedUserId);
           } else {
-            setError('Không tìm thấy UserId. Không thể tải dữ liệu.');
-            setIsLoading(false);
+            if (isMountedRef.current) {
+              setError('Không tìm thấy UserId.');
+              setIsLoading(false);
+            }
           }
         } catch (e) {
-          setError('Lỗi đọc UserId.');
-          setIsLoading(false);
+          if (isMountedRef.current) {
+            setError('Lỗi đọc UserId.');
+            setIsLoading(false);
+          }
         }
       } else if (courseId) {
-        // courseId có nhưng không parse được thành số hợp lệ
-        setError('ID chủ đề không hợp lệ.');
-        setIsLoading(false);
+        if (isMountedRef.current) {
+          setError('ID chủ đề không hợp lệ.');
+          setIsLoading(false);
+        }
       } else {
-        // Không có courseId (trường hợp này đã được chặn ở đầu component)
-        setIsLoading(false); // Hoàn tất việc kiểm tra
+        if (isMountedRef.current) setIsLoading(false);
       }
     };
     loadData();
-  }, [currentTopicIdAsNumber, displayTitle, fetchTopicDetails, courseId]); // Thêm displayTitle và courseId
+  }, [
+    currentTopicIdAsNumber,
+    displayTitle,
+    fetchTopicDetails,
+    fetchAlphabets,
+    courseId,
+  ]);
 
-  // Dữ liệu cho FlatList khi ở chế độ hiển thị bảng chữ cái
+  const playSound = useCallback(
+    (audioUrlToPlayParam: string | null) => {
+      if (!isMountedRef.current) return;
+      if (!audioUrlToPlayParam) {
+        setAudioUrlToPlayState(null);
+        setIsAudioPlaying(false);
+        setIsAudioLoading(false);
+        return;
+      }
+      if (
+        audioRef.current &&
+        isAudioPlaying &&
+        audioUrlToPlayRef.current === audioUrlToPlayParam
+      ) {
+        audioRef.current.pause();
+        setIsAudioPlaying(false);
+        return;
+      }
+      setAudioUrlToPlayState(null);
+      audioUrlToPlayRef.current = audioUrlToPlayParam;
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          setAudioUrlToPlayState(audioUrlToPlayParam);
+        }
+      }, 50);
+    },
+    [isAudioPlaying],
+  );
+
   const alphabetDisplayData = useMemo((): KanaDisplayItem[] => {
     if (!isAlphabetTopic) return [];
-    return fullKanaChartData.map((char, index) => ({
-      id: `${activeSegment}-${char.romaji}-${index}`, // Key duy nhất
-      kana: activeSegment === 'Hira' ? char.hiragana : char.katakana,
-      romaji: char.romaji,
+    const sourceArray =
+      activeSegment === 'Hira' ? hiraganaChars : katakanaChars;
+    return sourceArray.map(char => ({
+      id: String(char.id),
+      kana: char.alphabetCharacter,
+      romaji: char.pronunciations,
+      urlAudio: char.urlAudio,
     }));
-  }, [isAlphabetTopic, activeSegment]);
+  }, [isAlphabetTopic, activeSegment, hiraganaChars, katakanaChars]);
 
-  // itemsForDisplay cho các chủ đề thông thường (từ API)
   const apiItemsForDisplay = useMemo(() => {
-    if (isAlphabetTopic) return []; // Nếu là bảng chữ cái thì không dùng cái này
-    return allScreenItems; // Hiện tại không có filter Hira/Kata cho API data ở đây nữa
-    // vì segment control chỉ dành cho bảng chữ cái
+    if (isAlphabetTopic) return [];
+    return allScreenItems;
   }, [allScreenItems, isAlphabetTopic]);
 
-  // Kiểm tra params ban đầu (giữ nguyên)
   if (!courseId || !initialTopicTitle) {
-    // ... (như cũ) ...
     return (
       <SafeAreaView style={styles.safeArea}>
         <Text>Lỗi: Thiếu thông tin chủ đề.</Text>
@@ -324,21 +426,20 @@ const CourseDetailScreen: React.FC = () => {
     );
   }
 
-  // handleLessonPress cho các mục từ API (giữ nguyên)
   const handleLessonPress = (item: Lesson) => {
-    // ... (như cũ) ...
     const lessonNameLower = (item.lesson_name || '').toLowerCase();
     const targetLessonId = item.lesson_code.toString();
     const targetLessonName = item.lesson_name;
+    const topicCode = item.topic_code.toString();
 
     if (lessonNameLower.includes('lý thuyết')) {
       navigation.navigate('ContentsLyThuyetScreen', {
-        topicId: item.topic_code.toString(), // Sử dụng topic_code thay vì lessonCode
+        topicId: topicCode,
         lessonName: targetLessonName,
       });
     } else if (lessonNameLower.includes('kiểm tra')) {
       navigation.navigate('ContentExam', {
-        topicId: item.topic_code.toString(), // Sử dụng topic_code thay vì lessonCode
+        topicId: topicCode,
         lessonName: targetLessonName,
       });
     } else {
@@ -349,14 +450,9 @@ const CourseDetailScreen: React.FC = () => {
     }
   };
 
-  // renderItem cho các mục từ API (giữ nguyên)
   const renderApiItem = ({item, index}: {item: Lesson; index: number}) => {
-    // ... hàm renderScreenItemWithCorrectIndex của bạn có thể đặt tên lại là renderApiItem
-    // và sử dụng logic đếm index của nó ...
-    // Ví dụ đơn giản:
     let displayIndex = '';
     const itemNameLower = item.lesson_name.toLowerCase();
-
     if (itemNameLower.includes('lý thuyết')) {
       displayIndex = 'Lý thuyết';
     } else if (itemNameLower.includes('kiểm tra')) {
@@ -389,30 +485,43 @@ const CourseDetailScreen: React.FC = () => {
     );
   };
 
-  // renderItem MỚI cho bảng chữ cái
   const renderAlphabetCharacterItem = ({item}: {item: KanaDisplayItem}) => (
-    <View style={styles.kanaCharacterItem}>
+    <TouchableOpacity
+      style={styles.kanaCharacterItem}
+      onPress={() => playSound(item.urlAudio)}
+      activeOpacity={0.7}>
       <Text style={styles.kanaCharacterText}>{item.kana}</Text>
       <Text style={styles.kanaRomajiText}>{item.romaji}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
-  const showSegmentControl = isAlphabetTopic; // Segment control chỉ hiển thị cho bảng chữ cái
+  const showSegmentControl = isAlphabetTopic;
 
   const handleRetryFetch = async () => {
-    if (!isAlphabetTopic && !isNaN(currentTopicIdAsNumber)) {
-      // Chỉ retry nếu không phải bảng chữ cái
+    if (!isAlphabetTopic && currentTopicIdAsNumber !== null) {
       const storedUserId = await AsyncStorage.getItem('UserId');
       if (storedUserId) fetchTopicDetails(currentTopicIdAsNumber, storedUserId);
-      else setError('Không tìm thấy UserId. Không thể thử lại.');
+      else if (isMountedRef.current) setError('Không tìm thấy UserId.');
+    } else if (isAlphabetTopic && currentTopicIdAsNumber !== null) {
+      fetchAlphabets(currentTopicIdAsNumber);
     }
   };
 
-  if (isLoading) {
-    // ... (return JSX cho isLoading giữ nguyên như code bạn cung cấp) ...
+  let currentContentIsLoading = isLoading;
+  let currentContentError = error;
+  let currentContentIsEmpty = apiItemsForDisplay.length === 0;
+  let emptyTextMessage = 'Chưa có nội dung nào cho chủ đề này.';
+
+  if (isAlphabetTopic) {
+    currentContentIsLoading = isLoadingAlphabet;
+    currentContentError = alphabetError;
+    currentContentIsEmpty = alphabetDisplayData.length === 0;
+    emptyTextMessage = 'Không có dữ liệu bảng chữ cái cho chủ đề này.';
+  }
+
+  if (currentContentIsLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        {/* Header tối giản khi loading */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -434,9 +543,7 @@ const CourseDetailScreen: React.FC = () => {
     );
   }
 
-  if (error && !isAlphabetTopic) {
-    // Chỉ hiển thị lỗi API nếu không phải là bảng chữ cái
-    // ... (return JSX cho error giữ nguyên như code bạn cung cấp) ...
+  if (currentContentError) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
@@ -453,7 +560,7 @@ const CourseDetailScreen: React.FC = () => {
           <View style={{width: SIZES.padding * 4}} />
         </View>
         <View style={styles.errorDisplayContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>{currentContentError}</Text>
           <TouchableOpacity
             onPress={handleRetryFetch}
             style={styles.retryButton}>
@@ -484,7 +591,7 @@ const CourseDetailScreen: React.FC = () => {
                 {displayTitle}
               </Text>
             </View>
-            {showSegmentControl ? ( // Nút Hira/Kata chỉ hiển thị khi là bảng chữ cái
+            {showSegmentControl ? (
               <View style={styles.segmentControlContainer}>
                 <TouchableOpacity
                   style={[
@@ -518,9 +625,54 @@ const CourseDetailScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={{width: SIZES.padding * 4}} /> // Placeholder giữ layout
+              <View style={{width: SIZES.padding * 4}} />
             )}
           </View>
+
+          {audioURLToPlay && (
+            <Video
+              ref={audioRef}
+              source={{uri: audioURLToPlay}}
+              paused={!isAudioPlaying}
+              playInBackground={Platform.OS === 'ios'}
+              playWhenInactive={Platform.OS === 'ios'}
+              ignoreSilentSwitch="ignore"
+              onLoadStart={() => {
+                if (isMountedRef.current) {
+                  setIsAudioLoading(true);
+                  setAudioErrorState('');
+                }
+              }}
+              onLoad={(data: OnLoadData) => {
+                if (isMountedRef.current) {
+                  setIsAudioLoading(false);
+                  setIsAudioPlaying(true);
+                  audioRef.current?.seek(0);
+                }
+              }}
+              onEnd={() => {
+                if (isMountedRef.current) setIsAudioPlaying(false);
+              }}
+              onError={(videoError: any) => {
+                if (isMountedRef.current) {
+                  console.error('CourseDetail Audio Error:', videoError);
+                  setAudioErrorState('Lỗi phát audio.');
+                  setIsAudioLoading(false);
+                  setIsAudioPlaying(false);
+                }
+              }}
+              style={{height: 0, width: 0}}
+            />
+          )}
+          {isAudioLoading && (
+            <ActivityIndicator
+              style={styles.audioActivityIndicator}
+              color={COLORS.primary}
+            />
+          )}
+          {audioErrorState !== '' && (
+            <Text style={styles.audioErrorText}>{audioErrorState}</Text>
+          )}
 
           {isAlphabetTopic ? (
             alphabetDisplayData.length > 0 ? (
@@ -529,32 +681,34 @@ const CourseDetailScreen: React.FC = () => {
                 data={alphabetDisplayData}
                 renderItem={renderAlphabetCharacterItem}
                 keyExtractor={item => item.id}
-                numColumns={5} // Ví dụ: 5 cột cho bảng chữ cái
+                numColumns={5}
                 contentContainerStyle={styles.kanaListContentContainer}
                 showsVerticalScrollIndicator={false}
               />
             ) : (
-              <View style={styles.emptyLessonsContainer}>
-                <Text style={styles.emptyLessonsText}>
-                  Không có dữ liệu bảng chữ cái.
-                </Text>
-              </View>
-            )
-          ) : apiItemsForDisplay.length > 0 ? ( // Các chủ đề khác
+              !isLoadingAlphabet && (
+                <View style={styles.emptyLessonsContainer}>
+                  <Text style={styles.emptyLessonsText}>
+                    {emptyTextMessage}
+                  </Text>
+                </View>
+              )
+            ) // Hiển thị chỉ khi không loading
+          ) : apiItemsForDisplay.length > 0 ? (
             <FlatList
               data={apiItemsForDisplay}
-              renderItem={renderApiItem} // Sử dụng renderApiItem (tên mới của renderScreenItemWithCorrectIndex)
+              renderItem={renderApiItem}
               keyExtractor={item => `${item.lesson_code}-${item.lesson_name}`}
               style={styles.lessonsList}
               contentContainerStyle={styles.lessonsListContent}
               showsVerticalScrollIndicator={false}
             />
           ) : (
-            <View style={styles.emptyLessonsContainer}>
-              <Text style={styles.emptyLessonsText}>
-                Chưa có nội dung nào cho chủ đề này.
-              </Text>
-            </View>
+            !isLoading && (
+              <View style={styles.emptyLessonsContainer}>
+                <Text style={styles.emptyLessonsText}>{emptyTextMessage}</Text>
+              </View>
+            )
           )}
         </View>
       </ImageBackground>
@@ -562,9 +716,8 @@ const CourseDetailScreen: React.FC = () => {
   );
 };
 
-// Styles (giữ nguyên phần lớn, thêm style cho kana item)
+// Styles (Giữ nguyên)
 const styles = StyleSheet.create({
-  // ... (tất cả style cũ của bạn giữ nguyên) ...
   safeArea: {flex: 1, backgroundColor: COLORS.white},
   container: {flex: 1},
   header: {
@@ -604,7 +757,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderColor: COLORS.primary,
     borderWidth: 2,
-    width: undefined /* Để tự động co dãn hoặc set giá trị cụ thể */,
+    width: undefined,
   },
   segmentButton: {
     paddingHorizontal: SIZES.padding * 1.2,
@@ -700,40 +853,20 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: SIZES.medium,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SIZES.padding,
-    backgroundColor: COLORS.background,
-  },
-  backButtonError: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SIZES.padding * 2,
-    paddingVertical: SIZES.padding,
-    borderRadius: SIZES.radius,
-  },
-  backButtonTextError: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
-    color: COLORS.white,
-    fontSize: SIZES.medium,
-  },
-
-  // Styles mới cho hiển thị bảng chữ cái
   kanaListContentContainer: {
     padding: SIZES.padding / 2,
-    alignItems: 'flex-start', // Căn trái các dòng nếu không đủ item
+    alignItems: 'center',
   },
   kanaCharacterItem: {
     backgroundColor: COLORS.white,
     borderRadius: SIZES.radius,
-    padding: SIZES.padding * 0.75, // Điều chỉnh padding cho vừa vặn
+    padding: SIZES.padding * 0.75,
     margin: SIZES.padding / 4,
     alignItems: 'center',
     justifyContent: 'center',
-    width: (SIZES.width - SIZES.padding * 3) / 5 - SIZES.padding / 2, // Tính toán chiều rộng cho 5 cột, trừ đi padding
-    height: (SIZES.width / 5) * 1.1, // Chiều cao tương đối
-    elevation: 1,
+    width: (SIZES.width - SIZES.padding * 3) / 5 - SIZES.padding / 2,
+    height: (SIZES.width / 5) * 1.1,
+    elevation: 4,
     shadowColor: COLORS.black,
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.15,
@@ -741,14 +874,31 @@ const styles = StyleSheet.create({
   },
   kanaCharacterText: {
     fontFamily: FONTS.h2?.fontFamily || 'System',
-    fontSize: SIZES.h1 * 0.9, // Kích thước chữ Kana
+    fontSize: SIZES.h1 * 0.9,
     color: COLORS.black,
     marginBottom: 2,
   },
   kanaRomajiText: {
     fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.medium * 0.9, // Kích thước chữ Romaji
+    fontSize: SIZES.medium * 0.9,
     color: COLORS.gray,
+  },
+  audioActivityIndicator: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 20,
+    zIndex: 10,
+  },
+  audioErrorText: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 20,
+    color: COLORS.red,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+    zIndex: 10,
   },
 });
 

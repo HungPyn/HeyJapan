@@ -646,7 +646,7 @@ const ExamContentsScreen: React.FC = () => {
         Alert.alert('Thông báo', 'Bạn chưa sắp xếp từ nào.');
         return;
       }
-      const userAnswerString = arrangedWords.map(word => word.text).join('');
+      const userAnswerString = arrangedWords.map(word => word.text).join(' ');
       const correctAnswerString = currentItem.correct_answer_foreign;
       if (
         correctAnswerString !== null &&
@@ -984,8 +984,11 @@ const ExamContentsScreen: React.FC = () => {
                     />
                   </TouchableOpacity>
                 )}
+
+                {/* PHẦN ĐÃ SỬA ĐỔI: Hiển thị chuỗi cứng khi chưa kiểm tra */}
                 {showAnswerFeedback !== null &&
                 currentItem.correct_answer_foreign ? (
+                  // Nếu đã kiểm tra và có đáp án đúng, hiện đáp án đúng
                   <Text style={styles.contentDetailXapXep_Answered}>
                     {currentItem.correct_answer_foreign}
                     {currentItem.correct_answer_romaji
@@ -993,11 +996,12 @@ const ExamContentsScreen: React.FC = () => {
                       : ''}
                   </Text>
                 ) : (
-                  <Text style={styles.contentDetailXapXep}>
-                    {currentItem.content_detail ||
-                      'Sắp xếp các khối từ bên dưới'}
+                  // Nếu chưa kiểm tra, luôn hiển thị chuỗi cứng 'Sắp xếp các khối từ bên dưới'
+                  <Text style={styles.contentDetailXapXep_Answered}>
+                    {'Sắp xếp các khối từ bên dưới'} {/* Sử dụng chuỗi cứng */}
                   </Text>
                 )}
+                {/* KẾT THÚC PHẦN ĐÃ SỬA ĐỔI */}
               </View>
             </View>
             <View style={styles.wordArrangeDropArea}>

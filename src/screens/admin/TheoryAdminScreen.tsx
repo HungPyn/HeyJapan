@@ -10,13 +10,15 @@ import {
   Alert,
   SafeAreaView,
   ActivityIndicator,
-  // Keyboard, // Bỏ Keyboard nếu không còn dùng trong modal (hiện tại modal chỉ là Alert)
   Modal,
   Pressable,
   StatusBar,
   Platform,
+  TextInput,
+  ScrollView,
+  Keyboard,
 } from 'react-native';
-// import axios from 'axios'; // Bỏ axios nếu không còn dùng
+import axios, {AxiosRequestConfig} from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import {useAuth} from '../auth/AuthContext';
@@ -24,15 +26,15 @@ import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../../navigation';
 import {showMessage} from 'react-native-flash-message';
-import {Video, VideoRef, OnLoadData, OnProgressData} from 'react-native-video';
+import {Video, VideoRef, OnLoadData} from 'react-native-video';
 
-// --- BEGIN: Định nghĩa Type cho API Theory ---
+// --- Types cho API ---
 interface ApiVocabularyItem {
   id: number;
   word: string;
   meaning: string;
   pronunciation: string;
-  vocabulary_audio_url: string | null;
+  vocabularyUrl: string | null;
 }
 
 interface ApiGrammarItem {
@@ -40,15 +42,28 @@ interface ApiGrammarItem {
   structure: string;
   explanation: string;
   example: string;
+  urlAudio: string | null;
 }
 
-// Không cần khai báo API_ADMIN_THEORY_BASE_URL, VOCAB_ENDPOINT, GRAMMAR_ENDPOINT nữa nếu dùng fake data
-// const API_ADMIN_THEORY_BASE_URL = 'http://10.0.2.2:8080/api/admin/theory';
-// const VOCAB_ENDPOINT = `${API_ADMIN_THEORY_BASE_URL}/vocabulary/by-topic`;
-// const GRAMMAR_ENDPOINT = `${API_ADMIN_THEORY_BASE_URL}/grammar/by-topic`;
-// --- END: Định nghĩa Type cho API Theory ---
+interface RequestVocabularyDTO {
+  id?: number;
+  word: string;
+  meaning: string;
+  pronunciation: string;
+  urlAudio: string;
+}
 
-// --- BEGIN: Đường dẫn tới ảnh Icons ---
+interface RequestGrammarDTO {
+  id?: number;
+  structure: string;
+  explanation: string;
+  example: string;
+  urlAudio?: string;
+}
+
+const API_ADMIN_THEORY_BASE_URL = 'http://10.0.2.2:8080/api/admin/theory';
+
+// --- Ảnh Icons ---
 const LOGO_ICON_HEADER = require('../../assets/images/Logo.png');
 const PROFILE_ICON_HEADER = require('../../assets/images/IconUserHeader.png');
 const DELETE_ICON_ACTION = require('../../assets/images/iconThungRac.png');
@@ -58,70 +73,335 @@ const BACK_ARROW_ICON = require('../../assets/images/IconBack.png');
 const THEORY_ITEM_ICON = require('../../assets/images/ngoiSao.png');
 const AUDIO_PLAY_ICON = require('../../assets/images/audioInconten.png');
 
-// --- Dữ liệu mẫu ---
-const sampleVocabularyData: ApiVocabularyItem[] = [
-  {
-    id: 5,
-    word: '土',
-    meaning: 'đất',
-    pronunciation: 'tsuchi',
-    vocabulary_audio_url:
-      'https://file-examples.com/storage/fe8bdcaf716586995962130/2017/11/file_example_MP3_700KB.mp3', // URL mẫu để test
-  },
-  {
-    id: 6,
-    word: '水',
-    meaning: 'nước',
-    pronunciation: 'mizu',
-    vocabulary_audio_url: null,
-  },
-  {
-    id: 7,
-    word: '火',
-    meaning: 'lửa',
-    pronunciation: 'hi',
-    vocabulary_audio_url:
-      'https://file-examples.com/storage/fe8bdcaf716586995962130/2017/11/file_example_MP3_1MG.mp3', // URL mẫu khác
-  },
-  {
-    id: 8,
-    word: '人',
-    meaning: 'người',
-    pronunciation: 'hito',
-    vocabulary_audio_url: null,
-  },
-];
-
-const sampleGrammarData: ApiGrammarItem[] = [
-  {
-    id: 5,
-    structure: '～そうだ',
-    explanation: 'Trông có vẻ (màn này dữ liệu fix cứng)',
-    example:
-      '雨が降りそうです (Ame ga furisou desu - Trông có vẻ trời sắp mưa)',
-  },
-  {
-    id: 6,
-    structure: '～なければならない',
-    explanation: 'Phải (làm gì đó)',
-    example:
-      '宿題をしなければなりません (Shukudai o shinakereba narimasen - Phải làm bài tập về nhà)',
-  },
-  {
-    id: 7,
-    structure: '～ことができる',
-    explanation: 'Có thể (làm gì đó)',
-    example:
-      '日本語を話すことができます (Nihongo o hanasu koto ga dekimasu - Tôi có thể nói tiếng Nhật)',
-  },
-];
-
-// --- Component TheoryAdminScreen ---
 type TheoryAdminScreenRouteProp = RouteProp<RootStackParamList, 'TheoryAdmin'>;
 type TheoryAdminScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
   'TheoryAdmin'
 >;
+
+type FormDataType = RequestVocabularyDTO | RequestGrammarDTO;
+
+interface AddEditItemModalProps {
+  visible: boolean;
+  mode: 'add' | 'edit';
+  itemType: 'vocabulary' | 'grammar';
+  initialData?: FormDataType | null;
+  onClose: () => void;
+  onSubmit: (data: FormDataType) => Promise<void>;
+  isSubmitting: boolean;
+}
+
+const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
+  visible,
+  mode,
+  itemType,
+  initialData,
+  onClose,
+  onSubmit,
+  isSubmitting,
+}) => {
+  const [word, setWord] = useState('');
+  const [meaning, setMeaning] = useState('');
+  const [pronunciation, setPronunciation] = useState('');
+  const [vocabUrlAudio, setVocabUrlAudio] = useState(''); // State cho URL audio của vocab
+
+  const [structure, setStructure] = useState('');
+  const [explanation, setExplanation] = useState('');
+  const [example, setExample] = useState('');
+  const [grammarUrlAudio, setGrammarUrlAudio] = useState(''); // State cho URL audio của grammar
+
+  useEffect(() => {
+    if (visible) {
+      if (mode === 'edit' && initialData) {
+        if (itemType === 'vocabulary') {
+          const vocab = initialData as RequestVocabularyDTO;
+          setWord(vocab.word || '');
+          setMeaning(vocab.meaning || '');
+          setPronunciation(vocab.pronunciation || '');
+          setVocabUrlAudio(vocab.urlAudio || ''); // Sử dụng urlAudio từ initialData
+        } else {
+          const grammar = initialData as RequestGrammarDTO;
+          setStructure(grammar.structure || '');
+          setExplanation(grammar.explanation || '');
+          setExample(grammar.example || '');
+          setGrammarUrlAudio(grammar.urlAudio || '');
+        }
+      } else {
+        setWord('');
+        setMeaning('');
+        setPronunciation('');
+        setVocabUrlAudio('');
+        setStructure('');
+        setExplanation('');
+        setExample('');
+        setGrammarUrlAudio('');
+      }
+    }
+  }, [visible, mode, initialData, itemType]);
+
+  const handleSubmit = () => {
+    if (isSubmitting) return;
+    let dataToSubmit: FormDataType;
+
+    if (itemType === 'vocabulary') {
+      if (
+        !word.trim() ||
+        !meaning.trim() ||
+        !pronunciation.trim() ||
+        !vocabUrlAudio.trim()
+      ) {
+        Alert.alert(
+          'Lỗi',
+          'Vui lòng điền đầy đủ thông tin từ vựng, bao gồm cả URL Audio.',
+        );
+        return;
+      }
+      dataToSubmit = {
+        id: initialData?.id,
+        word: word.trim(),
+        meaning: meaning.trim(),
+        pronunciation: pronunciation.trim(),
+        urlAudio: vocabUrlAudio.trim(),
+      };
+      console.log('Submitting Vocabulary Data (Modal Form):', dataToSubmit);
+    } else {
+      if (!structure.trim() || !explanation.trim() || !example.trim()) {
+        Alert.alert(
+          'Lỗi',
+          'Vui lòng điền đầy đủ cấu trúc, giải thích và ví dụ cho ngữ pháp.',
+        );
+        return;
+      }
+      // urlAudio cho grammar có thể rỗng, không cần trim nếu rỗng
+      dataToSubmit = {
+        id: initialData?.id,
+        structure: structure.trim(),
+        explanation: explanation.trim(),
+        example: example.trim(),
+        urlAudio: grammarUrlAudio ? grammarUrlAudio.trim() : '',
+      };
+      console.log('Submitting Grammar Data (Modal Form):', dataToSubmit);
+    }
+    onSubmit(dataToSubmit);
+  };
+
+  const modalTitle =
+    mode === 'add'
+      ? `Thêm ${itemType === 'vocabulary' ? 'Từ vựng' : 'Ngữ pháp'} mới`
+      : `Chỉnh sửa ${itemType === 'vocabulary' ? 'Từ vựng' : 'Ngữ pháp'}`;
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}>
+      <Pressable style={formModalStyles.backdrop} onPress={onClose}>
+        <Pressable
+          style={formModalStyles.modalViewContainer}
+          onPress={() => Keyboard.dismiss()}
+          accessible={false}>
+          <View style={formModalStyles.modalViewContent}>
+            <View style={formModalStyles.header}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={formModalStyles.backButton}>
+                <Image
+                  source={BACK_ARROW_ICON}
+                  style={formModalStyles.backIcon}
+                />
+              </TouchableOpacity>
+              <Text style={formModalStyles.headerTitle}>{modalTitle}</Text>
+              <View style={{width: 30}} />
+            </View>
+            <ScrollView
+              style={formModalStyles.formContainer}
+              keyboardShouldPersistTaps="handled">
+              {itemType === 'vocabulary' ? (
+                <>
+                  <View style={formModalStyles.inputGroup}>
+                    <Text style={formModalStyles.label}>
+                      Từ <Text style={formModalStyles.requiredStar}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={formModalStyles.input}
+                      value={word}
+                      onChangeText={setWord}
+                      placeholder="Nhập từ vựng"
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                  <View style={formModalStyles.inputGroup}>
+                    <Text style={formModalStyles.label}>
+                      Nghĩa <Text style={formModalStyles.requiredStar}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={formModalStyles.input}
+                      value={meaning}
+                      onChangeText={setMeaning}
+                      placeholder="Nhập nghĩa của từ"
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                  <View style={formModalStyles.inputGroup}>
+                    <Text style={formModalStyles.label}>
+                      Phát âm{' '}
+                      <Text style={formModalStyles.requiredStar}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={formModalStyles.input}
+                      value={pronunciation}
+                      onChangeText={setPronunciation}
+                      placeholder="Nhập cách phát âm"
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                  <View style={formModalStyles.inputGroup}>
+                    <Text style={formModalStyles.label}>
+                      URL Audio{' '}
+                      <Text style={formModalStyles.requiredStar}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={formModalStyles.input}
+                      value={vocabUrlAudio}
+                      onChangeText={setVocabUrlAudio}
+                      placeholder="Nhập URL âm thanh"
+                      editable={!isSubmitting}
+                      keyboardType="url"
+                    />
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={formModalStyles.inputGroup}>
+                    <Text style={formModalStyles.label}>
+                      Cấu trúc{' '}
+                      <Text style={formModalStyles.requiredStar}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={formModalStyles.input}
+                      value={structure}
+                      onChangeText={setStructure}
+                      placeholder="Nhập cấu trúc ngữ pháp"
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                  <View style={formModalStyles.inputGroup}>
+                    <Text style={formModalStyles.label}>
+                      Giải thích{' '}
+                      <Text style={formModalStyles.requiredStar}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={formModalStyles.input}
+                      value={explanation}
+                      onChangeText={setExplanation}
+                      placeholder="Nhập giải thích"
+                      multiline
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                  <View style={formModalStyles.inputGroup}>
+                    <Text style={formModalStyles.label}>
+                      Ví dụ <Text style={formModalStyles.requiredStar}>*</Text>
+                    </Text>
+                    <TextInput
+                      style={formModalStyles.input}
+                      value={example}
+                      onChangeText={setExample}
+                      placeholder="Nhập ví dụ"
+                      multiline
+                      editable={!isSubmitting}
+                    />
+                  </View>
+                  <View style={formModalStyles.inputGroup}>
+                    <Text style={formModalStyles.label}>URL Audio</Text>
+                    <TextInput
+                      style={formModalStyles.input}
+                      value={grammarUrlAudio}
+                      onChangeText={setGrammarUrlAudio}
+                      placeholder="Nhập URL âm thanh (nếu có)"
+                      editable={!isSubmitting}
+                      keyboardType="url"
+                    />
+                  </View>
+                </>
+              )}
+              <TouchableOpacity
+                style={[
+                  formModalStyles.submitButton,
+                  isSubmitting && formModalStyles.submitButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={formModalStyles.submitButtonText}>
+                    {mode === 'add' ? 'Thêm' : 'Lưu'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+};
+const formModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  modalViewContainer: {
+    width: '100%',
+    backgroundColor: 'transparent',
+    height: SIZES.height * 0.75,
+  },
+  modalViewContent: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? SIZES.padding * 2 : SIZES.padding,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  backButton: {padding: 5},
+  backIcon: {width: 22, height: 22, tintColor: '#555'},
+  headerTitle: {fontSize: 18, fontWeight: 'bold', color: '#333'},
+  formContainer: {paddingHorizontal: 20, paddingTop: 10},
+  inputGroup: {marginBottom: 15},
+  label: {fontSize: 15, color: '#444', marginBottom: 6, fontWeight: '500'},
+  requiredStar: {color: 'red'},
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  submitButton: {
+    backgroundColor: COLORS.primary || '#28a745',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 20,
+  },
+  submitButtonText: {color: 'white', fontSize: 17, fontWeight: 'bold'},
+  submitButtonDisabled: {backgroundColor: COLORS.gray},
+});
 
 const TheoryAdminScreen = () => {
   const route = useRoute<TheoryAdminScreenRouteProp>();
@@ -133,17 +413,18 @@ const TheoryAdminScreen = () => {
   const [activeTab, setActiveTab] = useState<'vocabulary' | 'grammar'>(
     'vocabulary',
   );
-
   const [vocabularies, setVocabularies] = useState<ApiVocabularyItem[]>([]);
   const [grammars, setGrammars] = useState<ApiGrammarItem[]>([]);
-
   const [isLoadingVocab, setIsLoadingVocab] = useState(false);
   const [vocabError, setVocabError] = useState<string | null>(null);
   const [isLoadingGrammar, setIsLoadingGrammar] = useState(false);
   const [grammarError, setGrammarError] = useState<string | null>(null);
-
+  const [isDeletingItemId, setIsDeletingItemId] = useState<number | null>(null);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
-
+  const [isItemModalVisible, setIsItemModalVisible] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [editingItem, setEditingItem] = useState<FormDataType | null>(null);
+  const [isSubmittingItem, setIsSubmittingItem] = useState(false);
   const audioRef = useRef<VideoRef>(null);
   const [audioURLToPlay, setAudioUrlToPlayState] = useState<string | null>(
     null,
@@ -152,12 +433,19 @@ const TheoryAdminScreen = () => {
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [audioError, setAudioError] = useState('');
   const audioUrlToPlayRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const currentTopicId = useMemo(() => {
-    return String(topicCodeFromRoute);
+    const id = Number(topicCodeFromRoute);
+    return isNaN(id) ? null : id;
   }, [topicCodeFromRoute]);
-
-  // getToken không còn được gọi trực tiếp bởi fetch nữa, nhưng có thể cần cho CRUD sau này
   const getToken = useCallback(async () => {
     const token = await AsyncStorage.getItem('token');
     if (!token) {
@@ -172,60 +460,74 @@ const TheoryAdminScreen = () => {
   }, [logout]);
 
   const fetchVocabularies = useCallback(
-    async (topicIdQuery: string) => {
-      console.log(`Fake fetching vocabularies for topicId: ${topicIdQuery}`);
+    async (topicId: number) => {
+      if (!isMountedRef.current) return;
       setIsLoadingVocab(true);
       setVocabError(null);
-
-      setTimeout(() => {
-        // Lọc dữ liệu mẫu theo topicIdQuery nếu cần, hiện tại dùng toàn bộ sample data
-        // Ví dụ: const filteredData = sampleVocabularyData.filter(v => v.id === Number(topicIdQuery));
-        // setVocabularies(filteredData);
-        setVocabularies(sampleVocabularyData);
-        setIsLoadingVocab(false);
-        showMessage({
-          message: 'Đã tải dữ liệu Từ vựng (FAKE)',
-          type: 'info',
-          duration: 800,
-        });
-      }, 500);
+      try {
+        const token = await getToken();
+        const response = await axios.get<ApiVocabularyItem[]>(
+          `${API_ADMIN_THEORY_BASE_URL}/vocabulary/by-topic?topicId=${topicId}`,
+          {headers: {Authorization: `Bearer ${token}`}},
+        );
+        if (isMountedRef.current) setVocabularies(response.data || []);
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        const msg =
+          err.response?.data?.message ||
+          err.message ||
+          'Không thể tải từ vựng.';
+        setVocabError(msg);
+        showMessage({message: msg, type: 'danger'});
+        setVocabularies([]);
+      } finally {
+        if (isMountedRef.current) setIsLoadingVocab(false);
+      }
     },
-    [], // Không còn phụ thuộc getToken
+    [getToken],
   );
 
   const fetchGrammars = useCallback(
-    async (topicIdQuery: string) => {
-      console.log(`Fake fetching grammars for topicId: ${topicIdQuery}`);
+    async (topicId: number) => {
+      if (!isMountedRef.current) return;
       setIsLoadingGrammar(true);
       setGrammarError(null);
-
-      setTimeout(() => {
-        // Lọc dữ liệu mẫu theo topicIdQuery nếu cần
-        // Ví dụ: const filteredData = sampleGrammarData.filter(g => g.id === Number(topicIdQuery));
-        // setGrammars(filteredData);
-        setGrammars(sampleGrammarData);
-        setIsLoadingGrammar(false);
-        showMessage({
-          message: 'Đã tải dữ liệu Ngữ pháp (FAKE)',
-          type: 'info',
-          duration: 800,
-        });
-      }, 500);
+      try {
+        const token = await getToken();
+        const response = await axios.get<ApiGrammarItem[]>(
+          `${API_ADMIN_THEORY_BASE_URL}/grammar/by-topic?topicId=${topicId}`,
+          {headers: {Authorization: `Bearer ${token}`}},
+        );
+        if (isMountedRef.current) setGrammars(response.data || []);
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        const msg =
+          err.response?.data?.message ||
+          err.message ||
+          'Không thể tải ngữ pháp.';
+        setGrammarError(msg);
+        showMessage({message: msg, type: 'danger'});
+        setGrammars([]);
+      } finally {
+        if (isMountedRef.current) setIsLoadingGrammar(false);
+      }
     },
-    [], // Không còn phụ thuộc getToken
+    [getToken],
   );
 
   useEffect(() => {
-    if (currentTopicId) {
-      fetchVocabularies(currentTopicId);
-      fetchGrammars(currentTopicId);
+    if (currentTopicId !== null) {
+      if (activeTab === 'vocabulary') fetchVocabularies(currentTopicId);
+      else fetchGrammars(currentTopicId);
     } else {
       setVocabularies([]);
       setGrammars([]);
-      setVocabError('Không có ID chủ đề để tải từ vựng.');
-      setGrammarError('Không có ID chủ đề để tải ngữ pháp.');
+      const errMsg = 'ID chủ đề không hợp lệ.';
+      setVocabError(errMsg);
+      setGrammarError(errMsg);
+      showMessage({message: errMsg, type: 'warning'});
     }
-  }, [currentTopicId, fetchVocabularies, fetchGrammars]);
+  }, [currentTopicId, activeTab, fetchVocabularies, fetchGrammars]);
 
   const playSound = useCallback(
     (audioUrlToPlayParam: string | null) => {
@@ -247,30 +549,201 @@ const TheoryAdminScreen = () => {
       setAudioUrlToPlayState(null);
       audioUrlToPlayRef.current = audioUrlToPlayParam;
       setTimeout(() => {
-        setAudioUrlToPlayState(audioUrlToPlayParam);
+        if (isMountedRef.current) setAudioUrlToPlayState(audioUrlToPlayParam);
       }, 50);
     },
     [isAudioPlaying],
   );
 
-  const handleAddNewItem = () => {
-    const type = activeTab === 'vocabulary' ? 'Từ vựng' : 'Ngữ pháp';
+  const handleOpenAddItemModal = () => {
+    setModalMode('add');
+    setEditingItem(null);
+    setIsItemModalVisible(true);
+  };
+
+  const handleOpenEditItemModal = (
+    item: ApiVocabularyItem | ApiGrammarItem,
+  ) => {
+    setModalMode('edit');
+    if (activeTab === 'vocabulary') {
+      const vocab = item as ApiVocabularyItem;
+      setEditingItem({
+        // Dùng RequestVocabularyDTO để edit
+        id: vocab.id,
+        word: vocab.word,
+        meaning: vocab.meaning,
+        pronunciation: vocab.pronunciation,
+        urlAudio: vocab.vocabularyUrl || '', // Map vocabularyUrl từ GET response sang urlAudio cho form
+      });
+    } else {
+      const grammar = item as ApiGrammarItem;
+      setEditingItem({
+        // Dùng RequestGrammarDTO để edit
+        id: grammar.id,
+        structure: grammar.structure,
+        explanation: grammar.explanation,
+        example: grammar.example,
+        urlAudio: grammar.urlAudio || '', // Giữ nguyên urlAudio
+      });
+    }
+    setIsItemModalVisible(true);
+  };
+
+  const handleSaveItem = useCallback(
+    async (formData: FormDataType) => {
+      if (currentTopicId === null) {
+        showMessage({message: 'ID chủ đề không hợp lệ.', type: 'danger'});
+        return;
+      }
+      if (!isMountedRef.current) return;
+      setIsSubmittingItem(true);
+      try {
+        const token = await getToken();
+        let url = '';
+        let method: 'post' | 'put' = 'post';
+        let dataToSend: any = {...formData};
+        let successMessage = '';
+
+        console.log(
+          `Đang lưu ${activeTab} ở chế độ ${modalMode}. Dữ liệu gửi đi:`,
+          JSON.stringify(dataToSend, null, 2),
+        );
+
+        if (activeTab === 'vocabulary') {
+          const vocabData = dataToSend as RequestVocabularyDTO;
+          if (!vocabData.urlAudio || vocabData.urlAudio.trim() === '') {
+            showMessage({
+              message: 'URL Audio cho từ vựng không được để trống.',
+              type: 'danger',
+            });
+            setIsSubmittingItem(false);
+            return;
+          }
+          if (modalMode === 'add') {
+            url = `${API_ADMIN_THEORY_BASE_URL}/vocabulary/create?topicId=${currentTopicId}`;
+            method = 'post';
+            successMessage = 'Thêm từ vựng thành công!';
+            delete vocabData.id;
+          } else {
+            url = `${API_ADMIN_THEORY_BASE_URL}/vocabulary/update`;
+            method = 'put';
+            successMessage = 'Cập nhật từ vựng thành công!';
+            if (!vocabData.id) {
+              throw new Error('ID từ vựng là bắt buộc để cập nhật.');
+            }
+          }
+          dataToSend = vocabData;
+        } else {
+          // grammar
+          const grammarData = dataToSend as RequestGrammarDTO;
+          if (modalMode === 'add') {
+            url = `${API_ADMIN_THEORY_BASE_URL}/grammar/create?topicId=${currentTopicId}`;
+            method = 'post';
+            successMessage = 'Thêm ngữ pháp thành công!';
+            delete grammarData.id;
+          } else {
+            url = `${API_ADMIN_THEORY_BASE_URL}/grammar/update`;
+            method = 'post'; // Theo controller backend
+            successMessage = 'Cập nhật ngữ pháp thành công!';
+            if (!grammarData.id) {
+              throw new Error('ID ngữ pháp là bắt buộc để cập nhật.');
+            }
+          }
+          dataToSend = grammarData;
+        }
+
+        await axios({
+          method,
+          url,
+          data: dataToSend,
+          headers: {Authorization: `Bearer ${token}`},
+        });
+
+        if (!isMountedRef.current) return;
+        showMessage({message: successMessage, type: 'success'});
+        setIsItemModalVisible(false);
+        setEditingItem(null);
+        if (activeTab === 'vocabulary') fetchVocabularies(currentTopicId);
+        else fetchGrammars(currentTopicId);
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        console.error(
+          `Lỗi khi ${modalMode === 'add' ? 'thêm' : 'sửa'} ${activeTab}:`,
+          err.response?.data || err.message || err,
+        );
+        const msg =
+          err.response?.data?.message ||
+          err.response?.data ||
+          err.message ||
+          'Thao tác thất bại.';
+        showMessage({message: msg, type: 'danger', duration: 4000});
+      } finally {
+        if (isMountedRef.current) setIsSubmittingItem(false);
+      }
+    },
+    [
+      activeTab,
+      modalMode,
+      currentTopicId,
+      getToken,
+      fetchVocabularies,
+      fetchGrammars,
+    ],
+  );
+
+  const handleDeleteItem = async (item: ApiVocabularyItem | ApiGrammarItem) => {
+    if (currentTopicId === null) {
+      showMessage({message: 'ID chủ đề không hợp lệ.', type: 'danger'});
+      return;
+    }
+    const isVocab = activeTab === 'vocabulary';
+    const itemId = item.id;
+    const itemName = isVocab
+      ? (item as ApiVocabularyItem).word
+      : (item as ApiGrammarItem).structure;
     Alert.alert(
-      'Thông báo',
-      `Chức năng "Thêm mới ${type}" sẽ được cập nhật sau.`,
+      'Xác nhận xóa',
+      `Bạn có chắc chắn muốn xóa "${itemName}" không?`,
+      [
+        {text: 'Hủy', style: 'cancel'},
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            if (!isMountedRef.current) return;
+            setIsDeletingItemId(itemId);
+            try {
+              const token = await getToken();
+              let url = '';
+              if (isVocab)
+                url = `${API_ADMIN_THEORY_BASE_URL}/vocabulary/delete?vocabularyId=${itemId}`;
+              else
+                url = `${API_ADMIN_THEORY_BASE_URL}/grammar/delete?grammarId=${itemId}`;
+              const response = await axios.delete(url, {
+                headers: {Authorization: `Bearer ${token}`},
+                responseType: 'text',
+              });
+              if (!isMountedRef.current) return;
+              showMessage({
+                message:
+                  response.data ||
+                  `${isVocab ? 'Từ vựng' : 'Ngữ pháp'} đã được xóa.`,
+                type: 'success',
+              });
+              if (isVocab) fetchVocabularies(currentTopicId);
+              else fetchGrammars(currentTopicId);
+            } catch (err: any) {
+              if (!isMountedRef.current) return;
+              const msg = err.response?.data || err.message || `Không thể xóa.`;
+              showMessage({message: msg, type: 'danger'});
+            } finally {
+              if (isMountedRef.current) setIsDeletingItemId(null);
+            }
+          },
+        },
+      ],
     );
   };
-
-  const handleEditItem = (item: ApiVocabularyItem | ApiGrammarItem) => {
-    const type = 'word' in item ? 'Từ vựng' : 'Ngữ pháp';
-    Alert.alert('Thông báo', `Chức năng "Sửa ${type}" sẽ được cập nhật sau.`);
-  };
-
-  const handleDeleteItem = (item: ApiVocabularyItem | ApiGrammarItem) => {
-    const type = 'word' in item ? 'Từ vựng' : 'Ngữ pháp';
-    Alert.alert('Thông báo', `Chức năng "Xóa ${type}" sẽ được cập nhật sau.`);
-  };
-
   const handleLogoutFromMenu = useCallback(async () => {
     setIsProfileMenuVisible(false);
     Alert.alert(
@@ -305,27 +778,32 @@ const TheoryAdminScreen = () => {
           </Text>
         </View>
         <View style={styles.actionButtonsContainer}>
-          {item.vocabulary_audio_url && (
+          {item.vocabularyUrl && (
             <TouchableOpacity
               style={styles.audioButtonVocabItem}
-              onPress={() => playSound(item.vocabulary_audio_url)}>
+              onPress={() => playSound(item.vocabularyUrl)}>
               <Image source={AUDIO_PLAY_ICON} style={styles.audioIconSmall} />
             </TouchableOpacity>
           )}
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleEditItem(item)}>
+            onPress={() => handleOpenEditItemModal(item)}>
             <Image source={EDIT_ICON_ACTION} style={styles.actionIcon} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleDeleteItem(item)}>
-            <Image source={DELETE_ICON_ACTION} style={styles.actionIcon} />
+            onPress={() => handleDeleteItem(item)}
+            disabled={isDeletingItemId === item.id}>
+            {isDeletingItemId === item.id ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <Image source={DELETE_ICON_ACTION} style={styles.actionIcon} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
     ),
-    [playSound],
+    [playSound, isDeletingItemId, handleOpenEditItemModal, handleDeleteItem],
   );
 
   const renderGrammarItem = useCallback(
@@ -333,36 +811,56 @@ const TheoryAdminScreen = () => {
       <View style={styles.listItem}>
         <Image source={THEORY_ITEM_ICON} style={styles.itemIcon} />
         <View style={styles.itemTextContainer}>
-          <Text style={styles.itemNameText} numberOfLines={2}>
-            {item.explanation}: {item.structure}
+          <Text style={styles.grammarLabelText}>
+            Cấu trúc:{' '}
+            <Text style={styles.grammarValueText}>{item.structure}</Text>
           </Text>
-          <Text style={styles.itemDetailText} numberOfLines={2}>
-            {item.example}
+          <Text style={styles.grammarLabelText}>
+            Giải thích:{' '}
+            <Text style={styles.grammarValueText} numberOfLines={2}>
+              {item.explanation}
+            </Text>
+          </Text>
+          <Text style={styles.grammarLabelText}>
+            Ví dụ:{' '}
+            <Text style={styles.grammarValueText} numberOfLines={3}>
+              {item.example}
+            </Text>
           </Text>
         </View>
         <View style={styles.actionButtonsContainer}>
+          {item.urlAudio && (
+            <TouchableOpacity
+              style={styles.audioButtonVocabItem}
+              onPress={() => playSound(item.urlAudio)}>
+              <Image source={AUDIO_PLAY_ICON} style={styles.audioIconSmall} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleEditItem(item)}>
+            onPress={() => handleOpenEditItemModal(item)}>
             <Image source={EDIT_ICON_ACTION} style={styles.actionIcon} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handleDeleteItem(item)}>
-            <Image source={DELETE_ICON_ACTION} style={styles.actionIcon} />
+            onPress={() => handleDeleteItem(item)}
+            disabled={isDeletingItemId === item.id}>
+            {isDeletingItemId === item.id ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <Image source={DELETE_ICON_ACTION} style={styles.actionIcon} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
     ),
-    [],
+    [playSound, isDeletingItemId, handleOpenEditItemModal, handleDeleteItem],
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.mainHeader}>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => console.log('Logo pressed')}>
+        <TouchableOpacity style={styles.headerButton} disabled>
           <Image
             source={LOGO_ICON_HEADER}
             style={styles.headerIconMain}
@@ -425,11 +923,10 @@ const TheoryAdminScreen = () => {
           </Text>
         </TouchableOpacity>
       </View>
-
       <View style={styles.addNewButtonContainer}>
         <TouchableOpacity
           style={styles.addNewButton}
-          onPress={handleAddNewItem}
+          onPress={handleOpenAddItemModal}
           activeOpacity={0.8}>
           <Text style={styles.addNewButtonText}>+ Thêm mới</Text>
         </TouchableOpacity>
@@ -444,25 +941,28 @@ const TheoryAdminScreen = () => {
           playWhenInactive={Platform.OS === 'ios'}
           ignoreSilentSwitch="ignore"
           onLoadStart={() => {
-            setIsAudioLoading(true);
-            setAudioError('');
+            if (isMountedRef.current) {
+              setIsAudioLoading(true);
+              setAudioError('');
+            }
           }}
           onLoad={(data: OnLoadData) => {
-            setIsAudioLoading(false);
-            setIsAudioPlaying(true);
-            audioRef.current?.seek(0);
-          }}
-          onProgress={(data: OnProgressData) => {
-            // console.log("onProgress", data.currentTime);
+            if (isMountedRef.current) {
+              setIsAudioLoading(false);
+              setIsAudioPlaying(true);
+              audioRef.current?.seek(0);
+            }
           }}
           onEnd={() => {
-            setIsAudioPlaying(false);
+            if (isMountedRef.current) setIsAudioPlaying(false);
           }}
           onError={(videoError: any) => {
-            console.error('TheoryAdmin Audio Error:', videoError);
-            setAudioError('Lỗi phát audio.');
-            setIsAudioLoading(false);
-            setIsAudioPlaying(false);
+            if (isMountedRef.current) {
+              console.error('TheoryAdmin Audio Error:', videoError);
+              setAudioError('Lỗi phát audio.');
+              setIsAudioLoading(false);
+              setIsAudioPlaying(false);
+            }
           }}
           style={{height: 0, width: 0}}
         />
@@ -553,10 +1053,26 @@ const TheoryAdminScreen = () => {
           </View>
         </Pressable>
       </Modal>
+
+      {isItemModalVisible && (
+        <AddEditItemModal
+          visible={isItemModalVisible}
+          mode={modalMode}
+          itemType={activeTab}
+          initialData={editingItem}
+          onClose={() => {
+            setIsItemModalVisible(false);
+            setEditingItem(null);
+          }}
+          onSubmit={handleSaveItem}
+          isSubmitting={isSubmittingItem}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
+// --- Styles ---
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.background || '#FFFFFF'},
   mainHeader: {
@@ -671,6 +1187,19 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   itemDetailText: {fontSize: 14, color: '#777777', lineHeight: 20},
+  grammarLabelText: {
+    fontSize: 14,
+    color: COLORS.darkGray || '#555',
+    fontWeight: '600',
+    marginTop: 3,
+  }, // Đổi fontWeight thành 600
+  grammarValueText: {
+    fontSize: 14,
+    color: '#444444',
+    fontWeight: 'normal',
+    flexShrink: 1,
+    lineHeight: 18,
+  },
   actionButtonsContainer: {flexDirection: 'row', alignItems: 'center'},
   actionButton: {padding: 6, marginLeft: 8},
   actionIcon: {
@@ -700,17 +1229,12 @@ const styles = StyleSheet.create({
   },
   vocabFirstLineContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // Đẩy icon âm thanh sang phải
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 2,
   },
-  audioButtonVocabItem: {
-    paddingLeft: 10, // Tạo khoảng cách với text
-  },
-  audioIconSmall: {
-    width: 22, // Kích thước icon âm thanh nhỏ
-    height: 22,
-  },
+  audioButtonVocabItem: {paddingHorizontal: 5},
+  audioIconSmall: {width: 22, height: 22},
   audioActivityIndicator: {
     position: 'absolute',
     alignSelf: 'center',

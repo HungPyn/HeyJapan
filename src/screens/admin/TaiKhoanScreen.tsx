@@ -205,7 +205,7 @@ const TaiKhoanScreen = () => {
     if (!token) {
       // Alert đã có trong code gốc của bạn, giữ lại nếu bạn muốn.
       // Tuy nhiên, logout() sẽ điều hướng, nên Alert có thể không kịp hiển thị lâu.
-      Alert.alert('Lỗi', 'Không tìm thấy token. Vui lòng đăng nhập lại.');
+
       logout();
       throw new Error('Token not found');
     }

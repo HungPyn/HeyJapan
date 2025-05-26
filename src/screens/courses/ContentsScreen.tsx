@@ -622,7 +622,7 @@ const ContentsScreen: React.FC = () => {
         Alert.alert('Thông báo', 'Bạn chưa sắp xếp từ nào.');
         return;
       }
-      const userAnswerString = arrangedWords.map(word => word.text).join('');
+      const userAnswerString = arrangedWords.map(word => word.text).join(' ');
       const correctAnswerString = currentItem.correct_answer_foreign;
       if (
         correctAnswerString !== null &&
@@ -965,8 +965,11 @@ const ContentsScreen: React.FC = () => {
                     />
                   </TouchableOpacity>
                 )}
+
+                {/* PHẦN ĐÃ SỬA ĐỔI: Chỉ hiện hướng dẫn HOẶC đáp án đúng */}
                 {showAnswerFeedback !== null &&
                 currentItem.correct_answer_foreign ? (
+                  // Nếu đã kiểm tra và có đáp án đúng, hiện đáp án đúng
                   <Text style={styles.contentDetailXapXep_Answered}>
                     {currentItem.correct_answer_foreign}
                     {currentItem.correct_answer_romaji
@@ -974,11 +977,12 @@ const ContentsScreen: React.FC = () => {
                       : ''}
                   </Text>
                 ) : (
+                  // Nếu chưa kiểm tra, hiện tiêu đề/hướng dẫn mặc định
                   <Text style={styles.contentDetailXapXep}>
-                    {currentItem.content_detail ||
-                      'Sắp xếp các khối từ bên dưới'}
+                    {currentItem.title || 'Sắp xếp các khối từ bên dưới'}
                   </Text>
                 )}
+                {/* KẾT THÚC PHẦN ĐÃ SỬA ĐỔI */}
               </View>
             </View>
             <View style={styles.wordArrangeDropArea}>
