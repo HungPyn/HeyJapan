@@ -16,7 +16,6 @@ public class ResponseTopicViewDTO {
     private Integer id;
     private String name;
     private TheoryDTO theoryDTO;
-    private List<ResponseAlphabetDTO> alphabets;
     private List<ResponseLessonDTO> lessons;
     private ExamResponseDTO examResponseDTO;
 }

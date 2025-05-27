@@ -14,7 +14,7 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 
 @Mapper(componentModel = "spring")
-public interface UserMapper {
+public interface  UserMapper {
 
     // Chuyển từ Level -> ResponseDTO
     @Mappings({

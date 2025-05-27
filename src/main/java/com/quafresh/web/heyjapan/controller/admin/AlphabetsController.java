@@ -20,8 +20,8 @@ public class AlphabetsController {
         return ResponseEntity.ok(alphabetService.getAllByTopicID(topicID));
     }
 
-    @GetMapping()
-    public ResponseEntity<?> getById(@RequestParam Long id) {
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getById(@PathVariable Long id) {
         return ResponseEntity.ok(alphabetService.getAlphabetById(id));
     }
 

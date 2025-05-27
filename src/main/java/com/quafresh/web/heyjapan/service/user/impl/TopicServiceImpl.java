@@ -69,10 +69,6 @@ public class TopicServiceImpl implements TopicService {
         TheoryDTO theoryDTO = new TheoryDTO(topic.getId(), "Lý thuyết");
         responseTopicViewDTO.setTheoryDTO(theoryDTO);
 
-        List<Alphabets> alphabetList = alphabetsRepository.findAllByTopic_IdOrderByIdDesc(topicID);
-        List<ResponseAlphabetDTO> alphabetDTOList = alphabetList.stream().map(userMapper::toResponseAlphabetDTO).toList();
-        responseTopicViewDTO.setAlphabets(alphabetDTOList);
-
         List<ResponseLessonDTO> list = lessonRepository.findLessonsWithStatusByTopicIdAndUserId(topic.getId(), user.getId());
         responseTopicViewDTO.setLessons(list);
         ExamResponseDTO examResponseDTO = examResultRepository.getExamStatusForTopic(user.getId(), topic.getId());
