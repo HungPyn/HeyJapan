@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.dto.user.topic;
 
+import com.quafresh.web.heyjapan.dto.user.alphabet.ResponseAlphabetDTO;
 import com.quafresh.web.heyjapan.dto.user.exam.ExamResponseDTO;
 import com.quafresh.web.heyjapan.dto.user.lesson.ResponseLessonDTO;
 import lombok.AllArgsConstructor;
@@ -15,6 +16,7 @@ public class ResponseTopicViewDTO {
     private Integer id;
     private String name;
     private TheoryDTO theoryDTO;
+    private List<ResponseAlphabetDTO> alphabets;
     private List<ResponseLessonDTO> lessons;
     private ExamResponseDTO examResponseDTO;
 }

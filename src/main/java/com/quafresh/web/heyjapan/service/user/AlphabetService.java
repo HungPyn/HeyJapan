@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.service.user;
 
+import com.quafresh.web.heyjapan.dto.user.alphabet.RequestAlphabetDTO;
 import com.quafresh.web.heyjapan.dto.user.alphabet.ResponseAlphabetDTO;
 import com.quafresh.web.heyjapan.entity.Alphabets;
 
@@ -9,9 +10,13 @@ public interface AlphabetService {
 
     List<ResponseAlphabetDTO> getAllByTopicID(Integer topicID);
 
-    void createNew(Alphabets alphabets);
+    void createNew(RequestAlphabetDTO dto);
 
-    void updateAlphabetById(Integer id, Alphabets alphabets);
+    void updateAlphabetById(Long id, RequestAlphabetDTO dto);
 
-    void deleteAlphabet(Integer id);
+    ResponseAlphabetDTO getAlphabetById(Long id);
+
+    List<ResponseAlphabetDTO> search(Integer topicId, String keyword);
+
+    void deleteAlphabet(Long id);
 }

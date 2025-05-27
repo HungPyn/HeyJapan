@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.service.user.impl;
 
+import com.quafresh.web.heyjapan.dto.user.alphabet.ResponseAlphabetDTO;
 import com.quafresh.web.heyjapan.dto.user.exam.ExamResponseDTO;
 import com.quafresh.web.heyjapan.dto.user.lesson.ResponseLessonDTO;
 import com.quafresh.web.heyjapan.dto.user.level.ResponseLevelDTO;
@@ -7,6 +8,7 @@ import com.quafresh.web.heyjapan.dto.user.topic.RequestTopicDTO;
 import com.quafresh.web.heyjapan.dto.user.topic.ResponseTopicDTO;
 import com.quafresh.web.heyjapan.dto.user.topic.ResponseTopicViewDTO;
 import com.quafresh.web.heyjapan.dto.user.topic.TheoryDTO;
+import com.quafresh.web.heyjapan.entity.Alphabets;
 import com.quafresh.web.heyjapan.entity.Level;
 import com.quafresh.web.heyjapan.entity.Topic;
 import com.quafresh.web.heyjapan.entity.User;
@@ -37,6 +39,7 @@ public class TopicServiceImpl implements TopicService {
     private final UserRepository userRepository;
     private final ExamResultRepository examResultRepository;
     private final GcsStorageService gcsStorageService;
+    private final AlphabetsRepository alphabetsRepository;
 
     @Override
     public ResponseLevelDTO getLevelWithTopics(Integer levelID) {
@@ -66,11 +69,16 @@ public class TopicServiceImpl implements TopicService {
         TheoryDTO theoryDTO = new TheoryDTO(topic.getId(), "Lý thuyết");
         responseTopicViewDTO.setTheoryDTO(theoryDTO);
 
+        List<Alphabets> alphabetList = alphabetsRepository.findAllByTopic_IdOrderByIdDesc(topicID);
+        List<ResponseAlphabetDTO> alphabetDTOList = alphabetList.stream().map(userMapper::toResponseAlphabetDTO).toList();
+        responseTopicViewDTO.setAlphabets(alphabetDTOList);
+
         List<ResponseLessonDTO> list = lessonRepository.findLessonsWithStatusByTopicIdAndUserId(topic.getId(), user.getId());
         responseTopicViewDTO.setLessons(list);
         ExamResponseDTO examResponseDTO = examResultRepository.getExamStatusForTopic(user.getId(), topic.getId());
         examResponseDTO.setName("Kiểm tra");
         responseTopicViewDTO.setExamResponseDTO(examResponseDTO);
+
         return responseTopicViewDTO;
     }
 

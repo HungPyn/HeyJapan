@@ -26,10 +26,10 @@ public class Alphabets {
     private AlphabetType alphabetType;
 
     @Column(name = "pronunciations",nullable = false)
-    private String Pronunciations;
+    private String pronunciations;
 
     @Column(name = "alphabet_character",nullable = false)
-    private String AlphabetCharacter;
+    private String alphabetCharacter;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topic_id")

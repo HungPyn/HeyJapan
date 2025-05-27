@@ -11,8 +11,6 @@ import java.util.List;
 @AllArgsConstructor
 public class RequestLessonQuesDTO {
 
-    private Integer id;
-
     private String questionType;
 
     private String promptTextTemplate;

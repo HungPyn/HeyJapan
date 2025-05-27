@@ -1,6 +1,5 @@
 package com.quafresh.web.heyjapan.dto.user.alphabet;
 
-import com.quafresh.web.heyjapan.entity.Topic;
 import com.quafresh.web.heyjapan.entity.enums.AlphabetType;
 import lombok.Data;
 
@@ -12,7 +11,7 @@ public class ResponseAlphabetDTO {
 
     private AlphabetType alphabetType;
 
-    private String Pronunciations;
+    private String pronunciations;
 
-    private String AlphabetCharacter;
+    private String alphabetCharacter;
 }

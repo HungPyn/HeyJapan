@@ -1,5 +1,6 @@
 package com.quafresh.web.heyjapan.service.user.impl;
 
+import com.quafresh.web.heyjapan.dto.user.alphabet.RequestAlphabetDTO;
 import com.quafresh.web.heyjapan.dto.user.alphabet.ResponseAlphabetDTO;
 import com.quafresh.web.heyjapan.entity.Alphabets;
 import com.quafresh.web.heyjapan.entity.Topic;
@@ -26,23 +27,50 @@ public class AlphabetServiceImpl implements AlphabetService {
     }
 
     @Override
-    public void createNew(Alphabets alphabets) {
+    public void createNew(RequestAlphabetDTO dto) {
+        Topic topic = topicRepository.findById(dto.getTopic())
+                .orElseThrow(()-> new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));
+        Alphabets alphabets = new Alphabets();
+        alphabets.setTopic(topic);
+        alphabets.setAlphabetCharacter(dto.getAlphabetCharacter());
+        alphabets.setAlphabetType(dto.getAlphabetType());
+        alphabets.setUrlAudio(dto.getUrlAudio());
+        alphabets.setPronunciations(dto.getPronunciations());
         alphabetsRepository.save(alphabets);
     }
 
     @Override
-    public void updateAlphabetById(Integer id, Alphabets alphabets) {
-        Alphabets alphabets1 = alphabetsRepository.findById(id)
-                        .orElseThrow(()->new RuntimeException(ErrorMessages.INVALID_ALPHABET.getMessage()));
-        alphabets1.setAlphabetCharacter(alphabets.getAlphabetCharacter());
-        alphabets1.setPronunciations(alphabets.getPronunciations());
-        alphabets1.setAlphabetType(alphabets.getAlphabetType());
-        alphabets1.setUrlAudio(alphabets.getUrlAudio());
-        alphabetsRepository.save(alphabets1);
+    public void updateAlphabetById(Long id, RequestAlphabetDTO dto) {
+        Topic topic = topicRepository.findById(dto.getTopic())
+                .orElseThrow(()-> new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));
+        Alphabets alphabets = alphabetsRepository.findById(id)
+                .orElseThrow(()-> new RuntimeException(ErrorMessages.INVALID_ALPHABET.getMessage()));
+        alphabets.setTopic(topic);
+        alphabets.setAlphabetCharacter(dto.getAlphabetCharacter());
+        alphabets.setAlphabetType(dto.getAlphabetType());
+        alphabets.setUrlAudio(dto.getUrlAudio());
+        alphabets.setPronunciations(dto.getPronunciations());
+        alphabetsRepository.save(alphabets);
     }
 
     @Override
-    public void deleteAlphabet(Integer id) {
+    public ResponseAlphabetDTO getAlphabetById(Long id) {
+        Alphabets alphabets = alphabetsRepository.findById(id)
+                .orElseThrow(()-> new RuntimeException(ErrorMessages.INVALID_ALPHABET.getMessage()));
+        return userMapper.toResponseAlphabetDTO(alphabets);
+    }
+
+    @Override
+    public List<ResponseAlphabetDTO> search(Integer topicId, String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            keyword = "";
+        }
+        List<Alphabets> results = alphabetsRepository.searchByTopicAndKeywordOrderByNewest(topicId, keyword);
+        return results.stream().map(userMapper::toResponseAlphabetDTO).toList();
+    }
+
+    @Override
+    public void deleteAlphabet(Long id) {
         alphabetsRepository.deleteById(id);
     }
 }
