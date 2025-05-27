@@ -129,24 +129,6 @@ const TienDoScreen = () => {
       } catch (apiError: any) {
         if (!isMountedRef.current) return; // Kiểm tra trong catch
 
-        console.error(
-          'TienDoScreen: Lỗi khi lấy danh sách người dùng:',
-          apiError.message,
-        ); // Log lỗi gốc
-
-        if (apiError.message === 'Token not found') {
-          // Token không tìm thấy, có thể người dùng đã/đang đăng xuất.
-          // Gọi logout để đảm bảo trạng thái nhất quán.
-          // isMountedRef sẽ ngăn các set state không cần thiết nếu logout gây unmount.
-          if (isMountedRef.current) logout();
-        } else {
-          // Các lỗi khác (ví dụ: lỗi mạng, lỗi server)
-          const errorMessage =
-            apiError.response?.data?.message ||
-            apiError.message || // Hiển thị lỗi từ apiError.message nếu có
-            'Không thể tải danh sách người dùng. Vui lòng thử lại.';
-          if (isMountedRef.current) setError(errorMessage);
-        }
         // Luôn dọn dẹp state khi có lỗi
         if (isMountedRef.current) {
           setUsers([]);

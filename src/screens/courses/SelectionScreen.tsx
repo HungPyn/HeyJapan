@@ -20,6 +20,7 @@ import CustomButton from '../../components/common/CustomButton';
 import {useAuth} from '../auth/AuthContext';
 import {showMessage} from 'react-native-flash-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {jwtDecode} from 'jwt-decode';
 
 interface Level {
   id: string; // API của bạn cho get levels trả về id là string hay number? Hiện tại đang là string
@@ -47,10 +48,6 @@ const SelectionScreen: React.FC = () => {
       try {
         const authToken = await AsyncStorage.getItem('token');
         if (!authToken) {
-          showMessage({
-            message: 'Lỗi xác thực. Vui lòng đăng nhập lại.',
-            type: 'danger',
-          });
           setIsLoadingLevels(false);
           return;
         }
@@ -104,18 +101,32 @@ const SelectionScreen: React.FC = () => {
       showMessage({message: 'Vui lòng chọn một trình độ.', type: 'warning'});
       return;
     }
+    const userId = await AsyncStorage.getItem('UserId');
+    const authToken = await AsyncStorage.getItem('token');
+    if (!userId || !authToken) {
+      const decodedToken: any = jwtDecode(authToken || '');
+
+      // Chỉ lấy User ID từ trường 'sub'
+      const idFromToken = decodedToken.sub;
+
+      // Lưu token và UserId vào AsyncStorage
+      await AsyncStorage.setItem('token', authToken || '');
+      await AsyncStorage.setItem('UserId', String(idFromToken));
+    }
 
     setIsSubmitting(true);
     try {
+      const userLevel = await AsyncStorage.getItem('userLevel');
       const userId = await AsyncStorage.getItem('UserId');
       const authToken = await AsyncStorage.getItem('token');
 
+      console.log('--- User Data from AsyncStorage ---');
+      console.log('User ID:', userId);
+      console.log('User userLevel:', userLevel);
+      console.log('Auth Token:', authToken);
+      console.log('---------------------------------');
+
       if (!userId || !authToken) {
-        showMessage({
-          message:
-            'Không tìm thấy thông tin người dùng hoặc token. Vui lòng đăng nhập lại.',
-          type: 'danger',
-        });
         setIsSubmitting(false);
         return;
       }

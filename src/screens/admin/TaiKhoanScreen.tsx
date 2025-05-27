@@ -252,16 +252,10 @@ const TaiKhoanScreen = () => {
         // Kiểm tra isMountedRef trước khi thực hiện bất kỳ hành động nào trong catch
         if (!isMountedRef.current) {
           console.log(
-            'TaiKhoanScreen: fetchUsers error caught, but component unmounted. Suppressing further actions.',
+            'TaiKhoanScreen: fetchUsers error caught, but compggonent unmounted. Suppressing further actions.',
           );
           return;
         }
-
-        // Dòng log này (hoặc tương tự) là nơi bạn thấy lỗi trong screenshot
-        console.error(
-          'TaiKhoanScreen: Lỗi khi lấy danh sách người dùng:',
-          apiError.message,
-        );
 
         // Nếu lỗi là "Token not found", hàm getToken đã gọi logout, không cần làm gì thêm ở đây
         // ngoài việc dọn dẹp state (đã có isMountedRef kiểm tra)

@@ -455,10 +455,6 @@ const HocTapScreen = () => {
   const getToken = useCallback(async () => {
     const token = await AsyncStorage.getItem('token');
     if (!token) {
-      showMessage({
-        message: 'Token không tồn tại. Vui lòng đăng nhập lại.',
-        type: 'danger',
-      });
       logout();
       throw new Error('Token not found');
     }
@@ -497,11 +493,6 @@ const HocTapScreen = () => {
         }
         setFilteredCourses(mappedCourses);
       } catch (apiError: any) {
-        const errorMessage =
-          apiError.response?.data?.message ||
-          apiError.response?.data ||
-          'Không thể tải danh sách chủ đề.';
-        showMessage({message: errorMessage, type: 'danger'});
         if (!keyword) {
           setCourses([]);
         }
@@ -745,10 +736,17 @@ const HocTapScreen = () => {
       <TouchableOpacity
         style={styles.courseItem}
         onPress={() => {
-          navigation.navigate('LessonAdmin', {
-            topic_code: item.topic_code,
-            title: item.title,
-          });
+          if (item.title.toLowerCase() === 'bảng chữ cái') {
+            navigation.navigate('AlphabetsAdminScreen', {
+              topic_code: item.topic_code,
+              title: item.title,
+            });
+          } else {
+            navigation.navigate('LessonAdmin', {
+              topic_code: item.topic_code,
+              title: item.title,
+            });
+          }
         }}
         activeOpacity={0.7}>
         <Image

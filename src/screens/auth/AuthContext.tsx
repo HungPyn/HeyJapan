@@ -283,7 +283,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
 
             if (levelFromPayload !== null && levelFromPayload !== undefined) {
               const levelString = String(levelFromPayload);
-              await AsyncStorage.setItem('level', levelString);
+              await AsyncStorage.setItem('userLevel', levelString);
               console.log(`Đã lưu level '${levelString}' vào AsyncStorage.`);
             } else {
               console.log(
