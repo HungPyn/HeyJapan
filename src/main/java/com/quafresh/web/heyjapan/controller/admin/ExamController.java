@@ -1,12 +1,18 @@
 package com.quafresh.web.heyjapan.controller.admin;
 
-import com.quafresh.web.heyjapan.dto.user.exam.RequestExamQuestion;
-import com.quafresh.web.heyjapan.dto.user.exam.ResponseExamDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.quafresh.web.heyjapan.dto.user.question.RequestExamQuestionDTO;
 import com.quafresh.web.heyjapan.service.user.ExamQuestionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/exam")
@@ -14,37 +20,58 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class ExamController {
     private final ExamQuestionService examQuestionService;
+    private final ObjectMapper objectMapper;
+
     @GetMapping
-    private ResponseEntity<?> getExamQuestionByTopicId(@RequestParam Integer topicID){
+    public ResponseEntity<?> getExamQuestionByTopicId(@RequestParam Integer topicID) {
         return ResponseEntity.ok(examQuestionService.getExamQuesWithTopicId(topicID));
     }
 
-    @PostMapping("/create")
-    private ResponseEntity<?> createNewExam (@RequestBody RequestExamQuestion requestExamQuestion){
-        examQuestionService.createNewExam(requestExamQuestion);
-        return ResponseEntity.ok("Them thanh cong");
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getExamById(@PathVariable Integer id) {
+        return ResponseEntity.ok(examQuestionService.getExamById(id));
     }
 
-    @PutMapping("/update")
-    private ResponseEntity<?> updateExam(@RequestParam Integer id, @RequestBody RequestExamQuestion requestExamQuestion){
-        examQuestionService.updateExam(id,requestExamQuestion);
-        return ResponseEntity.ok("Cap nhat thanh cong exam co id" + id);
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> createNewExam(
+            @RequestPart("examQuestion") String examQuestionJson,
+            @RequestPart(value = "choiceImages", required = false) List<MultipartFile> choiceImages
+    ) throws IOException {
+        RequestExamQuestionDTO dto = objectMapper.readValue(examQuestionJson, RequestExamQuestionDTO.class);
+
+        // Gán từng MultipartFile vào từng RequestChoiceDTO
+        if (choiceImages != null) {
+            for (int i = 0; i < choiceImages.size() && i < dto.getQuestionChoices().size(); i++) {
+                dto.getQuestionChoices().get(i).setImageFile(choiceImages.get(i)); // rename setImageFile đúng kiểu MultipartFile
+            }
+        }
+
+        examQuestionService.createNewExam(dto);
+        return ResponseEntity.ok("Thêm thành công");
     }
 
-    @PostMapping("/updateFull")
-    private ResponseEntity<?> updateFull(@RequestParam Integer id,@RequestBody ResponseExamDTO responseExamDTO){
-        examQuestionService.updateFull(id,responseExamDTO);
-        return ResponseEntity.ok("Cap nhat thanh cong");
+    @PutMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateExam(
+            @RequestParam Integer id,
+            @RequestPart("examQuestion") String examQuestionJson,
+            @RequestPart(value = "choiceImages", required = false) List<MultipartFile> choiceImages
+    ) throws IOException {
+        RequestExamQuestionDTO dto = objectMapper.readValue(examQuestionJson, RequestExamQuestionDTO.class);
+
+        // Gán ảnh nếu có
+        if (choiceImages != null) {
+            for (int i = 0; i < choiceImages.size() && i < dto.getQuestionChoices().size(); i++) {
+                dto.getQuestionChoices().get(i).setImageFile(choiceImages.get(i));
+            }
+        }
+
+        examQuestionService.updateExam(id, dto);
+        return ResponseEntity.ok("Cập nhật thành công exam id " + id);
     }
 
-    @PutMapping("/delete")
-    private ResponseEntity<?> deleteExamById(@RequestParam Integer id){
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> deleteExamById(@RequestParam Integer id) {
         examQuestionService.deleteById(id);
-        return ResponseEntity.ok("Xoa thanh cong exam id"+ id);
-    }
-
-    @PostMapping("/createFull")
-    private ResponseEntity<?> createFull(@RequestBody ResponseExamDTO responseExamDTO){
-       return examQuestionService.createFull(responseExamDTO);
+        return ResponseEntity.ok("Xóa thành công exam id " + id);
     }
 }

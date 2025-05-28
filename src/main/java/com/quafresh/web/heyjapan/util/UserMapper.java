@@ -2,9 +2,7 @@ package com.quafresh.web.heyjapan.util;
 
 import com.quafresh.web.heyjapan.dto.user.alphabet.ResponseAlphabetDTO;
 import com.quafresh.web.heyjapan.dto.user.level.ResponseLevelDTO;
-import com.quafresh.web.heyjapan.dto.user.question.QuestionChoiceDTO;
-import com.quafresh.web.heyjapan.dto.user.question.ResponseExamQuesDTO;
-import com.quafresh.web.heyjapan.dto.user.question.ResponseLessonQuesDTO;
+import com.quafresh.web.heyjapan.dto.user.question.*;
 import com.quafresh.web.heyjapan.dto.user.theory.ResponseGrammarDTO;
 import com.quafresh.web.heyjapan.dto.user.theory.ResponseVocabularyDTO;
 import com.quafresh.web.heyjapan.dto.user.topic.ResponseTopicDTO;
@@ -34,7 +32,7 @@ public interface  UserMapper {
     ResponseVocabularyDTO toVocabularyDTO(Vocabulary vocabulary);
 
     // Chuyển từ entity sang dto phần question
-    ResponseExamQuesDTO toResponseExamQuesDTO(ExamQuestion examQuestion);
+    ResponseExamQuestionDTO toResponseExamQuesDTO(ExamQuestion examQuestion);
     ResponseLessonQuesDTO toResponseLessonQuesDTO(LessonQuestion lessonQuestion);
 
     @Mapping(source = "lessonQuestion.id", target = "lessonQuestion")
@@ -43,4 +41,5 @@ public interface  UserMapper {
 
     //Chuyển từ Alphabet sang DTO alphabet
     ResponseAlphabetDTO toResponseAlphabetDTO(Alphabets alphabets);
+
 }

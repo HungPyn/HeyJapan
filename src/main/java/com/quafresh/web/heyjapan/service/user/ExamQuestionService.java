@@ -1,23 +1,20 @@
 package com.quafresh.web.heyjapan.service.user;
 
-import com.quafresh.web.heyjapan.dto.user.exam.RequestExamQuestion;
 import com.quafresh.web.heyjapan.dto.user.exam.ResponseExamDTO;
-import com.quafresh.web.heyjapan.dto.user.question.ResponseExamQuesDTO;
-import com.quafresh.web.heyjapan.entity.ExamQuestion;
-import org.springframework.http.ResponseEntity;
+import com.quafresh.web.heyjapan.dto.user.question.RequestExamQuestionDTO;
+import com.quafresh.web.heyjapan.dto.user.question.ResponseExamQuestionDTO;
 
 import java.util.List;
 
 public interface ExamQuestionService {
     List<?> getExamQuesWithTopicId(Integer topicID);
 
-    void createNewExam(RequestExamQuestion requestExamQuestion);
+    //admin
+    void createNewExam(RequestExamQuestionDTO requestExamQuestion);
 
-    void updateExam(Integer id, RequestExamQuestion requestExamQuestion);
+    void updateExam(Integer id, RequestExamQuestionDTO requestExamQuestion);
 
     void deleteById(Integer id);
+    ResponseExamQuestionDTO getExamById(Integer id);
 
-    void updateFull(Integer id, ResponseExamDTO responseExamDTO);
-
-    ResponseEntity<?> createFull(ResponseExamDTO responseExamDTO);
 }

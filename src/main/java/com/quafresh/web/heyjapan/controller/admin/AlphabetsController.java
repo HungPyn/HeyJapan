@@ -1,7 +1,6 @@
 package com.quafresh.web.heyjapan.controller.admin;
 
 import com.quafresh.web.heyjapan.dto.user.alphabet.RequestAlphabetDTO;
-import com.quafresh.web.heyjapan.entity.Alphabets;
 import com.quafresh.web.heyjapan.service.user.AlphabetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

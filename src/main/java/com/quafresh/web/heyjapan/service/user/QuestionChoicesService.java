@@ -1,21 +1,15 @@
 package com.quafresh.web.heyjapan.service.user;
 
-import com.quafresh.web.heyjapan.dto.user.lesson.RequestLessonQuestionDTO;
-import com.quafresh.web.heyjapan.entity.QuestionChoice;
-import org.springframework.http.ResponseEntity;
+
+import com.quafresh.web.heyjapan.dto.user.question.QuestionChoiceDTO;
+import com.quafresh.web.heyjapan.dto.user.question.RequestChoiceDTO;
+import com.quafresh.web.heyjapan.entity.IQuestion;
+import com.quafresh.web.heyjapan.entity.LessonQuestion;
 
 import java.util.List;
 
 public interface QuestionChoicesService {
+    void saveChoices(List<RequestChoiceDTO> choices, IQuestion question);
+    void deleteChoice(Integer id);
 
-    List<?> getAllByLessonID(Integer lessonId);
-    List<?> getAllByExamID(Integer ExamID);
-
-    void updateByID(QuestionChoice questionChoice);
-
-    void deleteByID(Integer id);
-
-    ResponseEntity<?> updateFullLesson(RequestLessonQuestionDTO questionChoice);
-
-    ResponseEntity<?> createFullQuestion(RequestLessonQuestionDTO questionChoice);
 }

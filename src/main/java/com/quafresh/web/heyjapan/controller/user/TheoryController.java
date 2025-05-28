@@ -2,7 +2,6 @@ package com.quafresh.web.heyjapan.controller.user;
 
 import com.quafresh.web.heyjapan.dto.user.theory.ResponseGrammarDTO;
 import com.quafresh.web.heyjapan.dto.user.theory.ResponseVocabularyDTO;
-import com.quafresh.web.heyjapan.dto.user.topic.TheoryDTO;
 import com.quafresh.web.heyjapan.service.user.AlphabetService;
 import com.quafresh.web.heyjapan.service.user.GrammarService;
 import com.quafresh.web.heyjapan.service.user.VocabularyService;

@@ -2,6 +2,9 @@ package com.quafresh.web.heyjapan.dto.user.question;
 
 
 import com.quafresh.web.heyjapan.entity.enums.QuestionType;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,7 +27,8 @@ public class ResponseLessonQuesDTO {
 
         private String optionsLanguageCode;
 
-        private String audio_url_questions;
+        private String audioUrlQuestions;
+
 
         private List<QuestionChoiceDTO> questionChoices;
 }

@@ -2,7 +2,6 @@ package com.quafresh.web.heyjapan.controller.admin;
 
 
 import com.quafresh.web.heyjapan.dto.user.lesson.RequestLessonDTO;
-import com.quafresh.web.heyjapan.entity.Lesson;
 import com.quafresh.web.heyjapan.service.user.LessonService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

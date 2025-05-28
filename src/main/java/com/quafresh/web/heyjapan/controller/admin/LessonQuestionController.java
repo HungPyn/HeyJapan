@@ -1,14 +1,15 @@
 package com.quafresh.web.heyjapan.controller.admin;
 
-import com.quafresh.web.heyjapan.dto.user.lesson.RequestLessonQuestionDTO;
-import com.quafresh.web.heyjapan.entity.QuestionChoice;
-import com.quafresh.web.heyjapan.repository.QuestionChoiceRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.quafresh.web.heyjapan.dto.user.question.RequestLessonQuesDTO;
 import com.quafresh.web.heyjapan.service.user.LessonQuestionService;
-import com.quafresh.web.heyjapan.service.user.QuestionChoicesService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -17,43 +18,65 @@ import java.util.List;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 public class LessonQuestionController {
-    private final QuestionChoicesService questionChoicesService;
-    private final LessonQuestionService lessonQuestionService ;
-    @GetMapping("/lesson")
-    private ResponseEntity<List<?>> getQuestionChoicesByLessonId(@RequestParam Integer lessonId){
+
+    private final LessonQuestionService lessonQuestionService;
+    private final ObjectMapper objectMapper;
+
+    // Lấy danh sách câu hỏi theo lessonId
+    @GetMapping
+    public ResponseEntity<?> getAllLessonQuestions(@RequestParam Integer lessonId) {
         return ResponseEntity.ok(lessonQuestionService.getQuestionsAndChoicesForLesson(lessonId));
     }
 
-    @GetMapping("/exam")
-    private ResponseEntity<List<?>> getQuestionChoicesByExamID(@RequestParam Integer examID){
-        return ResponseEntity.ok(questionChoicesService.getAllByExamID(examID));
+    // Lấy câu hỏi theo id
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getById(@PathVariable Integer id) {
+        return ResponseEntity.ok(lessonQuestionService.getById(id));
     }
 
-    @PostMapping("/update")
-    private ResponseEntity<?> updateQuestionChoices(@RequestBody QuestionChoice questionChoice){
-        questionChoicesService.updateByID(questionChoice);
-        return ResponseEntity.ok("Cap nhat thanh cong questionChoices co id"+questionChoice.getId());
+    // Tạo mới LessonQuestion kèm ảnh choice (multipart/form-data)
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> create(
+            @RequestPart("lessonQuestion") @Valid String lessonQuestionJson,
+            @RequestPart(value = "choiceImages", required = false) List<MultipartFile> choiceImages
+    ) throws Exception {
+        // Parse JSON sang DTO
+        RequestLessonQuesDTO dto = objectMapper.readValue(lessonQuestionJson, RequestLessonQuesDTO.class);
+
+        // Gán ảnh cho từng choice nếu có
+        if (choiceImages != null && !choiceImages.isEmpty()) {
+            for (int i = 0; i < choiceImages.size() && i < dto.getQuestionChoices().size(); i++) {
+                dto.getQuestionChoices().get(i).setImageFile(choiceImages.get(i));
+            }
+        }
+
+        lessonQuestionService.create(dto);
+        return ResponseEntity.ok("Thêm thành công");
     }
 
-    @PostMapping("/create")
-    private ResponseEntity<?> createQuestionChoices(@RequestBody QuestionChoice questionChoice){
-        questionChoicesService.updateByID(questionChoice);
-        return ResponseEntity.ok("Them moi thanh cong questionChoices co id"+questionChoice.getId());
+    // Cập nhật LessonQuestion kèm ảnh choice (multipart/form-data)
+    @PutMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> update(
+            @RequestParam Integer id,
+            @RequestPart("lessonQuestion") @Valid String lessonQuestionJson,
+            @RequestPart(value = "choiceImages", required = false) List<MultipartFile> choiceImages
+    ) throws Exception {
+        RequestLessonQuesDTO dto = objectMapper.readValue(lessonQuestionJson, RequestLessonQuesDTO.class);
+
+        if (choiceImages != null && !choiceImages.isEmpty()) {
+            for (int i = 0; i < choiceImages.size() && i < dto.getQuestionChoices().size(); i++) {
+                dto.getQuestionChoices().get(i).setImageFile(choiceImages.get(i));
+            }
+        }
+
+        lessonQuestionService.update(id, dto);
+        return ResponseEntity.ok("Cập nhật thành công");
     }
 
-    @PutMapping("/delete")
-    private ResponseEntity<?> deleteByQuestionChoices(@RequestParam Integer id){
-        questionChoicesService.deleteByID(id);
-        return ResponseEntity.ok("Xoa thanh cong questionsChoices co id la "+id);
-    }
-
-    @PostMapping("/updateFull")
-    private ResponseEntity<?> updateFullQuestionChoices(@RequestBody RequestLessonQuestionDTO questionChoice){
-        return  questionChoicesService.updateFullLesson(questionChoice);
-    }
-
-    @PostMapping("/createFull")
-    private ResponseEntity<?> createFullQuestionChoices(@RequestBody RequestLessonQuestionDTO questionChoice){
-        return  questionChoicesService.createFullQuestion(questionChoice);
+    // Xóa LessonQuestion theo id
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> delete(@RequestParam Integer id) {
+        lessonQuestionService.deleteById(id);
+        return ResponseEntity.ok("Xóa thành công");
     }
 }

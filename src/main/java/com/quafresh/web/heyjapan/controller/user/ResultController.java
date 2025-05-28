@@ -1,17 +1,13 @@
 package com.quafresh.web.heyjapan.controller.user;
 
-import com.quafresh.web.heyjapan.dto.user.question.ResponseLessonQuesDTO;
 import com.quafresh.web.heyjapan.dto.user.result.RequestExamResultDTO;
 import com.quafresh.web.heyjapan.dto.user.result.RequestLessonResultDTO;
 import com.quafresh.web.heyjapan.service.user.ExamResultService;
 import com.quafresh.web.heyjapan.service.user.LessonResultService;
-import com.quafresh.web.heyjapan.service.user.TopicService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor

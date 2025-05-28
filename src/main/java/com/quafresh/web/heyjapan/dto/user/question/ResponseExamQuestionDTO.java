@@ -6,7 +6,7 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ResponseExamQuesDTO {
+public class ResponseExamQuestionDTO {
 
     private Integer id;
 

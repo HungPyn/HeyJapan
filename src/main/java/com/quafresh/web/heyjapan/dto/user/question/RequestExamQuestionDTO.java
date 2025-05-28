@@ -12,12 +12,13 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 @ValidChoiceForQuestionType
-public class RequestLessonQuesDTO {
+public class RequestExamQuestionDTO {
 
-    private Integer lessonId;
+    private Integer topicId;
+
     @NotBlank(message = "Loại câu hỏi không được để trống")
     private String questionType;
 
@@ -31,8 +32,8 @@ public class RequestLessonQuesDTO {
 
     private String optionsLanguageCode;
 
-    @NotBlank(message = "Audio không được để trống")
-    private String audioUrlQuestions;
+    @NotBlank(message = "Audio không được trống")
+    private String audioUrlExam;
 
     @NotEmpty(message = "Câu hỏi phải có ít nhất một lựa chọn")
     @Size(min = 2, message = "Câu hỏi phải có ít nhất 2 lựa chọn")

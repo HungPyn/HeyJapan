@@ -37,7 +37,6 @@ public class Grammar {
     @JoinColumn(name = "topic_id")
     private Topic topic;
 
-    @NotNull
-    @Column(name = "url_audio", nullable = false)
+    @Column(name = "url_audio")
     private String urlAudio;
 }

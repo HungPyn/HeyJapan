@@ -93,7 +93,7 @@ public class TopicServiceImpl implements TopicService {
 
 
     @Override
-    public ResponseTopicDTO create(RequestTopicDTO topicMetaData, MultipartFile avatarFile) {
+    public ResponseTopicDTO  create(RequestTopicDTO topicMetaData, MultipartFile avatarFile) {
         Level level = levelRepository.findById(topicMetaData.getLevelId()).get();
         Topic topic = new Topic();
         topic.setName(topicMetaData.getName());

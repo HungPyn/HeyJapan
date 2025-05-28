@@ -30,7 +30,7 @@ public class QuestionChoice {
 
     @NotNull
     @Lob
-    @Column(name = "text_foreign", nullable = false)
+    @Column(name = "text_foreign")
     private String textForeign;
 
     @Lob
@@ -49,6 +49,6 @@ public class QuestionChoice {
     @Column(name = "is_correct", nullable = false)
     private Boolean isCorrect = false;
 
-    @Column(name = "text_block",nullable = false,columnDefinition = "json")
+    @Column(name = "text_block",columnDefinition = "json")
     private String textBlock;
 }

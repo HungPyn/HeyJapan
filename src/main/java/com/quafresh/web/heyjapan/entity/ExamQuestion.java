@@ -14,7 +14,7 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "exam_questions")
-public class ExamQuestion {
+public class ExamQuestion implements IQuestion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "exam_question_id", nullable = false)
@@ -53,4 +53,9 @@ public class ExamQuestion {
 
     @Column(name = "audio_url_exam")
     private String audioUrlExam;
+
+    @Override
+    public Integer getId() {
+        return this.id;
+    }
 }
