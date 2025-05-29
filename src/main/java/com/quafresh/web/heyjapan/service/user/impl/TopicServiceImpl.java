@@ -124,24 +124,44 @@ public class TopicServiceImpl implements TopicService {
     public ResponseTopicDTO update(RequestTopicDTO requestTopicDTO, MultipartFile avatarFile) {
         Topic topic = topicRepository.findById(requestTopicDTO.getTopicID())
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_LEVEL.getMessage()));
-        String oldAvatarUrl = topic.getAvatarUrl();
+
         topic.setName(requestTopicDTO.getName());
-        String originalFilename = avatarFile.getOriginalFilename();
-        String fileExtension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            String oldAvatarUrl = topic.getAvatarUrl();
+
+            String originalFilename = avatarFile.getOriginalFilename();
+            String fileExtension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+            String objectName = UUID.randomUUID().toString() + fileExtension;
+
+            try {
+                // Upload file mới
+                gcsStorageService.uploadFileToPublicBucket(avatarFile, objectName);
+
+                // Xóa file cũ (nếu có)
+                if (oldAvatarUrl != null && !oldAvatarUrl.isEmpty()) {
+                    gcsStorageService.deleteFile(oldAvatarUrl);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Cập nhật file thất bại", e);
+            }
+
+            String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
+            topic.setAvatarUrl(publicUrl);
         }
-        String objectName = UUID.randomUUID().toString() + fileExtension;
-        try {
-            gcsStorageService.uploadFileToPublicBucket(avatarFile, objectName);
-        } catch (IOException e) {
-            throw new RuntimeException("Cập nhật file thất bại", e);
-        }
-        String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
-        topic.setAvatarUrl(publicUrl);
 
         topicRepository.save(topic);
-        return new ResponseTopicDTO(topic.getId(), topic.getLevel().getId(), topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
+
+        return new ResponseTopicDTO(
+                topic.getId(),
+                topic.getLevel().getId(),
+                topic.getName(),
+                topic.getAvatarUrl(),
+                topic.getDayCreation()
+        );
     }
 
     @Override

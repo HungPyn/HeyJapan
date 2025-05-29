@@ -51,20 +51,23 @@ public class ExamResultServiceImpl implements ExamResultService {
         examResultRepository.save(examResult);
         return "Kết quả kiểm tra thêm thành công";
     }
+
     @Override
     public ResponseExamResultDTO getExamResultByID(String userId, Integer topicId) {
-        ExamResult examResult = examResultRepository.findByUserIdAndTopicId(userId,topicId).orElse(null);
+        Optional<ExamResult> examResult = examResultRepository.findFirstByUserIdAndTopicIdOrderByScorePercentDesc(userId, topicId);
         ResponseExamResultDTO dto = new ResponseExamResultDTO();
-        if (examResult == null) {
+
+        if (examResult.isPresent()) {
+            ExamResult er = examResult.get();
+            dto.setTotalQuestions(er.getTotalQuestions());
+            dto.setScorePercent(er.getScorePercent());
+            dto.setCorrectAnswers(er.getCorrectAnswers());
+            dto.setExamTime(er.getExamTime());
+        } else {
             dto.setTotalQuestions(0);
             dto.setScorePercent(BigDecimal.ZERO);
             dto.setCorrectAnswers(0);
             dto.setExamTime(0);
-        } else {
-            dto.setTotalQuestions(examResult.getTotalQuestions());
-            dto.setScorePercent(examResult.getScorePercent());
-            dto.setCorrectAnswers(examResult.getCorrectAnswers());
-            dto.setExamTime(examResult.getExamTime());
         }
 
         return dto;

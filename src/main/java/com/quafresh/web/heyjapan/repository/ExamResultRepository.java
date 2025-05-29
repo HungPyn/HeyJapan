@@ -3,6 +3,7 @@ package com.quafresh.web.heyjapan.repository;
 import com.quafresh.web.heyjapan.dto.user.exam.ExamResponseDTO;
 import com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO;
 import com.quafresh.web.heyjapan.entity.ExamResult;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -52,15 +53,7 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
     List<ResponseExamResultDTO> getAllExamResultByUserId(@Param("userId") String userId);
 
 
-    @Query("""
-                SELECT er FROM ExamResult er 
-                WHERE er.user.id = :userId AND er.topic.id = :topicId 
-                ORDER BY er.scorePercent DESC
-            """)
-    Optional<ExamResult> findByUserIdAndTopicId(
-            @Param("userId") String userId,
-            @Param("topicId") Integer topicId
-    );
+    Optional<ExamResult> findFirstByUserIdAndTopicIdOrderByScorePercentDesc(String userId, Integer topicId);
 
 
     @Query("""
