@@ -1386,7 +1386,7 @@ const ExamContentsScreen: React.FC = () => {
                           styles.feedback_AudioIcon_NEW,
                           {
                             tintColor: showAnswerFeedback
-                              ? COLORS.primary
+                              ? COLORS.white
                               : COLORS.white,
                           },
                         ]}

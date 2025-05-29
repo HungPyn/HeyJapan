@@ -42,7 +42,7 @@ interface ApiQuestion {
   targetWordNative: string;
   targetLanguageCode: string;
   optionsLanguageCode: string;
-  audio_url_questions: string | null;
+  audioUrlQuestions: string | null; // SỬA Ở ĐÂY: Khớp với API response
   questionChoices: ApiQuestionChoice[];
 }
 // --- End Types cho API lấy câu hỏi ---
@@ -361,7 +361,7 @@ const ContentsScreen: React.FC = () => {
           content_type: internalContentType,
           title: apiQuestion.promptTextTemplate,
           content_detail: apiQuestion.targetWordNative || '',
-          audio_url: apiQuestion.audio_url_questions,
+          audio_url: apiQuestion.audioUrlQuestions,
           image_url: null,
           options: mappedOptions,
           correct_answer: correctAnswerIds,
@@ -790,11 +790,8 @@ const ContentsScreen: React.FC = () => {
                   </TouchableOpacity>
                 )}
                 <Text style={styles.contentDetailSelect}>
-                  {currentItem.title || 'Chọn hình ảnh đúng'}
-                  {currentItem.content_detail &&
-                  currentItem.content_detail !== currentItem.title
-                    ? `: "${currentItem.content_detail}"`
-                    : ''}
+                  {currentItem.title + ': ' || 'Chọn hình ảnh đúng'}
+                  {currentItem.content_detail}
                 </Text>
               </View>
             </View>
@@ -979,7 +976,7 @@ const ContentsScreen: React.FC = () => {
                 ) : (
                   // Nếu chưa kiểm tra, hiện tiêu đề/hướng dẫn mặc định
                   <Text style={styles.contentDetailXapXep}>
-                    {currentItem.title || 'Sắp xếp các khối từ bên dưới'}
+                    {'Sắp xếp các khối từ bên dưới'}
                   </Text>
                 )}
                 {/* KẾT THÚC PHẦN ĐÃ SỬA ĐỔI */}
@@ -1359,7 +1356,7 @@ const ContentsScreen: React.FC = () => {
                           styles.feedback_AudioIcon_NEW,
                           {
                             tintColor: showAnswerFeedback
-                              ? COLORS.primary
+                              ? COLORS.white
                               : COLORS.white,
                           },
                         ]}

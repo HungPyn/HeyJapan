@@ -18,7 +18,7 @@ import {
   ScrollView,
   Keyboard,
 } from 'react-native';
-import axios, {AxiosRequestConfig} from 'axios';
+import axios from 'axios'; // AxiosRequestConfig có thể không cần thiết
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import {useAuth} from '../auth/AuthContext';
@@ -28,13 +28,13 @@ import {RootStackParamList} from '../../navigation';
 import {showMessage} from 'react-native-flash-message';
 import {Video, VideoRef, OnLoadData} from 'react-native-video';
 
-// --- Types cho API ---
+// --- Types cho API (GET response) ---
 interface ApiVocabularyItem {
   id: number;
   word: string;
   meaning: string;
   pronunciation: string;
-  vocabularyUrl: string | null;
+  vocabularyUrl: string | null; // API GET trả về vocabularyUrl
 }
 
 interface ApiGrammarItem {
@@ -45,20 +45,23 @@ interface ApiGrammarItem {
   urlAudio: string | null;
 }
 
-interface RequestVocabularyDTO {
+// --- DTOs phía client để gửi đi (POST/PUT body) ---
+// SỬA: Đổi tên trường urlAudio thành vocabularyUrl để khớp DTO backend
+interface ClientRequestVocabularyDTO {
   id?: number;
   word: string;
   meaning: string;
   pronunciation: string;
-  urlAudio: string;
+  vocabularyUrl: string; // Khớp với RequestVocabularyDTO của backend
 }
 
-interface RequestGrammarDTO {
+interface ClientRequestGrammarDTO {
+  // Giữ nguyên DTO này vì phần Grammar đã hoạt động
   id?: number;
   structure: string;
   explanation: string;
   example: string;
-  urlAudio?: string;
+  urlAudio?: string | null; // DTO backend cho grammar dùng urlAudio (optional)
 }
 
 const API_ADMIN_THEORY_BASE_URL = 'http://10.0.2.2:8080/api/admin/theory';
@@ -79,7 +82,7 @@ type TheoryAdminScreenNavigationProp = StackNavigationProp<
   'TheoryAdmin'
 >;
 
-type FormDataType = RequestVocabularyDTO | RequestGrammarDTO;
+type FormDataType = ClientRequestVocabularyDTO | ClientRequestGrammarDTO;
 
 interface AddEditItemModalProps {
   visible: boolean;
@@ -100,37 +103,41 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
   onSubmit,
   isSubmitting,
 }) => {
+  // States cho Vocabulary
   const [word, setWord] = useState('');
   const [meaning, setMeaning] = useState('');
   const [pronunciation, setPronunciation] = useState('');
-  const [vocabUrlAudio, setVocabUrlAudio] = useState(''); // State cho URL audio của vocab
+  const [vocabularyUrlInput, setVocabularyUrlInput] = useState(''); // Sửa tên state cho rõ ràng
 
+  // States cho Grammar (giữ nguyên)
   const [structure, setStructure] = useState('');
   const [explanation, setExplanation] = useState('');
   const [example, setExample] = useState('');
-  const [grammarUrlAudio, setGrammarUrlAudio] = useState(''); // State cho URL audio của grammar
+  const [grammarUrlAudio, setGrammarUrlAudio] = useState('');
 
   useEffect(() => {
     if (visible) {
       if (mode === 'edit' && initialData) {
         if (itemType === 'vocabulary') {
-          const vocab = initialData as RequestVocabularyDTO;
+          const vocab = initialData as ClientRequestVocabularyDTO;
           setWord(vocab.word || '');
           setMeaning(vocab.meaning || '');
           setPronunciation(vocab.pronunciation || '');
-          setVocabUrlAudio(vocab.urlAudio || ''); // Sử dụng urlAudio từ initialData
+          setVocabularyUrlInput(vocab.vocabularyUrl || ''); // Gán cho state mới
         } else {
-          const grammar = initialData as RequestGrammarDTO;
+          // Grammar (giữ nguyên logic)
+          const grammar = initialData as ClientRequestGrammarDTO;
           setStructure(grammar.structure || '');
           setExplanation(grammar.explanation || '');
           setExample(grammar.example || '');
           setGrammarUrlAudio(grammar.urlAudio || '');
         }
       } else {
+        // Mode 'add' or no initial data
         setWord('');
         setMeaning('');
         setPronunciation('');
-        setVocabUrlAudio('');
+        setVocabularyUrlInput('');
         setStructure('');
         setExplanation('');
         setExample('');
@@ -144,27 +151,28 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
     let dataToSubmit: FormDataType;
 
     if (itemType === 'vocabulary') {
+      // Validation cho Vocabulary, đảm bảo vocabularyUrlInput không trống
       if (
         !word.trim() ||
         !meaning.trim() ||
         !pronunciation.trim() ||
-        !vocabUrlAudio.trim()
+        !vocabularyUrlInput.trim()
       ) {
         Alert.alert(
           'Lỗi',
-          'Vui lòng điền đầy đủ thông tin từ vựng, bao gồm cả URL Audio.',
+          'Vui lòng điền đầy đủ thông tin Từ vựng, bao gồm Từ, Nghĩa, Phát âm và URL Audio.',
         );
         return;
       }
       dataToSubmit = {
-        id: initialData?.id,
+        id: mode === 'edit' ? initialData?.id : undefined,
         word: word.trim(),
         meaning: meaning.trim(),
         pronunciation: pronunciation.trim(),
-        urlAudio: vocabUrlAudio.trim(),
+        vocabularyUrl: vocabularyUrlInput.trim(), // Gửi đi là vocabularyUrl
       };
-      console.log('Submitting Vocabulary Data (Modal Form):', dataToSubmit);
     } else {
+      // Grammar (logic giữ nguyên như file gốc bạn cung cấp)
       if (!structure.trim() || !explanation.trim() || !example.trim()) {
         Alert.alert(
           'Lỗi',
@@ -172,15 +180,14 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
         );
         return;
       }
-      // urlAudio cho grammar có thể rỗng, không cần trim nếu rỗng
       dataToSubmit = {
-        id: initialData?.id,
+        id: mode === 'edit' ? initialData?.id : undefined,
         structure: structure.trim(),
         explanation: explanation.trim(),
         example: example.trim(),
-        urlAudio: grammarUrlAudio ? grammarUrlAudio.trim() : '',
+        // urlAudio cho grammar là optional, backend DTO cũng thể hiện điều này (không có @NotBlank)
+        urlAudio: grammarUrlAudio ? grammarUrlAudio.trim() : undefined,
       };
-      console.log('Submitting Grammar Data (Modal Form):', dataToSubmit);
     }
     onSubmit(dataToSubmit);
   };
@@ -212,11 +219,21 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
                 />
               </TouchableOpacity>
               <Text style={formModalStyles.headerTitle}>{modalTitle}</Text>
-              <View style={{width: 30}} />
+              <View
+                style={{
+                  width:
+                    formModalStyles.backIcon.width +
+                    ((formModalStyles.backButton.paddingHorizontal as number) ||
+                      (formModalStyles.backButton.padding as number) ||
+                      5) *
+                      2,
+                }}
+              />
             </View>
             <ScrollView
               style={formModalStyles.formContainer}
-              keyboardShouldPersistTaps="handled">
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
               {itemType === 'vocabulary' ? (
                 <>
                   <View style={formModalStyles.inputGroup}>
@@ -263,8 +280,8 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
                     </Text>
                     <TextInput
                       style={formModalStyles.input}
-                      value={vocabUrlAudio}
-                      onChangeText={setVocabUrlAudio}
+                      value={vocabularyUrlInput}
+                      onChangeText={setVocabularyUrlInput}
                       placeholder="Nhập URL âm thanh"
                       editable={!isSubmitting}
                       keyboardType="url"
@@ -272,6 +289,7 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
                   </View>
                 </>
               ) : (
+                // Grammar fields
                 <>
                   <View style={formModalStyles.inputGroup}>
                     <Text style={formModalStyles.label}>
@@ -292,7 +310,10 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
                       <Text style={formModalStyles.requiredStar}>*</Text>
                     </Text>
                     <TextInput
-                      style={formModalStyles.input}
+                      style={[
+                        formModalStyles.input,
+                        {height: 100, textAlignVertical: 'top'},
+                      ]}
                       value={explanation}
                       onChangeText={setExplanation}
                       placeholder="Nhập giải thích"
@@ -305,7 +326,10 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
                       Ví dụ <Text style={formModalStyles.requiredStar}>*</Text>
                     </Text>
                     <TextInput
-                      style={formModalStyles.input}
+                      style={[
+                        formModalStyles.input,
+                        {height: 100, textAlignVertical: 'top'},
+                      ]}
                       value={example}
                       onChangeText={setExample}
                       placeholder="Nhập ví dụ"
@@ -348,6 +372,7 @@ const AddEditItemModal: React.FC<AddEditItemModalProps> = ({
     </Modal>
   );
 };
+// Styles cho AddEditItemModal (formModalStyles) giữ nguyên như file bạn cung cấp
 const formModalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
@@ -375,10 +400,16 @@ const formModalStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  backButton: {padding: 5},
+  backButton: {padding: 5, paddingHorizontal: 5}, // Giữ paddingHorizontal nếu có trong style gốc của bạn
   backIcon: {width: 22, height: 22, tintColor: '#555'},
-  headerTitle: {fontSize: 18, fontWeight: 'bold', color: '#333'},
-  formContainer: {paddingHorizontal: 20, paddingTop: 10},
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+    textAlign: 'center',
+  },
+  formContainer: {paddingHorizontal: 20, paddingTop: 10, flex: 1},
   inputGroup: {marginBottom: 15},
   label: {fontSize: 15, color: '#444', marginBottom: 6, fontWeight: '500'},
   requiredStar: {color: 'red'},
@@ -432,7 +463,6 @@ const TheoryAdminScreen = () => {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [audioError, setAudioError] = useState('');
-  const audioUrlToPlayRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -531,6 +561,7 @@ const TheoryAdminScreen = () => {
 
   const playSound = useCallback(
     (audioUrlToPlayParam: string | null) => {
+      if (!isMountedRef.current) return;
       if (!audioUrlToPlayParam) {
         setAudioUrlToPlayState(null);
         setIsAudioPlaying(false);
@@ -540,20 +571,22 @@ const TheoryAdminScreen = () => {
       if (
         audioRef.current &&
         isAudioPlaying &&
-        audioUrlToPlayRef.current === audioUrlToPlayParam
+        audioURLToPlay === audioUrlToPlayParam
       ) {
+        // Sửa: dùng audioURLToPlay
         audioRef.current.pause();
         setIsAudioPlaying(false);
         return;
       }
       setAudioUrlToPlayState(null);
-      audioUrlToPlayRef.current = audioUrlToPlayParam;
       setTimeout(() => {
-        if (isMountedRef.current) setAudioUrlToPlayState(audioUrlToPlayParam);
+        if (isMountedRef.current) {
+          setAudioUrlToPlayState(audioUrlToPlayParam);
+        }
       }, 50);
     },
-    [isAudioPlaying],
-  );
+    [isAudioPlaying, audioURLToPlay],
+  ); // Sửa: thêm audioURLToPlay vào dependency
 
   const handleOpenAddItemModal = () => {
     setModalMode('add');
@@ -568,22 +601,23 @@ const TheoryAdminScreen = () => {
     if (activeTab === 'vocabulary') {
       const vocab = item as ApiVocabularyItem;
       setEditingItem({
-        // Dùng RequestVocabularyDTO để edit
+        // ClientRequestVocabularyDTO
         id: vocab.id,
         word: vocab.word,
         meaning: vocab.meaning,
         pronunciation: vocab.pronunciation,
-        urlAudio: vocab.vocabularyUrl || '', // Map vocabularyUrl từ GET response sang urlAudio cho form
+        vocabularyUrl: vocab.vocabularyUrl || '',
       });
     } else {
+      // Grammar
       const grammar = item as ApiGrammarItem;
       setEditingItem({
-        // Dùng RequestGrammarDTO để edit
+        // ClientRequestGrammarDTO
         id: grammar.id,
         structure: grammar.structure,
         explanation: grammar.explanation,
         example: grammar.example,
-        urlAudio: grammar.urlAudio || '', // Giữ nguyên urlAudio
+        urlAudio: grammar.urlAudio || '',
       });
     }
     setIsItemModalVisible(true);
@@ -604,54 +638,49 @@ const TheoryAdminScreen = () => {
         let dataToSend: any = {...formData};
         let successMessage = '';
 
-        console.log(
-          `Đang lưu ${activeTab} ở chế độ ${modalMode}. Dữ liệu gửi đi:`,
-          JSON.stringify(dataToSend, null, 2),
-        );
-
         if (activeTab === 'vocabulary') {
-          const vocabData = dataToSend as RequestVocabularyDTO;
-          if (!vocabData.urlAudio || vocabData.urlAudio.trim() === '') {
-            showMessage({
-              message: 'URL Audio cho từ vựng không được để trống.',
-              type: 'danger',
-            });
-            setIsSubmittingItem(false);
-            return;
-          }
+          // formData đã là ClientRequestVocabularyDTO từ modal
+          const vocabData = formData as ClientRequestVocabularyDTO;
           if (modalMode === 'add') {
             url = `${API_ADMIN_THEORY_BASE_URL}/vocabulary/create?topicId=${currentTopicId}`;
             method = 'post';
             successMessage = 'Thêm từ vựng thành công!';
-            delete vocabData.id;
+            // Tạo payload không có id cho create
+            const {id, ...createPayload} = vocabData;
+            dataToSend = createPayload;
           } else {
+            // edit mode
             url = `${API_ADMIN_THEORY_BASE_URL}/vocabulary/update`;
-            method = 'put';
+            method = 'put'; // Controller dùng PUT
             successMessage = 'Cập nhật từ vựng thành công!';
-            if (!vocabData.id) {
+            if (!vocabData.id)
               throw new Error('ID từ vựng là bắt buộc để cập nhật.');
-            }
+            dataToSend = vocabData; // Gửi nguyên vocabData (đã có id)
           }
-          dataToSend = vocabData;
         } else {
-          // grammar
-          const grammarData = dataToSend as RequestGrammarDTO;
+          // Grammar (Logic này giữ nguyên như bạn nói đã hoạt động)
+          const grammarData = formData as ClientRequestGrammarDTO;
           if (modalMode === 'add') {
             url = `${API_ADMIN_THEORY_BASE_URL}/grammar/create?topicId=${currentTopicId}`;
             method = 'post';
             successMessage = 'Thêm ngữ pháp thành công!';
-            delete grammarData.id;
+            const {id, ...createPayload} = grammarData;
+            dataToSend = createPayload;
           } else {
+            // edit mode
             url = `${API_ADMIN_THEORY_BASE_URL}/grammar/update`;
-            method = 'post'; // Theo controller backend
+            method = 'post'; // Controller backend dùng POST cho update grammar
             successMessage = 'Cập nhật ngữ pháp thành công!';
-            if (!grammarData.id) {
+            if (!grammarData.id)
               throw new Error('ID ngữ pháp là bắt buộc để cập nhật.');
-            }
+            dataToSend = grammarData;
           }
-          dataToSend = grammarData;
         }
 
+        console.log(
+          `Submitting ${method.toUpperCase()} to ${url} with data:`,
+          JSON.stringify(dataToSend),
+        );
         await axios({
           method,
           url,
@@ -663,8 +692,10 @@ const TheoryAdminScreen = () => {
         showMessage({message: successMessage, type: 'success'});
         setIsItemModalVisible(false);
         setEditingItem(null);
-        if (activeTab === 'vocabulary') fetchVocabularies(currentTopicId);
-        else fetchGrammars(currentTopicId);
+        if (activeTab === 'vocabulary' && currentTopicId)
+          fetchVocabularies(currentTopicId);
+        else if (activeTab === 'grammar' && currentTopicId)
+          fetchGrammars(currentTopicId);
       } catch (err: any) {
         if (!isMountedRef.current) return;
         console.error(
@@ -692,6 +723,7 @@ const TheoryAdminScreen = () => {
   );
 
   const handleDeleteItem = async (item: ApiVocabularyItem | ApiGrammarItem) => {
+    /* Giữ nguyên */
     if (currentTopicId === null) {
       showMessage({message: 'ID chủ đề không hợp lệ.', type: 'danger'});
       return;
@@ -730,8 +762,10 @@ const TheoryAdminScreen = () => {
                   `${isVocab ? 'Từ vựng' : 'Ngữ pháp'} đã được xóa.`,
                 type: 'success',
               });
-              if (isVocab) fetchVocabularies(currentTopicId);
-              else fetchGrammars(currentTopicId);
+              if (currentTopicId) {
+                if (isVocab) fetchVocabularies(currentTopicId);
+                else fetchGrammars(currentTopicId);
+              }
             } catch (err: any) {
               if (!isMountedRef.current) return;
               const msg = err.response?.data || err.message || `Không thể xóa.`;
@@ -745,6 +779,7 @@ const TheoryAdminScreen = () => {
     );
   };
   const handleLogoutFromMenu = useCallback(async () => {
+    /* Giữ nguyên */
     setIsProfileMenuVisible(false);
     Alert.alert(
       'Xác nhận đăng xuất',
@@ -891,7 +926,13 @@ const TheoryAdminScreen = () => {
         <Text style={styles.topicTitleStyle} numberOfLines={1}>
           {topicTitleFromRoute || 'Quản lý Lý thuyết'}
         </Text>
-        <View style={{width: 30}} />
+        <View
+          style={{
+            width:
+              styles.backIconSubHeader.width +
+              ((styles.backButtonSubHeader.padding as number) || 0) * 2,
+          }}
+        />
       </View>
       <View style={styles.tabsContainer}>
         <TouchableOpacity
@@ -931,7 +972,6 @@ const TheoryAdminScreen = () => {
           <Text style={styles.addNewButtonText}>+ Thêm mới</Text>
         </TouchableOpacity>
       </View>
-
       {audioURLToPlay && (
         <Video
           ref={audioRef}
@@ -976,7 +1016,6 @@ const TheoryAdminScreen = () => {
       {audioError !== '' && (
         <Text style={styles.audioErrorText}>{audioError}</Text>
       )}
-
       {activeTab === 'vocabulary' ? (
         isLoadingVocab ? (
           <View style={styles.loadingContainerFull}>
@@ -1028,7 +1067,6 @@ const TheoryAdminScreen = () => {
           keyboardShouldPersistTaps="handled"
         />
       )}
-
       <Modal
         animationType="fade"
         transparent={true}
@@ -1053,7 +1091,6 @@ const TheoryAdminScreen = () => {
           </View>
         </Pressable>
       </Modal>
-
       {isItemModalVisible && (
         <AddEditItemModal
           visible={isItemModalVisible}
@@ -1072,7 +1109,6 @@ const TheoryAdminScreen = () => {
   );
 };
 
-// --- Styles ---
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.background || '#FFFFFF'},
   mainHeader: {
@@ -1192,7 +1228,7 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray || '#555',
     fontWeight: '600',
     marginTop: 3,
-  }, // Đổi fontWeight thành 600
+  },
   grammarValueText: {
     fontSize: 14,
     color: '#444444',
@@ -1253,11 +1289,12 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
 });
+
 const profileMenuStyles = StyleSheet.create({
   backdrop: {flex: 1, backgroundColor: 'transparent'},
   menuContainer: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? 50 : 80,
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 50 : 80,
     right: 15,
     backgroundColor: 'white',
     borderRadius: 8,
@@ -1275,7 +1312,7 @@ const profileMenuStyles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
   },
-  menuIcon: {width: 20, height: 20, marginRight: 12, tintColor: '#555'},
+  menuIcon: {width: 20, height: 20, marginRight: 10, tintColor: '#555'},
   menuText: {fontSize: 16, color: '#333'},
 });
 
