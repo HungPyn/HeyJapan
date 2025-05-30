@@ -1,4 +1,4 @@
-// src/screens/courses/ExamContentsScreen.tsx
+// src/screens/lessons/ExamContentsScreen.tsx (Hoặc đường dẫn bạn muốn)
 import React, {useState, useMemo, useEffect, useCallback, useRef} from 'react';
 import {
   View,
@@ -24,18 +24,25 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {showMessage} from 'react-native-flash-message';
 
+// --- IMPORT CÁC COMPONENT CON ---
+import PronunciationLessonContent from './TypeRenderQuestion/PronunciationLessonContent';
+import WritingLessonContent from './TypeRenderQuestion/WritingLessonContent';
+import SelectLessonContent from './TypeRenderQuestion/SelectLessonContent';
+import AudioChoiceLessonContent from './TypeRenderQuestion/AudioChoiceLessonContent';
+import SelectImageLessonContent from './TypeRenderQuestion/SelectImageLessonContent';
+import WordOrderLessonContent, {
+  WordOrderLessonContentRef,
+} from './TypeRenderQuestion/WordOrderLessonContent';
+
 // --- Types cho API lấy câu hỏi ---
 interface ApiQuestionChoice {
   id: number;
   textForeign: string | null;
   textRomaji?: string | null;
   imageUrl: string | null;
-  audioUrlForeign: string | null; // Audio cho từng lựa chọn (nếu có)
+  audioUrlForeign: string | null;
   textBlock?: string;
   isCorrect: boolean | number | null;
-  // Các trường lessonQuestion, examQuestion có thể không cần thiết ở client nếu không dùng
-  lessonQuestion?: number | null;
-  examQuestion?: number | null;
 }
 
 interface ApiQuestion {
@@ -45,7 +52,7 @@ interface ApiQuestion {
   targetWordNative: string;
   targetLanguageCode: string;
   optionsLanguageCode: string;
-  audioUrlExam: string | null; // Đổi tên từ audio_url_questions sang audioUrlExam
+  audioUrlExam: string | null; // Đã đổi tên
   questionChoices: ApiQuestionChoice[];
 }
 // --- End Types cho API lấy câu hỏi ---
@@ -56,13 +63,13 @@ interface SubmitExamResultPayload {
   scorePercent: number;
   totalQuestions: number;
   correctAnswers: number;
-  topicId: number; // Sử dụng topicId
+  topicId: number;
   userId: string;
 }
 // --- End Type cho Payload gửi kết quả bài kiểm tra ---
 
-// --- Dữ liệu nội bộ và mapping ---
-interface Option {
+// --- Dữ liệu nội bộ và mapping (GIỮ NGUYÊN NHƯ ContentsScreen ĐÃ CẬP NHẬT) ---
+export interface Option {
   id: string;
   text: string;
   textRomaji?: string | null;
@@ -70,18 +77,18 @@ interface Option {
   audioUrl?: string | null;
 }
 
-interface MappedContentItem {
+export interface MappedContentItem {
   content_code: number;
   content_type:
-    | 'audio'
-    | 'voice'
     | 'select'
     | 'sapXep'
     | 'select_image'
-    | 'audio_choice';
+    | 'audio_choice'
+    | 'pronunciation'
+    | 'writing';
   title: string | null;
   content_detail: string;
-  audio_url: string | null; // Sẽ lấy từ audioUrlExam
+  audio_url: string | null;
   image_url: string | null;
   options?: Option[];
   correct_answer?: string | string[];
@@ -94,7 +101,7 @@ interface MappedContentItem {
 
 type ExamContentsScreenRouteProp = RouteProp<
   CoursesStackParamList,
-  'ContentExam' // Đảm bảo tên route này khớp với định nghĩa trong navigation của bạn
+  'ContentExam' // Tên route cho màn hình exam
 >;
 type ExamContentsScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -109,7 +116,8 @@ const ProgressBar = ({current, total}: {current: number; total: number}) => {
   );
 };
 
-interface SummaryScreenProps {
+interface ExamSummaryProps {
+  // Đổi tên cho phù hợp
   correctAnswersCount: number;
   totalQuestions: number;
   timeTaken: string;
@@ -117,7 +125,8 @@ interface SummaryScreenProps {
   isSubmitting: boolean;
 }
 
-const SummaryScreen: React.FC<SummaryScreenProps> = ({
+const ExamSummaryScreen: React.FC<ExamSummaryProps> = ({
+  // Đổi tên component
   correctAnswersCount,
   totalQuestions,
   timeTaken,
@@ -136,6 +145,7 @@ const SummaryScreen: React.FC<SummaryScreenProps> = ({
         resizeMode="contain"
       />
       <Text style={summaryStyles.title}>Kết quả bài kiểm tra</Text>
+      {/* Thay đổi tiêu đề */}
       <View style={summaryStyles.card}>
         <Image
           source={require('../../assets/images/tiLeDung.png')}
@@ -177,10 +187,10 @@ const SummaryScreen: React.FC<SummaryScreenProps> = ({
 };
 
 const ExamContentsScreen: React.FC = () => {
+  // Đổi tên component
   const route = useRoute<ExamContentsScreenRouteProp>();
   const navigation = useNavigation<ExamContentsScreenNavigationProp>();
 
-  // Lấy topicId và lessonName từ route.params
   const {topicId, lessonName: lessonNameFromRoute = 'Bài kiểm tra'} =
     route.params;
 
@@ -195,12 +205,14 @@ const ExamContentsScreen: React.FC = () => {
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<boolean | null>(
     null,
   );
-  const [arrangedWords, setArrangedWords] = useState<Option[]>([]);
   const [showSummaryScreen, setShowSummaryScreen] = useState(false);
   const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState(false);
+  const [currentUserWritingText, setCurrentUserWritingText] =
+    useState<string>('');
+  const [sapXepArrangedCount, setSapXepArrangedCount] = useState<number>(0);
 
   const audioRef = useRef<VideoRef>(null);
   const [audioURLToPlay, setAudioUrlToPlayState] = useState<string | null>(
@@ -211,22 +223,23 @@ const ExamContentsScreen: React.FC = () => {
   const [audioError, setAudioError] = useState('');
   const audioUrlToPlayRef = useRef<string | null>(null);
 
+  const wordOrderRef = useRef<WordOrderLessonContentRef>(null);
+
   const getToken = async (): Promise<string | null> => {
     try {
       const token = await AsyncStorage.getItem('token');
       return token;
     } catch (e) {
-      console.error('Failed to fetch token:', e);
+      console.error('Lỗi lấy token:', e);
       return null;
     }
   };
-
   const getUserId = async (): Promise<string | null> => {
     try {
       const userId = await AsyncStorage.getItem('UserId');
       return userId;
     } catch (e) {
-      console.error('Failed to fetch UserId:', e);
+      console.error('Lỗi lấy UserId:', e);
       return null;
     }
   };
@@ -243,131 +256,120 @@ const ExamContentsScreen: React.FC = () => {
 
         switch (apiQuestion.questionType) {
           case 'MULTIPLE_CHOICE_TEXT_ONLY':
+            internalContentType = 'select';
+            break;
           case 'AUDIO_CHOICE':
-            internalContentType =
-              apiQuestion.questionType === 'AUDIO_CHOICE'
-                ? 'audio_choice'
-                : 'select';
-            mappedOptions = choicesFromApi.map(qc => ({
-              id: String(qc.id),
-              text: qc.textForeign || '',
-              textRomaji: qc.textRomaji ?? null,
-              audioUrl: qc.audioUrlForeign, // Audio cho từng lựa chọn
-            }));
-            const correctChoice = choicesFromApi.find(
-              qc => qc.isCorrect === true,
-            );
-            if (correctChoice) {
-              correctAnswerIds = String(correctChoice.id);
-              correctAnswerForeign = correctChoice.textForeign;
-              correctAnswerRomaji = correctChoice.textRomaji ?? null;
-            }
+            internalContentType = 'audio_choice';
             break;
           case 'MULTIPLE_CHOICE_VOCAB_IMAGE':
             internalContentType = 'select_image';
-            mappedOptions = choicesFromApi.map(qc => ({
-              id: String(qc.id),
-              text: `${qc.textForeign || ''}${
-                qc.textRomaji ? `\n(${qc.textRomaji})` : ''
-              }`,
-              textRomaji: qc.textRomaji ?? null,
-              imageUrl: qc.imageUrl,
-              audioUrl: qc.audioUrlForeign, // Audio cho từng lựa chọn (nếu có)
-            }));
-            const correctImageChoice = choicesFromApi.find(
-              qc => qc.isCorrect === true,
-            );
-            if (correctImageChoice) {
-              correctAnswerIds = String(correctImageChoice.id);
-              correctAnswerForeign = apiQuestion.targetWordNative;
-              correctAnswerRomaji = correctImageChoice.textRomaji ?? null;
-              if (
-                correctImageChoice.textForeign &&
-                correctImageChoice.textForeign.trim() !== ''
-              ) {
-                correctAnswerForeign = correctImageChoice.textForeign;
-              }
-            }
             break;
           case 'WORD_ORDER':
             internalContentType = 'sapXep';
-            const firstChoiceWordOrder = apiQuestion.questionChoices[0];
-            if (
-              firstChoiceWordOrder &&
-              typeof firstChoiceWordOrder.textBlock === 'string'
-            ) {
-              try {
-                const wordsInTextBlock = JSON.parse(
-                  firstChoiceWordOrder.textBlock,
-                );
-                if (Array.isArray(wordsInTextBlock)) {
-                  mappedOptions = wordsInTextBlock.map((word, index) => ({
-                    id: `${apiQuestion.id}_examchoice${firstChoiceWordOrder.id}_word${index}`,
-                    text: String(word),
-                    textRomaji: null,
-                    audioUrl: null,
-                  }));
-                  correctAnswerForeign = firstChoiceWordOrder.textForeign;
-                  correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
-                  correctAnswerIds = []; // Not primary for WORD_ORDER comparison
-                } else {
-                  console.warn(
-                    `EXAM WORD_ORDER (id: ${apiQuestion.id}): textBlock không phải là mảng JSON.`,
-                  );
-                  mappedOptions = [];
-                  correctAnswerForeign = firstChoiceWordOrder.textForeign;
-                  correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
-                  correctAnswerIds = [];
-                }
-              } catch (e) {
-                console.error(
-                  `EXAM WORD_ORDER (id: ${apiQuestion.id}): Lỗi parse textBlock JSON:`,
-                  e,
-                );
-                mappedOptions = [];
-                correctAnswerForeign =
-                  firstChoiceWordOrder?.textForeign ?? null;
-                correctAnswerRomaji = firstChoiceWordOrder?.textRomaji ?? null;
-                correctAnswerIds = [];
-              }
-            } else {
-              console.warn(
-                `EXAM WORD_ORDER (id: ${apiQuestion.id}): Thiếu questionChoices[0] hoặc textBlock không hợp lệ.`,
-              );
-              mappedOptions = [];
-              correctAnswerForeign = null;
-              correctAnswerRomaji = null;
-              correctAnswerIds = [];
-            }
+            break;
+          case 'PRONUNCIATION':
+            internalContentType = 'pronunciation';
+            break;
+          case 'WRITING':
+            internalContentType = 'writing';
             break;
           default:
             console.warn(
-              `Unknown questionType in Exam: ${apiQuestion.questionType}`,
+              `Unknown API questionType in Exam: ${apiQuestion.questionType}. Falling back to 'select'.`,
             );
-            internalContentType = 'select'; // Fallback
-            mappedOptions = choicesFromApi.map(qc => ({
-              id: String(qc.id),
-              text: qc.textForeign || '',
-              textRomaji: qc.textRomaji ?? null,
-              audioUrl: qc.audioUrlForeign,
-            }));
-            const defaultCorrectChoice = choicesFromApi.find(
-              qc => qc.isCorrect === true,
-            );
-            if (defaultCorrectChoice) {
-              correctAnswerIds = String(defaultCorrectChoice.id);
-              correctAnswerForeign = defaultCorrectChoice.textForeign;
-              correctAnswerRomaji = defaultCorrectChoice.textRomaji ?? null;
-            }
+            internalContentType = 'select';
             break;
+        }
+
+        if (
+          internalContentType === 'select' ||
+          internalContentType === 'audio_choice' ||
+          internalContentType === 'select_image'
+        ) {
+          mappedOptions = choicesFromApi.map(qc => ({
+            id: String(qc.id),
+            text:
+              internalContentType === 'select_image'
+                ? `${qc.textForeign || ''}${
+                    qc.textRomaji ? `\n(${qc.textRomaji})` : ''
+                  }`
+                : qc.textForeign || '',
+            textRomaji: qc.textRomaji ?? null,
+            imageUrl:
+              internalContentType === 'select_image' ? qc.imageUrl : null,
+            audioUrl: qc.audioUrlForeign,
+          }));
+          const correctChoice = choicesFromApi.find(
+            qc => qc.isCorrect === true,
+          );
+          if (correctChoice) {
+            correctAnswerIds = String(correctChoice.id);
+            correctAnswerForeign = correctChoice.textForeign;
+            correctAnswerRomaji = correctChoice.textRomaji ?? null;
+            if (
+              internalContentType === 'select_image' &&
+              apiQuestion.targetWordNative &&
+              (!correctChoice.textForeign ||
+                correctChoice.textForeign.trim() === '')
+            ) {
+              correctAnswerForeign = apiQuestion.targetWordNative;
+            }
+          }
+        } else if (internalContentType === 'sapXep') {
+          const firstChoiceWordOrder = apiQuestion.questionChoices[0];
+          if (
+            firstChoiceWordOrder &&
+            typeof firstChoiceWordOrder.textBlock === 'string'
+          ) {
+            try {
+              const wordsInTextBlock = JSON.parse(
+                firstChoiceWordOrder.textBlock,
+              );
+              if (Array.isArray(wordsInTextBlock)) {
+                mappedOptions = wordsInTextBlock.map((word, index) => ({
+                  id: `${apiQuestion.id}_examchoice${firstChoiceWordOrder.id}_word${index}`,
+                  text: String(word),
+                  textRomaji: null,
+                  audioUrl: null,
+                }));
+                correctAnswerForeign = firstChoiceWordOrder.textForeign;
+                correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
+                correctAnswerIds = [];
+              } else {
+                mappedOptions = [];
+                correctAnswerForeign = firstChoiceWordOrder.textForeign;
+                correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
+                correctAnswerIds = [];
+              }
+            } catch (e) {
+              mappedOptions = [];
+              correctAnswerForeign = firstChoiceWordOrder?.textForeign ?? null;
+              correctAnswerRomaji = firstChoiceWordOrder?.textRomaji ?? null;
+              correctAnswerIds = [];
+            }
+          } else {
+            mappedOptions = [];
+            correctAnswerForeign = null;
+            correctAnswerRomaji = null;
+            correctAnswerIds = [];
+          }
+        } else if (
+          internalContentType === 'pronunciation' ||
+          internalContentType === 'writing'
+        ) {
+          correctAnswerForeign =
+            choicesFromApi[0]?.textForeign || apiQuestion.promptTextTemplate;
+          correctAnswerRomaji = choicesFromApi[0]?.textRomaji || null;
+          mappedOptions = [];
+          correctAnswerIds = undefined;
         }
         return {
           content_code: apiQuestion.id,
           content_type: internalContentType,
           title: apiQuestion.promptTextTemplate,
           content_detail: apiQuestion.targetWordNative || '',
-          audio_url: apiQuestion.audioUrlExam, // Sử dụng audioUrlExam từ API
-          image_url: null, // Hiện tại không dùng trực tiếp từ API cho MappedContentItem
+          audio_url: apiQuestion.audioUrlExam,
+          image_url: null,
           options: mappedOptions,
           correct_answer: correctAnswerIds,
           correct_answer_foreign: correctAnswerForeign,
@@ -380,7 +382,6 @@ const ExamContentsScreen: React.FC = () => {
   );
 
   const itemsForThisExam = useMemo(() => {
-    // Đổi tên biến cho rõ ràng
     if (apiQuestions.length > 0) {
       return mapApiQuestionsToMappedContent(apiQuestions);
     }
@@ -388,17 +389,6 @@ const ExamContentsScreen: React.FC = () => {
   }, [apiQuestions, mapApiQuestionsToMappedContent]);
 
   const currentItem = itemsForThisExam[currentIndex];
-
-  const shuffledSapXepOptions = useMemo(() => {
-    if (
-      currentItem &&
-      currentItem.content_type === 'sapXep' &&
-      currentItem.options
-    ) {
-      return [...currentItem.options].sort(() => Math.random() - 0.5);
-    }
-    return null;
-  }, [currentItem]);
 
   useEffect(() => {
     const loadExamQuestions = async () => {
@@ -418,7 +408,7 @@ const ExamContentsScreen: React.FC = () => {
           return;
         }
         const response = await axios.get<ApiQuestion[]>(
-          `${API_USER_BASE_URL}/question/exam-question?topicId=${topicId}`, // Endpoint cho exam
+          `${API_USER_BASE_URL}/question/exam-question?topicId=${topicId}`,
           {headers: {Authorization: `Bearer ${token}`}},
         );
         if (response.data && Array.isArray(response.data)) {
@@ -466,7 +456,7 @@ const ExamContentsScreen: React.FC = () => {
       (finalEndTime.getTime() - startTime.getTime()) / 1000,
     );
     const totalQuestionsCount = itemsForThisExam.length;
-    const scorePercent =
+    const scorePercentValue =
       totalQuestionsCount > 0
         ? (correctAnswersCount / totalQuestionsCount) * 100
         : 0;
@@ -480,7 +470,6 @@ const ExamContentsScreen: React.FC = () => {
       setIsSubmittingResult(false);
       return;
     }
-
     const currentTopicId = Number(topicId);
     if (isNaN(currentTopicId)) {
       console.error('ExamContentsScreen: topicId không hợp lệ.');
@@ -491,18 +480,15 @@ const ExamContentsScreen: React.FC = () => {
       setIsSubmittingResult(false);
       return;
     }
-
     const payload: SubmitExamResultPayload = {
-      examTime: examTimeSeconds > 0 ? examTimeSeconds : 0,
-      scorePercent: parseFloat(scorePercent.toFixed(2)),
+      examTime: examTimeSeconds,
+      scorePercent: parseFloat(scorePercentValue.toFixed(2)),
       totalQuestions: totalQuestionsCount,
       correctAnswers: correctAnswersCount,
       topicId: currentTopicId,
       userId: currentUserId,
     };
-
-    const resultEndpoint = `${API_USER_BASE_URL}/result/exam-result`; // Endpoint cho exam result
-
+    const resultEndpoint = `${API_USER_BASE_URL}/result/exam-result`;
     try {
       const token = await getToken();
       if (!token) {
@@ -517,7 +503,6 @@ const ExamContentsScreen: React.FC = () => {
       await axios.post(resultEndpoint, payload, {
         headers: {Authorization: `Bearer ${token}`},
       });
-
       showMessage({
         message: 'Đã lưu kết quả bài kiểm tra!',
         type: 'success',
@@ -564,32 +549,35 @@ const ExamContentsScreen: React.FC = () => {
   useEffect(() => {
     setUserSelectedOptionId(null);
     setShowAnswerFeedback(null);
-    setArrangedWords([]);
+    setCurrentUserWritingText('');
+    setSapXepArrangedCount(0);
   }, [currentIndex]);
 
-  const playSound = (audioUrlToPlayParam: string | null) => {
-    if (!audioUrlToPlayParam) {
+  const playSound = useCallback(
+    (audioUrlToPlayParam: string | null) => {
+      if (!audioUrlToPlayParam) {
+        setAudioUrlToPlayState(null);
+        setIsAudioPlaying(false);
+        setIsAudioLoading(false);
+        return;
+      }
+      if (
+        audioRef.current &&
+        isAudioPlaying &&
+        audioUrlToPlayRef.current === audioUrlToPlayParam
+      ) {
+        audioRef.current.pause();
+        setIsAudioPlaying(false);
+        return;
+      }
       setAudioUrlToPlayState(null);
-      setIsAudioPlaying(false);
-      setIsAudioLoading(false);
-      return;
-    }
-    if (
-      audioRef.current &&
-      isAudioPlaying &&
-      audioUrlToPlayRef.current === audioUrlToPlayParam
-    ) {
-      audioRef.current.pause();
-      setIsAudioPlaying(false);
-      return;
-    }
-    setAudioUrlToPlayState(null);
-    audioUrlToPlayRef.current = audioUrlToPlayParam;
-    setTimeout(() => {
-      setAudioUrlToPlayState(audioUrlToPlayParam);
-    }, 50);
-  };
-
+      audioUrlToPlayRef.current = audioUrlToPlayParam;
+      setTimeout(() => {
+        setAudioUrlToPlayState(audioUrlToPlayParam);
+      }, 50);
+    },
+    [isAudioPlaying],
+  );
   const handleOptionSelect = (optionId: string) => {
     if (showAnswerFeedback === null) {
       setUserSelectedOptionId(optionId);
@@ -605,29 +593,26 @@ const ExamContentsScreen: React.FC = () => {
     }
   };
 
-  const handleWordBankPress = (wordOption: Option) => {
-    if (showAnswerFeedback !== null) return;
-    if (!arrangedWords.find(w => w.id === wordOption.id)) {
-      setArrangedWords(prev => [...prev, wordOption]);
-      if (wordOption.audioUrl) {
-        playSound(wordOption.audioUrl);
-      }
-    }
-  };
-
-  const handleArrangedWordPress = (wordOptionToRemove: Option) => {
-    if (showAnswerFeedback !== null) return;
-    setArrangedWords(prev =>
-      prev.filter(word => word.id !== wordOptionToRemove.id),
-    );
-  };
-
   const handleCheckAnswer = () => {
     if (!currentItem) return;
     let isCorrectUserAnswer = false;
     const type = currentItem.content_type;
 
-    if (
+    if (type === 'pronunciation') {
+      isCorrectUserAnswer = true;
+      setShowAnswerFeedback(null);
+      return;
+    } else if (type === 'writing') {
+      if (currentUserWritingText.trim() === '') {
+        Alert.alert('Thông báo', 'Bạn vui lòng nhập câu trả lời.');
+        return;
+      }
+      const userAnswerNormalized = currentUserWritingText.trim().toLowerCase();
+      const correctAnswerNormalized = (currentItem.correct_answer_foreign || '')
+        .trim()
+        .toLowerCase();
+      isCorrectUserAnswer = userAnswerNormalized === correctAnswerNormalized;
+    } else if (
       type === 'select' ||
       type === 'audio_choice' ||
       type === 'select_image'
@@ -638,30 +623,20 @@ const ExamContentsScreen: React.FC = () => {
       }
       isCorrectUserAnswer = userSelectedOptionId === currentItem.correct_answer;
     } else if (type === 'sapXep') {
-      // WORD_ORDER logic
-      if (
-        arrangedWords.length === 0 &&
-        (currentItem.options?.length || 0) > 0
-      ) {
+      const userAnswerString =
+        wordOrderRef.current?.getUserAnswerString() || '';
+      if (sapXepArrangedCount === 0 && (currentItem.options?.length || 0) > 0) {
         Alert.alert('Thông báo', 'Bạn chưa sắp xếp từ nào.');
         return;
       }
-      const userAnswerString = arrangedWords.map(word => word.text).join(' ');
       const correctAnswerString = currentItem.correct_answer_foreign;
-      if (
+      isCorrectUserAnswer =
         correctAnswerString !== null &&
-        userAnswerString === correctAnswerString
-      ) {
-        isCorrectUserAnswer = true;
-      } else {
-        isCorrectUserAnswer = false;
-      }
-    } else if (type === 'voice' || type === 'audio') {
-      isCorrectUserAnswer = true;
-      setShowAnswerFeedback(isCorrectUserAnswer);
-      return;
+        userAnswerString === correctAnswerString;
     }
+
     setShowAnswerFeedback(isCorrectUserAnswer);
+    // Trong bài kiểm tra, 'writing' được tính điểm nếu đúng. 'pronunciation' không tính.
     if (isCorrectUserAnswer) {
       setCorrectAnswersCount(prev => prev + 1);
     }
@@ -670,34 +645,49 @@ const ExamContentsScreen: React.FC = () => {
   const handleContinue = () => {
     if (!currentItem) return;
     const type = currentItem.content_type;
-    const needsCheckAndNotChecked =
+    const needsCheckBeforeContinue =
       (type === 'select' ||
         type === 'audio_choice' ||
         type === 'select_image' ||
-        type === 'sapXep') &&
-      showAnswerFeedback === null &&
-      currentItem.options &&
-      currentItem.options.length > 0 &&
-      (((type === 'select' ||
-        type === 'audio_choice' ||
-        type === 'select_image') &&
-        !userSelectedOptionId) ||
-        (type === 'sapXep' && arrangedWords.length === 0));
-    if (needsCheckAndNotChecked) {
-      Alert.alert(
-        'Thông báo',
-        "Bạn vui lòng chọn đáp án và nhấn 'Kiểm tra' trước khi tiếp tục!",
-      );
-      return;
+        type === 'sapXep' ||
+        type === 'writing') &&
+      showAnswerFeedback === null;
+    if (needsCheckBeforeContinue) {
+      let hasAttempt = false;
+      if (
+        ((type === 'select' ||
+          type === 'audio_choice' ||
+          type === 'select_image') &&
+          userSelectedOptionId &&
+          currentItem.options &&
+          currentItem.options.length > 0) ||
+        (type === 'sapXep' &&
+          sapXepArrangedCount > 0 &&
+          currentItem.options &&
+          currentItem.options.length > 0) ||
+        (type === 'writing' && currentUserWritingText.trim() !== '')
+      ) {
+        hasAttempt = true;
+      }
+      if (hasAttempt) {
+        Alert.alert(
+          'Thông báo',
+          "Bạn vui lòng nhấn 'Kiểm tra' trước khi tiếp tục!",
+        );
+        return;
+      }
     }
     const isLastItem = currentIndex >= itemsForThisExam.length - 1;
     if (isLastItem) {
+      const isSimpleSelectTypeWithNoOptions =
+        (!currentItem.options || currentItem.options.length === 0) &&
+        (type === 'select' ||
+          type === 'audio_choice' ||
+          type === 'select_image');
       if (
         showAnswerFeedback !== null ||
-        type === 'voice' ||
-        type === 'audio' ||
-        !currentItem.options ||
-        currentItem.options.length === 0
+        type === 'pronunciation' ||
+        isSimpleSelectTypeWithNoOptions
       ) {
         setEndTime(new Date());
         setShowSummaryScreen(true);
@@ -711,8 +701,7 @@ const ExamContentsScreen: React.FC = () => {
       setCurrentIndex(prev => prev + 1);
     }
   };
-
-  const formatTimeTaken = useCallback(() => {
+  const formatTimeTaken = useCallback((): string => {
     if (!startTime) return '0 phút 0 giây';
     const finalEndTime = endTime || new Date();
     const diffMs = finalEndTime.getTime() - startTime.getTime();
@@ -723,7 +712,6 @@ const ExamContentsScreen: React.FC = () => {
     const diffSecs = diffSecsTotal % 60;
     return `${diffMins} phút ${diffSecs} giây`;
   }, [startTime, endTime]);
-
   const handleBackPress = () => {
     Alert.alert(
       'Thoát khỏi bài kiểm tra?',
@@ -750,362 +738,79 @@ const ExamContentsScreen: React.FC = () => {
         </View>
       );
     }
-
-    const optionsToRender =
-      currentItem.content_type === 'sapXep' && shuffledSapXepOptions
-        ? shuffledSapXepOptions
-        : currentItem.options || [];
-
     switch (currentItem.content_type) {
-      case 'voice':
+      case 'pronunciation':
         return (
-          <View style={styles.contentCard}>
-            <Text style={styles.contentTitle}>
-              {currentItem.title || 'Nói lại từ(câu) dưới đây:'}
-            </Text>
-            {currentItem.content_detail && (
-              <Text style={styles.voiceContentDetailText}>
-                {currentItem.content_detail}
-              </Text>
-            )}
-            {currentItem.audio_url && ( // Kiểm tra audio_url trước khi hiển thị nút
-              <TouchableOpacity
-                onPress={() => playSound(currentItem.audio_url)}
-                style={styles.contentCard2}>
-                <Image
-                  source={require('../../assets/images/iconAmThanh.png')}
-                  style={styles.AudioIcon}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.recordButtonContainer}
-              onPress={() =>
-                Alert.alert('Ghi âm', 'Chức năng ghi âm (chưa triển khai).')
-              }>
-              <Image
-                source={require('../../assets/images/micro.png')}
-                style={styles.recordIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          </View>
+          <PronunciationLessonContent
+            item={currentItem}
+            onPlaySound={playSound}
+          />
+        );
+      case 'writing':
+        return (
+          <WritingLessonContent
+            item={currentItem}
+            isInteractionDisabled={showAnswerFeedback !== null}
+            onTextChange={setCurrentUserWritingText}
+            initialText={currentUserWritingText}
+          />
+        );
+      case 'select':
+        return (
+          <SelectLessonContent
+            item={currentItem}
+            userSelectedOptionId={userSelectedOptionId}
+            showAnswerFeedback={showAnswerFeedback}
+            isInteractionDisabled={showAnswerFeedback !== null}
+            onPlaySound={playSound}
+            onOptionSelect={handleOptionSelect}
+          />
+        );
+      case 'audio_choice':
+        return (
+          <AudioChoiceLessonContent
+            item={currentItem}
+            userSelectedOptionId={userSelectedOptionId}
+            showAnswerFeedback={showAnswerFeedback}
+            isInteractionDisabled={showAnswerFeedback !== null}
+            onPlaySound={playSound}
+            onOptionSelect={handleOptionSelect}
+          />
         );
       case 'select_image':
         return (
-          <View style={styles.contentCard}>
-            <View style={styles.contentCardQuestion}>
-              <View style={styles.questionSelectContainer}>
-                {currentItem.audio_url && (
-                  <TouchableOpacity
-                    onPress={() => playSound(currentItem.audio_url)}
-                    style={styles.questionAudioButtonSelect}>
-                    <Image
-                      source={require('../../assets/images/audioInconten.png')}
-                      style={styles.audioIconSmall}
-                      resizeMode="contain"
-                    />
-                  </TouchableOpacity>
-                )}
-                <Text style={styles.contentDetailSelect}>
-                  {currentItem.title || 'Chọn hình ảnh đúng'}
-                  {currentItem.content_detail &&
-                  currentItem.content_detail !== currentItem.title
-                    ? `: "${currentItem.content_detail}"`
-                    : ''}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.imageOptionsContainer}>
-              {optionsToRender.map(option => {
-                // Sử dụng optionsToRender
-                const isSelected = userSelectedOptionId === option.id;
-                const isCorrectOption =
-                  currentItem.correct_answer === option.id;
-                return (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[
-                      styles.imageOptionButton,
-                      isSelected &&
-                        showAnswerFeedback === null &&
-                        styles.selectedImageOption,
-                      showAnswerFeedback === true &&
-                        isCorrectOption &&
-                        styles.correctImageOption,
-                      showAnswerFeedback === false &&
-                        isSelected &&
-                        styles.incorrectImageOption,
-                      showAnswerFeedback === false &&
-                        isCorrectOption &&
-                        styles.correctImageOption,
-                    ]}
-                    onPress={() => handleOptionSelect(option.id)}
-                    disabled={showAnswerFeedback !== null}>
-                    {option.imageUrl && (
-                      <Image
-                        source={{uri: option.imageUrl}}
-                        style={styles.optionImage}
-                        resizeMode="cover"
-                      />
-                    )}
-                    {(option.text && option.text.trim() !== '') ||
-                    (option.textRomaji && option.textRomaji.trim() !== '') ? (
-                      <View style={styles.optionImageTextContainer_NEW}>
-                        {option.text && option.text.trim() !== '' && (
-                          <Text style={styles.optionImageTextForeign_NEW}>
-                            {option.text}
-                          </Text>
-                        )}
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        );
-      case 'select':
-      case 'audio_choice':
-        return (
-          <View style={styles.contentCard}>
-            <View style={styles.contentCardQuestion}>
-              <View style={styles.questionSelectContainer}>
-                {currentItem.audio_url && (
-                  <TouchableOpacity
-                    onPress={() => playSound(currentItem.audio_url)}
-                    style={styles.questionAudioButtonSelect}>
-                    <Image
-                      source={require('../../assets/images/audioInconten.png')}
-                      style={styles.audioIconSmall}
-                      resizeMode="contain"
-                    />
-                  </TouchableOpacity>
-                )}
-                <Text style={styles.contentDetailSelect}>
-                  {currentItem.title ||
-                    (currentItem.content_type === 'audio_choice'
-                      ? 'Nghe và chọn đáp án'
-                      : 'Chọn đáp án đúng')}
-                  {currentItem.content_type === 'select' &&
-                  currentItem.content_detail &&
-                  currentItem.content_detail !== currentItem.title
-                    ? `: "${currentItem.content_detail}"`
-                    : ''}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.optionsContainer}>
-              {optionsToRender.map(option => {
-                // Sử dụng optionsToRender
-                const isSelected = userSelectedOptionId === option.id;
-                const isCorrectOption =
-                  currentItem.correct_answer === option.id;
-                return (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[
-                      styles.optionButton,
-                      isSelected &&
-                        showAnswerFeedback === null &&
-                        styles.selectedOption,
-                      showAnswerFeedback === true &&
-                        isCorrectOption &&
-                        styles.correctOption,
-                      showAnswerFeedback === false &&
-                        isSelected &&
-                        styles.incorrectOption,
-                      showAnswerFeedback === false &&
-                        isCorrectOption &&
-                        styles.correctOption,
-                    ]}
-                    onPress={() => handleOptionSelect(option.id)}
-                    disabled={showAnswerFeedback !== null}>
-                    <View
-                      style={{flexDirection: 'column', alignItems: 'center'}}>
-                      <Text
-                        style={[
-                          styles.optionText,
-                          showAnswerFeedback === true &&
-                            isCorrectOption &&
-                            styles.correctOptionText,
-                          showAnswerFeedback === false &&
-                            isSelected &&
-                            !isCorrectOption &&
-                            styles.incorrectOptionText,
-                          showAnswerFeedback === false &&
-                            isCorrectOption &&
-                            styles.correctOptionText,
-                        ]}>
-                        {option.text}
-                      </Text>
-                      {option.textRomaji && (
-                        <Text
-                          style={[
-                            styles.optionTextRomaji,
-                            showAnswerFeedback !== null && isCorrectOption
-                              ? styles.correctOptionText
-                              : {},
-                            showAnswerFeedback !== null &&
-                            isSelected &&
-                            !isCorrectOption
-                              ? styles.incorrectOptionText
-                              : {},
-                          ]}>
-                          ({option.textRomaji})
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+          <SelectImageLessonContent
+            item={currentItem}
+            userSelectedOptionId={userSelectedOptionId}
+            showAnswerFeedback={showAnswerFeedback}
+            isInteractionDisabled={showAnswerFeedback !== null}
+            onPlaySound={playSound}
+            onOptionSelect={handleOptionSelect}
+          />
         );
       case 'sapXep':
         return (
-          <View style={styles.contentCard}>
-            <View style={styles.contentCardQuestion}>
-              {currentItem.title && (
-                <Text style={styles.contentTitleSelect}>
-                  {currentItem.title}
-                </Text>
-              )}
-              <View style={styles.originalSentenceContainer}>
-                {currentItem.audio_url && (
-                  <TouchableOpacity
-                    onPress={() => playSound(currentItem.audio_url)}
-                    style={styles.questionAudioButton}>
-                    <Image
-                      source={require('../../assets/images/audioInconten.png')}
-                      style={styles.audioIconSmall}
-                      resizeMode="contain"
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {/* PHẦN ĐÃ SỬA ĐỔI: Hiển thị chuỗi cứng khi chưa kiểm tra */}
-                {showAnswerFeedback !== null &&
-                currentItem.correct_answer_foreign ? (
-                  // Nếu đã kiểm tra và có đáp án đúng, hiện đáp án đúng
-                  <Text style={styles.contentDetailXapXep_Answered}>
-                    {currentItem.correct_answer_foreign}
-                    {currentItem.correct_answer_romaji
-                      ? ` (${currentItem.correct_answer_romaji})`
-                      : ''}
-                  </Text>
-                ) : (
-                  // Nếu chưa kiểm tra, luôn hiển thị chuỗi cứng 'Sắp xếp các khối từ bên dưới'
-                  <Text style={styles.contentDetailXapXep_Answered}>
-                    {'Sắp xếp các khối từ bên dưới'} {/* Sử dụng chuỗi cứng */}
-                  </Text>
-                )}
-                {/* KẾT THÚC PHẦN ĐÃ SỬA ĐỔI */}
-              </View>
-            </View>
-            <View style={styles.wordArrangeDropArea}>
-              {arrangedWords.length > 0 ? (
-                arrangedWords.map((word, index) => {
-                  let wordStyle = {};
-                  if (showAnswerFeedback === true) {
-                    wordStyle = styles.correctWordBackground;
-                  } else if (showAnswerFeedback === false) {
-                    wordStyle = styles.incorrectWordBackground;
-                  }
-                  return (
-                    <TouchableOpacity
-                      key={`${word.id}_arranged_${index}`}
-                      style={[
-                        styles.wordBankItem,
-                        styles.arrangedWordItem,
-                        wordStyle,
-                      ]}
-                      onPress={() => handleArrangedWordPress(word)}
-                      disabled={showAnswerFeedback !== null}>
-                      <Text
-                        style={[styles.wordBankText, styles.arrangedWordText]}>
-                        {word.text}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
-              ) : (
-                <Text style={styles.arrangedTextPlaceholder}>
-                  ______________________________
-                </Text>
-              )}
-            </View>
-            <View style={styles.wordBankContainer}>
-              {optionsToRender.map(wordOption => {
-                // Sử dụng optionsToRender (đã xáo trộn)
-                const isWordAlreadyArranged = arrangedWords.find(
-                  w => w.id === wordOption.id,
-                );
-                return (
-                  <TouchableOpacity
-                    key={wordOption.id}
-                    style={[
-                      styles.wordBankItem,
-                      isWordAlreadyArranged
-                        ? styles.wordBankItemSelectedAndUsed
-                        : {},
-                      showAnswerFeedback !== null
-                        ? styles.disabledWordBankItem
-                        : {},
-                    ]}
-                    onPress={() => handleWordBankPress(wordOption)}
-                    disabled={
-                      !!isWordAlreadyArranged || showAnswerFeedback !== null
-                    }>
-                    <Text style={styles.wordBankText}>{wordOption.text}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        );
-      case 'audio':
-        return (
-          <View style={styles.contentCard}>
-            {currentItem.title && (
-              <Text style={styles.contentTitleAudio}>{currentItem.title}</Text>
-            )}
-            {currentItem.image_url && (
-              <Image
-                source={{uri: currentItem.image_url}}
-                style={styles.contentImage}
-                resizeMode="contain"
-              />
-            )}
-            <Text style={styles.contentDetailAudio}>
-              {currentItem.content_detail}
-            </Text>
-            {currentItem.audio_url && (
-              <TouchableOpacity
-                onPress={() => playSound(currentItem.audio_url)}
-                style={styles.audioPlayerPlaceholder}>
-                <Image
-                  source={require('../../assets/images/iconAmThanh.png')}
-                  style={styles.AudioIcon}
-                />
-                <Text> Phát âm thanh</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <WordOrderLessonContent
+            ref={wordOrderRef}
+            item={currentItem}
+            showAnswerFeedback={showAnswerFeedback}
+            isInteractionDisabled={showAnswerFeedback !== null}
+            onPlaySound={playSound}
+            onArrangementChange={setSapXepArrangedCount}
+          />
         );
       default:
+        const unknownContentType = currentItem.content_type as any;
         return (
           <View style={styles.contentCard}>
             <Text>
-              Loại nội dung "{currentItem.content_type}" chưa được hỗ trợ.
+              Loại nội dung "{unknownContentType}" chưa có giao diện render.
             </Text>
           </View>
         );
     }
   };
 
-  // --- Phần return của component chính ---
   if (isLoadingApiQuestions) {
     return (
       <SafeAreaView style={styles.safeAreaLoadingError}>
@@ -1173,7 +878,7 @@ const ExamContentsScreen: React.FC = () => {
           style={StyleSheet.absoluteFillObject}
           imageStyle={{opacity: 0.08}}
           resizeMode="cover">
-          <SummaryScreen
+          <ExamSummaryScreen
             correctAnswersCount={correctAnswersCount}
             totalQuestions={itemsForThisExam.length}
             timeTaken={formatTimeTaken()}
@@ -1205,43 +910,44 @@ const ExamContentsScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
+
+  const isPronunciationType = currentItem?.content_type === 'pronunciation';
+  const hasAttemptForCurrentQuestion =
+    ((currentItem?.content_type === 'select' ||
+      currentItem?.content_type === 'select_image' ||
+      currentItem?.content_type === 'audio_choice') &&
+      userSelectedOptionId) ||
+    (currentItem?.content_type === 'sapXep' && sapXepArrangedCount > 0) ||
+    (currentItem?.content_type === 'writing' &&
+      currentUserWritingText.trim() !== '');
   const shouldShowCheckButton =
     currentItem &&
-    (currentItem.content_type === 'select' ||
-      currentItem.content_type === 'select_image' ||
-      currentItem.content_type === 'audio_choice' ||
-      currentItem.content_type === 'sapXep') &&
+    !isPronunciationType &&
     showAnswerFeedback === null &&
-    currentItem.options &&
-    currentItem.options.length > 0 &&
+    hasAttemptForCurrentQuestion &&
     (((currentItem.content_type === 'select' ||
       currentItem.content_type === 'select_image' ||
-      currentItem.content_type === 'audio_choice') &&
-      userSelectedOptionId) ||
-      (currentItem.content_type === 'sapXep' && arrangedWords.length > 0));
+      currentItem.content_type === 'audio_choice' ||
+      currentItem.content_type === 'sapXep') &&
+      currentItem.options &&
+      currentItem.options.length > 0) ||
+      currentItem.content_type === 'writing');
   const shouldShowNewFeedbackUi =
-    currentItem &&
-    (currentItem.content_type === 'select' ||
-      currentItem.content_type === 'select_image' ||
-      currentItem.content_type === 'audio_choice' ||
-      currentItem.content_type === 'sapXep') &&
-    showAnswerFeedback !== null;
-  const isNonInteractiveType =
-    currentItem &&
-    (currentItem.content_type === 'voice' ||
-      currentItem.content_type === 'audio');
-  const typeHasNoOptionsToInteract =
-    currentItem &&
-    (currentItem.content_type === 'select' ||
-      currentItem.content_type === 'select_image' ||
-      currentItem.content_type === 'audio_choice' ||
-      currentItem.content_type === 'sapXep') &&
-    (!currentItem.options || currentItem.options.length === 0);
-  const shouldShowOriginalContinueOrSkip =
+    currentItem && !isPronunciationType && showAnswerFeedback !== null;
+  const isConsideredNonInteractiveForFooter =
+    isPronunciationType ||
+    (currentItem &&
+      (currentItem.content_type === 'select' ||
+        currentItem.content_type === 'select_image' ||
+        currentItem.content_type === 'audio_choice' ||
+        currentItem.content_type === 'sapXep') &&
+      (!currentItem.options || currentItem.options.length === 0));
+  const shouldShowOriginalContinueButton =
     !shouldShowCheckButton &&
     !shouldShowNewFeedbackUi &&
-    (isNonInteractiveType || typeHasNoOptionsToInteract);
-  const isContinueButtonDisabled =
+    isConsideredNonInteractiveForFooter;
+  const isContinueButtonDisabledIfPrimary =
+    shouldShowOriginalContinueButton &&
     currentItem &&
     (currentItem.content_type === 'select' ||
       currentItem.content_type === 'select_image' ||
@@ -1250,6 +956,21 @@ const ExamContentsScreen: React.FC = () => {
     showAnswerFeedback === null &&
     currentItem.options &&
     currentItem.options.length > 0;
+  const isPrimaryContinueButtonDisabled =
+    showAnswerFeedback === null &&
+    (((currentItem?.content_type === 'select' ||
+      currentItem?.content_type === 'select_image' ||
+      currentItem?.content_type === 'audio_choice') &&
+      !userSelectedOptionId &&
+      currentItem.options &&
+      currentItem.options.length > 0) ||
+      (currentItem?.content_type === 'writing' &&
+        currentUserWritingText.trim() === '') ||
+      (currentItem?.content_type === 'sapXep' &&
+        sapXepArrangedCount === 0 &&
+        currentItem.options &&
+        currentItem.options.length > 0));
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
@@ -1271,12 +992,13 @@ const ExamContentsScreen: React.FC = () => {
                 total={itemsForThisExam.length}
               />
             </View>
+            <View style={{width: 30}} />
           </View>
           <ScrollView
             style={styles.contentScrollArea}
             contentContainerStyle={styles.contentScrollContainer}
             showsVerticalScrollIndicator={false}
-            key={`content_scroll_${currentIndex}_${showAnswerFeedback}`}>
+            key={`content_scroll_exam_${currentIndex}_${showAnswerFeedback}_${userSelectedOptionId}_${currentUserWritingText}`}>
             {renderContentItem()}
           </ScrollView>
           {audioURLToPlay && (
@@ -1296,12 +1018,13 @@ const ExamContentsScreen: React.FC = () => {
               onLoad={(data: OnLoadData) => {
                 setIsAudioLoading(false);
                 setIsAudioPlaying(true);
+                audioRef.current?.seek(0);
               }}
               onEnd={() => {
                 setIsAudioPlaying(false);
               }}
-              onError={videoError => {
-                console.error('Video: Lỗi khi phát audio:', videoError);
+              onError={error => {
+                console.error('Video: Lỗi khi phát audio:', error);
                 setAudioError('Lỗi phát audio.');
                 setIsAudioLoading(false);
                 setIsAudioPlaying(false);
@@ -1364,7 +1087,12 @@ const ExamContentsScreen: React.FC = () => {
                     <TouchableOpacity
                       onPress={() => {
                         let audioToPlayOnClick = currentItem.audio_url;
-                        if (typeof currentItem.correct_answer === 'string') {
+                        if (
+                          typeof currentItem.correct_answer === 'string' &&
+                          (currentItem.content_type === 'select' ||
+                            currentItem.content_type === 'audio_choice' ||
+                            currentItem.content_type === 'select_image')
+                        ) {
                           const correctOpt = currentItem.options?.find(
                             opt => opt.id === currentItem.correct_answer,
                           );
@@ -1372,10 +1100,9 @@ const ExamContentsScreen: React.FC = () => {
                             audioToPlayOnClick = correctOpt.audioUrl;
                           }
                         } else if (
-                          Array.isArray(currentItem.correct_answer) &&
-                          currentItem.content_type === 'sapXep'
+                          currentItem.content_type === 'sapXep' ||
+                          currentItem.content_type === 'writing'
                         ) {
-                          audioToPlayOnClick = currentItem.audio_url;
                         }
                         playSound(audioToPlayOnClick);
                       }}
@@ -1408,37 +1135,31 @@ const ExamContentsScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             )}
-            {shouldShowOriginalContinueOrSkip && (
+            {shouldShowOriginalContinueButton && (
               <TouchableOpacity
                 style={[
-                  isNonInteractiveType || typeHasNoOptionsToInteract
+                  isConsideredNonInteractiveForFooter
                     ? styles.skipButton
                     : styles.continueButton,
-                  isContinueButtonDisabled &&
-                    !isNonInteractiveType &&
+                  isContinueButtonDisabledIfPrimary &&
                     styles.disabledButtonFooter,
                 ]}
                 onPress={handleContinue}
-                disabled={
-                  !!(isContinueButtonDisabled && !isNonInteractiveType)
-                }>
-                <Text style={styles.footerButtonText}>
-                  {isNonInteractiveType || typeHasNoOptionsToInteract
-                    ? 'Tiếp tục'
-                    : 'Tiếp tục'}
-                </Text>
+                disabled={isContinueButtonDisabledIfPrimary}>
+                <Text style={styles.footerButtonText}>Tiếp tục</Text>
               </TouchableOpacity>
             )}
             {!shouldShowCheckButton &&
               !shouldShowNewFeedbackUi &&
-              !shouldShowOriginalContinueOrSkip && (
+              !shouldShowOriginalContinueButton && (
                 <TouchableOpacity
                   style={[
                     styles.continueButton,
-                    isContinueButtonDisabled && styles.disabledButtonFooter,
+                    isPrimaryContinueButtonDisabled &&
+                      styles.disabledButtonFooter,
                   ]}
                   onPress={handleContinue}
-                  disabled={!!isContinueButtonDisabled}>
+                  disabled={isPrimaryContinueButtonDisabled}>
                   <Text style={styles.footerButtonText}>Tiếp tục</Text>
                 </TouchableOpacity>
               )}
@@ -1449,7 +1170,7 @@ const ExamContentsScreen: React.FC = () => {
   );
 };
 
-// Styles (giữ nguyên như đã cung cấp trong prompt trước)
+// Styles (SAO CHÉP Y HỆT TỪ ContentsScreen.tsx)
 const screenWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.white},
@@ -1493,13 +1214,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray2,
-  },
-  headerLessonName: {
-    fontSize: SIZES.medium,
-    color: COLORS.darkGray,
-    textAlign: 'center',
-    marginTop: SIZES.padding * 0.5,
-    paddingHorizontal: SIZES.padding * 2,
   },
   headerTitleError: {
     flex: 1,
@@ -1546,298 +1260,6 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
     backgroundColor: 'rgba(255,255,255,0.75)',
   },
-  contentCardQuestion: {
-    backgroundColor: COLORS.nenItem || COLORS.white,
-    borderRadius: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
-    marginBottom: SIZES.padding,
-    padding: SIZES.padding,
-  },
-  contentTitle: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.h2,
-    color: COLORS.text,
-    marginBottom: SIZES.margin,
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  voiceContentDetailText: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.h3,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: SIZES.padding,
-  },
-  AudioIcon: {width: 120, height: 120, tintColor: COLORS.primary},
-  recordIcon: {width: 50, height: 50, tintColor: COLORS.red},
-  contentCard2: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    padding: SIZES.base,
-  },
-  recordButtonContainer: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginTop: SIZES.base,
-    padding: SIZES.base,
-    backgroundColor: COLORS.lightGray2,
-    borderRadius: 50,
-  },
-  imageOptionsContainer: {
-    marginTop: 40,
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: SIZES.padding,
-  },
-  imageOptionButton: {
-    width: 140,
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SIZES.base * 2,
-    borderWidth: 2,
-    borderColor: COLORS.lightGray,
-    borderRadius: SIZES.radius,
-    backgroundColor: COLORS.white,
-  },
-  optionImage: {
-    width: '75%',
-    height: '75%',
-    marginBottom: 20,
-    borderRadius: SIZES.radius / 1,
-  },
-  optionImageTextContainer_NEW: {
-    position: 'absolute',
-    bottom: 2,
-    left: 2,
-    right: 2,
-    alignItems: 'center',
-    paddingVertical: SIZES.base / 2,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderRadius: SIZES.radius / 2,
-  },
-  optionImageTextForeign_NEW: {
-    fontSize: SIZES.font * 1,
-    color: COLORS.text,
-    textAlign: 'center',
-    fontWeight: '400',
-  },
-  optionImageTextRomaji_NEW: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font * 0.8,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  imageOptionAudioButton_NEW: {display: 'none'},
-  imageOptionAudioIcon_NEW: {width: 18, height: 18, tintColor: COLORS.white},
-  selectedImageOption: {
-    borderColor: COLORS.primary,
-    borderWidth: 3,
-    backgroundColor: COLORS.lightPrimary,
-  },
-  correctImageOption: {
-    borderColor: COLORS.green,
-    borderWidth: 3,
-    backgroundColor: COLORS.lightGreen,
-  },
-  incorrectImageOption: {
-    borderColor: COLORS.red,
-    borderWidth: 3,
-    backgroundColor: COLORS.lightRed,
-  },
-  questionSelectContainer: {flexDirection: 'row', alignItems: 'center'},
-  questionAudioButtonSelect: {marginRight: SIZES.base},
-  audioIconSmall: {width: 30, height: 30},
-  contentDetailSelect: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.h3,
-    color: COLORS.text,
-    textAlign: 'left',
-    flex: 1,
-  },
-  optionsContainer: {marginTop: SIZES.padding},
-  optionButton: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.padding * 0.9,
-    borderRadius: SIZES.radius,
-    marginVertical: SIZES.base * 0.6,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    minHeight: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionTextAudioButton_NEW: {marginRight: SIZES.base},
-  optionTextAudioIcon_NEW: {width: 20, height: 20},
-  optionText: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.font,
-    color: COLORS.text,
-    textAlign: 'center',
-    flexShrink: 1,
-  },
-  optionTextRomaji: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font * 0.8,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  selectedOption: {
-    borderColor: COLORS.primary,
-    borderWidth: 2,
-    backgroundColor: COLORS.lightPrimary || 'rgba(0,122,255,0.1)',
-  },
-  correctOption: {
-    backgroundColor: COLORS.lightGreen || 'rgba(40,167,69,0.15)',
-    borderColor: COLORS.green || '#28A745',
-    borderWidth: 2,
-  },
-  correctOptionText: {color: COLORS.darkGreen || '#155724', fontWeight: 'bold'},
-  incorrectOption: {
-    backgroundColor: COLORS.lightRed || 'rgba(220,53,69,0.1)',
-    borderColor: COLORS.red || '#DC3545',
-    borderWidth: 2,
-  },
-  incorrectOptionText: {color: COLORS.darkRed || '#721C24', fontWeight: 'bold'},
-  contentTitleSelect: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.h3,
-    color: COLORS.text,
-    marginBottom: SIZES.base,
-    textAlign: 'left',
-    fontWeight: 'bold',
-  },
-  originalSentenceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.base,
-  },
-  questionAudioButton: {marginRight: SIZES.base},
-  contentDetailXapXep: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.font * 1.1,
-    color: COLORS.textSecondary,
-    flex: 1,
-    lineHeight: SIZES.font * 1.5,
-  },
-  contentDetailXapXep_Answered: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.font * 1.1,
-    color: COLORS.black,
-    flex: 1,
-    lineHeight: SIZES.font * 1.5,
-    fontWeight: '500',
-  },
-  wordArrangeDropArea: {
-    marginTop: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    minHeight: 70,
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: SIZES.base,
-    marginBottom: SIZES.margin,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    alignItems: 'flex-start',
-  },
-  arrangedTextPlaceholder: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font * 0.9,
-    color: COLORS.gray,
-    flex: 1,
-    textAlign: 'center',
-    lineHeight: 50,
-  },
-  arrangedWordItem: {backgroundColor: COLORS.primary || '#28a745'},
-  wordBankContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: SIZES.padding * 0.5,
-    minHeight: 60,
-  },
-  wordBankItem: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: SIZES.padding * 0.8,
-    paddingVertical: SIZES.padding * 0.6,
-    borderRadius: SIZES.radius,
-    margin: SIZES.base * 0.4,
-    shadowColor: COLORS.black,
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-  },
-  wordBankText: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.font,
-    color: COLORS.text,
-  },
-  wordBankTextRomaji: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font * 0.8,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  arrangedWordText: {color: COLORS.white, fontWeight: '500'},
-  wordBankItemSelectedAndUsed: {
-    backgroundColor: COLORS.lightGray,
-    borderColor: COLORS.gray,
-    opacity: 0.3,
-  },
-  disabledWordBankItem: {opacity: 0.3},
-  correctWordBackground: {
-    backgroundColor: COLORS.green,
-    borderColor: COLORS.darkGreen,
-  },
-  incorrectWordBackground: {
-    backgroundColor: COLORS.red,
-    borderColor: COLORS.darkRed,
-  },
-  contentTitleAudio: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
-    fontSize: SIZES.h3,
-    color: COLORS.text,
-    marginBottom: SIZES.base,
-    textAlign: 'left',
-    fontWeight: '600',
-  },
-  contentImage: {
-    width: '80%',
-    height: undefined,
-    aspectRatio: 1,
-    borderRadius: SIZES.radius,
-    marginVertical: SIZES.margin,
-    alignSelf: 'center',
-  },
-  contentDetailAudio: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.font,
-    color: COLORS.textSecondary || COLORS.darkGray,
-    lineHeight: SIZES.font * 1.5,
-    marginBottom: SIZES.padding,
-    textAlign: 'center',
-  },
-  audioPlayerPlaceholder: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.lightGray2,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.padding * 0.8,
-    marginTop: SIZES.margin,
-  },
   emptyContentContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1845,23 +1267,10 @@ const styles = StyleSheet.create({
     padding: SIZES.padding,
   },
   emptyContentText: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
+    fontFamily: FONTS.medium?.fontFamily,
     fontSize: SIZES.font,
     color: COLORS.gray,
     textAlign: 'center',
-  },
-  errorContainer: {flex: 1, backgroundColor: COLORS.background || COLORS.white},
-  backButtonError: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SIZES.padding * 2,
-    paddingVertical: SIZES.padding,
-    borderRadius: SIZES.radius,
-    marginTop: SIZES.padding,
-  },
-  backButtonTextError: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
-    color: COLORS.white,
-    fontSize: SIZES.medium,
   },
   footer: {
     paddingVertical: SIZES.padding * 0.75,
@@ -1883,13 +1292,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginBottom: 30,
-  },
+  }, // marginBottom đã là 0 cho checkButton trong ContentsScreen gốc
   continueButton: {
     backgroundColor: COLORS.primary || '#4CAF50',
     paddingVertical: SIZES.padding * 1.2,
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
+    marginBottom: 30,
   },
   skipButton: {
     backgroundColor: COLORS.gray,
@@ -1897,10 +1307,11 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
+    marginBottom: 30,
   },
-  disabledButtonFooter: {backgroundColor: COLORS.lightGray, marginBottom: 30},
+  disabledButtonFooter: {backgroundColor: COLORS.lightGray}, // Removed platform specific margin
   footerButtonText: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontFamily: FONTS.bold?.fontFamily,
     color: COLORS.white,
     fontSize: SIZES.font * 1.1,
     fontWeight: 'bold',
@@ -1921,7 +1332,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SIZES.base / 2,
     paddingHorizontal: SIZES.padding * 0.5,
-    minHeight: Platform.OS === 'ios' ? 90 : 80,
+    minHeight: 180,
   },
   feedback_TextAudioWrapper_NEW: {
     flexDirection: 'row',
@@ -1931,10 +1342,8 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.base * 0.5,
   },
   feedback_TextContainer_NEW: {
-    marginBottom: 30,
     flex: 1,
     marginRight: SIZES.base,
-    alignItems: 'center',
     marginLeft: 40,
   },
   feedback_CorrectAnswerText_NEW: {
@@ -1945,17 +1354,20 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   feedback_CorrectAnswerRomaji_NEW: {
-    fontFamily: FONTS.regular?.fontFamily || 'System',
+    fontFamily: FONTS.regular?.fontFamily,
     fontSize: SIZES.medium,
     opacity: 0.8,
     textAlign: 'center',
     color: COLORS.white,
     marginTop: 2,
   },
-  feedback_AudioButton_NEW: {padding: SIZES.base * 0.5, borderRadius: 20},
+  feedback_AudioButton_NEW: {
+    padding: SIZES.base * 0.5,
+    borderRadius: 20,
+  },
+
   feedback_AudioIcon_NEW: {width: 28, height: 28},
   feedback_ContinueButton_NEW: {
-    marginBottom: 30,
     backgroundColor: COLORS.white,
     paddingVertical: SIZES.padding * 0.8,
     paddingHorizontal: SIZES.padding * 2.5,
@@ -1970,21 +1382,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
+    marginBottom: 30,
+    marginTop: SIZES.base,
   },
   feedback_ContinueButtonText_NEW: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontFamily: FONTS.bold?.fontFamily,
     textAlign: 'center',
     fontSize: SIZES.medium,
     fontWeight: 'bold',
   },
   audioActivityIndicator: {
     position: 'absolute',
-    bottom: 80,
+    bottom: Platform.OS === 'ios' ? 100 : 80,
     alignSelf: 'center',
   },
   audioErrorText: {
     position: 'absolute',
-    bottom: 80,
+    bottom: Platform.OS === 'ios' ? 100 : 80,
     alignSelf: 'center',
     color: COLORS.red,
     backgroundColor: COLORS.white,
@@ -2008,7 +1422,7 @@ const summaryStyles = StyleSheet.create({
     marginBottom: SIZES.padding * 2,
   },
   title: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontFamily: FONTS.bold?.fontFamily,
     fontSize: SIZES.xxLarge,
     color: COLORS.text,
     marginBottom: SIZES.padding * 2,
@@ -2031,7 +1445,7 @@ const summaryStyles = StyleSheet.create({
   },
   iconText: {width: SIZES.h2, height: SIZES.h2, marginRight: SIZES.base},
   text: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
+    fontFamily: FONTS.medium?.fontFamily,
     fontSize: SIZES.font,
     color: COLORS.textSecondary || COLORS.darkGray,
   },
@@ -2045,7 +1459,7 @@ const summaryStyles = StyleSheet.create({
     width: '90%',
   },
   completeButtonText: {
-    fontFamily: FONTS.bold?.fontFamily || 'System',
+    fontFamily: FONTS.bold?.fontFamily,
     color: COLORS.white,
     fontSize: SIZES.large,
   },
