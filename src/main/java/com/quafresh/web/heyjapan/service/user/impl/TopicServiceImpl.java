@@ -135,7 +135,6 @@ public class TopicServiceImpl implements TopicService {
         }
         String publicUrl = gcsStorageService.getPublicFileUrl(objectName);
         topic.setAvatarUrl(publicUrl);
-
         topicRepository.save(topic);
         return new ResponseTopicDTO(topic.getId(), topic.getLevel().getId(), topic.getName(), topic.getAvatarUrl(), topic.getDayCreation());
     }
