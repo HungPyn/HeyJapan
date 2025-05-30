@@ -19,11 +19,21 @@ public enum QuestionType {
          */
         AUDIO_CHOICE,
 
-
         /**
          * Câu hỏi xếp từ thành câu đúng (word order).
          * Ví dụ: Từ cho trước: "Tôi | giáo viên | là" → Đáp án đúng: "Tôi là giáo viên"
          */
-        WORD_ORDER
+        WORD_ORDER,
 
+        /**
+         * Câu hỏi phát âm, yêu cầu người dùng nghe và lặp lại từ hoặc câu.
+         * Ví dụ: Nghe từ 'りんご' và phát âm lại, hệ thống đánh giá độ chính xác.
+         */
+        PRONUNCIATION,
+
+        /**
+         * Câu hỏi viết chữ, yêu cầu người dùng nhập từ hoặc câu bằng chữ Nhật.
+         * Ví dụ: Nhìn hình quả táo → nhập từ 'りんご' vào ô trống.
+         */
+        WRITING
 }
