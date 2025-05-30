@@ -24,6 +24,7 @@ public class GenericQuestionValidator implements ConstraintValidator<ValidChoice
 
             context.disableDefaultConstraintViolation();
 
+            // Validate questionType
             if (questionType == null || questionType.isBlank()) {
                 context.buildConstraintViolationWithTemplate("Kiểu câu hỏi không được để trống")
                         .addPropertyNode("questionType")
@@ -41,6 +42,7 @@ public class GenericQuestionValidator implements ConstraintValidator<ValidChoice
                 return false;
             }
 
+            // Validate questionChoices
             if (choices == null || choices.isEmpty()) {
                 context.buildConstraintViolationWithTemplate("Câu hỏi phải có ít nhất một lựa chọn")
                         .addPropertyNode("questionChoices")
@@ -49,42 +51,113 @@ public class GenericQuestionValidator implements ConstraintValidator<ValidChoice
             }
 
             boolean allValid = true;
+
             for (int i = 0; i < choices.size(); i++) {
                 Object obj = choices.get(i);
                 if (!(obj instanceof RequestChoiceDTO choice)) continue;
 
-                boolean choiceValid = switch (typeEnum) {
-                    case MULTIPLE_CHOICE_VOCAB_IMAGE ->
-                            notBlank(choice.getTextForeign()) && notEmptyFile(choice.getImageFile()) && choice.getIsCorrect() != null;
-                    case MULTIPLE_CHOICE_TEXT_ONLY -> notBlank(choice.getTextForeign()) && notBlank(choice.getTextRomaji()) && choice.getIsCorrect() != null;
-                    case AUDIO_CHOICE -> notBlank(choice.getTextForeign()) && notBlank(choice.getAudioUrlForeign()) && choice.getIsCorrect() != null;
-                    case WORD_ORDER -> notBlank(choice.getTextForeign()) && notBlank(choice.getTextBlock()) && choice.getIsCorrect() != null;
-                };
-
-                if (!choiceValid) {
-                    context.buildConstraintViolationWithTemplate(
-                                    "Lựa chọn thứ " + (i + 1) + " không hợp lệ cho kiểu câu hỏi: " + questionType)
-                            .addPropertyNode("questionChoices")
-                            .addBeanNode()
-                            .inIterable().atIndex(i)
-                            .addConstraintViolation();
-                    allValid = false;
+                // Lỗi cho từng thuộc tính cụ thể, truyền đúng tên trường vào addError
+                if (typeEnum == QuestionType.MULTIPLE_CHOICE_VOCAB_IMAGE) {
+                    if (isBlank(choice.getTextForeign())) {
+                        addError(context, "textForeign không được để trống", "questionChoices.textForeign", i);
+                        allValid = false;
+                    }
+                    if (isEmptyFile(choice.getImageFile())) {
+                        addError(context, "imageFile không được để trống", "questionChoices.imageFile", i);
+                        allValid = false;
+                    }
+                    if (choice.getIsCorrect() == null) {
+                        addError(context, "isCorrect không được để trống", "questionChoices.isCorrect", i);
+                        allValid = false;
+                    }
+                } else if (typeEnum == QuestionType.MULTIPLE_CHOICE_TEXT_ONLY) {
+                    if (isBlank(choice.getTextForeign())) {
+                        addError(context, "textForeign không được để trống", "questionChoices.textForeign", i);
+                        allValid = false;
+                    }
+                    if (isBlank(choice.getTextRomaji())) {
+                        addError(context, "textRomaji không được để trống", "questionChoices.textRomaji", i);
+                        allValid = false;
+                    }
+                    if (choice.getIsCorrect() == null) {
+                        addError(context, "isCorrect không được để trống", "questionChoices.isCorrect", i);
+                        allValid = false;
+                    }
+                } else if (typeEnum == QuestionType.AUDIO_CHOICE) {
+                    if (isBlank(choice.getTextForeign())) {
+                        addError(context, "textForeign không được để trống", "questionChoices.textForeign", i);
+                        allValid = false;
+                    }
+                    if (isBlank(choice.getAudioUrlForeign())) {
+                        addError(context, "audioUrlForeign không được để trống", "questionChoices.audioUrlForeign", i);
+                        allValid = false;
+                    }
+                    if (choice.getIsCorrect() == null) {
+                        addError(context, "isCorrect không được để trống", "questionChoices.isCorrect", i);
+                        allValid = false;
+                    }
+                } else if (typeEnum == QuestionType.WORD_ORDER) {
+                    if (isBlank(choice.getTextForeign())) {
+                        addError(context, "textForeign không được để trống", "questionChoices.textForeign", i);
+                        allValid = false;
+                    }
+                    if (isBlank(choice.getTextBlock())) {
+                        addError(context, "textBlock không được để trống", "questionChoices.textBlock", i);
+                        allValid = false;
+                    }
+                    if (choice.getIsCorrect() == null) {
+                        addError(context, "isCorrect không được để trống", "questionChoices.isCorrect", i);
+                        allValid = false;
+                    }
+                } else if (typeEnum == QuestionType.WRITING) {
+                    if (isBlank(choice.getTextForeign())) {
+                        addError(context, "textForeign không được để trống", "questionChoices.textForeign", i);
+                        allValid = false;
+                    }
+                    if (isBlank(choice.getTextRomaji())) {
+                        addError(context, "textRomaji không được để trống", "questionChoices.textRomaji", i);
+                        allValid = false;
+                    }
+                } else if (typeEnum == QuestionType.PRONUNCIATION) {
+                    if (isBlank(choice.getTextForeign())) {
+                        addError(context, "textForeign không được để trống", "questionChoices.textForeign", i);
+                        allValid = false;
+                    }
+                    if (isBlank(choice.getTextRomaji())) {
+                        addError(context, "textRomaji không được để trống", "questionChoices.textRomaji", i);
+                        allValid = false;
+                    }
+                    if (isBlank(choice.getAudioUrlForeign())) {
+                        addError(context, "audioUrlForeign không được để trống", "questionChoices.audioUrlForeign", i);
+                        allValid = false;
+                    }
+                    if (choice.getIsCorrect() == null) {
+                        addError(context, "isCorrect không được để trống", "questionChoices.isCorrect", i);
+                        allValid = false;
+                    }
                 }
             }
 
             return allValid;
 
         } catch (Exception e) {
-            // Trường hợp lỗi do không có getter phù hợp
             return false;
         }
     }
 
-    private boolean notBlank(String str) {
-        return str != null && !str.trim().isEmpty();
+    private boolean isBlank(String str) {
+        return str == null || str.trim().isEmpty();
     }
 
-    private boolean notEmptyFile(MultipartFile file) {
-        return file != null && !file.isEmpty();
+    private boolean isEmptyFile(MultipartFile file) {
+        return file == null || file.isEmpty();
+    }
+
+    private void addError(ConstraintValidatorContext context, String message, String field, int index) {
+        context.buildConstraintViolationWithTemplate(message)
+                .addPropertyNode(field)  // truyền đúng tên trường con, ví dụ questionChoices.textForeign
+                .addBeanNode()
+                .inIterable().atIndex(index)
+                .addConstraintViolation();
     }
 }
