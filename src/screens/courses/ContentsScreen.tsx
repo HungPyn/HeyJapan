@@ -19,15 +19,11 @@ import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {CoursesStackParamList, RootStackParamList} from '../../navigation';
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
-import {Video, VideoRef} from 'react-native-video';
+import {Video, VideoRef, OnLoadData} from 'react-native-video';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {showMessage} from 'react-native-flash-message';
 
-// --- IMPORT CÁC COMPONENT CON ---
-// Đường dẫn đến các component con - Hãy đảm bảo chúng chính xác!
-// Ví dụ: nếu ContentsScreen.tsx nằm trong src/screens/lessons/
-// và các component con nằm trong src/screens/lessons/TypeRenderQuestion/
 import PronunciationLessonContent from './TypeRenderQuestion/PronunciationLessonContent';
 import WritingLessonContent from './TypeRenderQuestion/WritingLessonContent';
 import SelectLessonContent from './TypeRenderQuestion/SelectLessonContent';
@@ -37,42 +33,6 @@ import WordOrderLessonContent, {
   WordOrderLessonContentRef,
 } from './TypeRenderQuestion/WordOrderLessonContent';
 
-// --- Types cho API lấy câu hỏi ---
-interface ApiQuestionChoice {
-  id: number;
-  textForeign: string | null;
-  textRomaji?: string | null;
-  imageUrl: string | null;
-  audioUrlForeign: string | null;
-  textBlock?: string;
-  isCorrect: boolean | number | null;
-}
-
-interface ApiQuestion {
-  id: number;
-  questionType: string;
-  promptTextTemplate: string;
-  targetWordNative: string;
-  targetLanguageCode: string;
-  optionsLanguageCode: string;
-  audioUrlQuestions: string | null;
-  questionChoices: ApiQuestionChoice[];
-}
-// --- End Types cho API lấy câu hỏi ---
-
-// --- Type cho Payload gửi kết quả ---
-interface LessonResultPayload {
-  studyTime: number;
-  completionPercent: number;
-  studyAttempt: number;
-  totalQuestions: number;
-  correctAnswers: number;
-  lessonId: number;
-  userId: string;
-}
-// --- End Type cho Payload gửi kết quả ---
-
-// --- Dữ liệu nội bộ và mapping ---
 export interface Option {
   id: string;
   text: string;
@@ -80,7 +40,6 @@ export interface Option {
   imageUrl?: string | null;
   audioUrl?: string | null;
 }
-
 export interface MappedContentItem {
   content_code: number;
   content_type:
@@ -101,7 +60,34 @@ export interface MappedContentItem {
   targetLanguageCode?: string;
   user_answer?: string | string[];
 }
-// --- End Dữ liệu nội bộ và mapping ---
+interface ApiQuestionChoice {
+  id: number;
+  textForeign: string | null;
+  textRomaji?: string | null;
+  imageUrl: string | null;
+  audioUrlForeign: string | null;
+  textBlock?: string;
+  isCorrect: boolean | number | null;
+}
+interface ApiQuestion {
+  id: number;
+  questionType: string;
+  promptTextTemplate: string;
+  targetWordNative: string;
+  targetLanguageCode: string;
+  optionsLanguageCode: string;
+  audioUrlQuestions: string | null;
+  questionChoices: ApiQuestionChoice[];
+}
+interface LessonResultPayload {
+  studyTime: number;
+  completionPercent: number;
+  studyAttempt: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  lessonId: number;
+  userId: string;
+}
 
 type ContentsScreenRouteProp = RouteProp<
   CoursesStackParamList,
@@ -127,7 +113,6 @@ interface LessonSummaryProps {
   onSubmitResult: () => void;
   isSubmitting: boolean;
 }
-
 const LessonSummaryScreen: React.FC<LessonSummaryProps> = ({
   correctAnswersCount,
   totalQuestions,
@@ -153,6 +138,7 @@ const LessonSummaryScreen: React.FC<LessonSummaryProps> = ({
           style={summaryStyles.iconText}
         />
         <Text style={summaryStyles.text}>
+          {' '}
           Tỷ lệ đúng: {correctAnswersCount}/{totalQuestions}
         </Text>
       </View>
@@ -212,7 +198,7 @@ const ContentsScreen: React.FC = () => {
   const [isSubmittingResult, setIsSubmittingResult] = useState(false);
   const [currentUserWritingText, setCurrentUserWritingText] =
     useState<string>('');
-  const [sapXepArrangedCount, setSapXepArrangedCount] = useState<number>(0); // State cho WordOrder
+  const [sapXepArrangedCount, setSapXepArrangedCount] = useState<number>(0);
 
   const audioRef = useRef<VideoRef>(null);
   const [audioURLToPlay, setAudioUrlToPlayState] = useState<string | null>(
@@ -234,7 +220,6 @@ const ContentsScreen: React.FC = () => {
       return null;
     }
   };
-
   const getUserId = async (): Promise<string | null> => {
     try {
       const userId = await AsyncStorage.getItem('UserId');
@@ -254,7 +239,6 @@ const ContentsScreen: React.FC = () => {
         let correctAnswerForeign: string | null = null;
         let correctAnswerRomaji: string | null = null;
         const choicesFromApi = apiQuestion.questionChoices || [];
-
         switch (apiQuestion.questionType) {
           case 'MULTIPLE_CHOICE_TEXT_ONLY':
             internalContentType = 'select';
@@ -420,14 +404,12 @@ const ContentsScreen: React.FC = () => {
     },
     [],
   );
-
   const itemsForThisLesson = useMemo(() => {
     if (apiQuestions.length > 0) {
       return mapApiQuestionsToMappedContent(apiQuestions);
     }
     return [];
   }, [apiQuestions, mapApiQuestionsToMappedContent]);
-
   const currentItem = itemsForThisLesson[currentIndex];
 
   useEffect(() => {
@@ -479,7 +461,6 @@ const ContentsScreen: React.FC = () => {
       setIsLoadingApiQuestions(false);
     }
   }, [lessonId]);
-
   const handleSubmitResult = async () => {
     if (!startTime || !lessonId) {
       showMessage({
@@ -554,7 +535,6 @@ const ContentsScreen: React.FC = () => {
       setIsSubmittingResult(false);
     }
   };
-
   useEffect(() => {
     if (
       itemsForThisLesson.length > 0 &&
@@ -568,14 +548,12 @@ const ContentsScreen: React.FC = () => {
       setCurrentIndex(0);
     }
   }, [itemsForThisLesson, startTime, isLoadingApiQuestions, apiError]);
-
   useEffect(() => {
     setUserSelectedOptionId(null);
     setShowAnswerFeedback(null);
     setCurrentUserWritingText('');
-    setSapXepArrangedCount(0); // Reset số từ đã sắp xếp cho câu hỏi mới
+    setSapXepArrangedCount(0);
   }, [currentIndex]);
-
   const playSound = useCallback(
     (audioUrlToPlayParam: string | null) => {
       if (!audioUrlToPlayParam) {
@@ -600,8 +578,7 @@ const ContentsScreen: React.FC = () => {
       }, 50);
     },
     [isAudioPlaying],
-  ); // Dependencies cho useCallback
-
+  );
   const handleOptionSelect = (optionId: string) => {
     if (showAnswerFeedback === null) {
       setUserSelectedOptionId(optionId);
@@ -623,10 +600,14 @@ const ContentsScreen: React.FC = () => {
     const type = currentItem.content_type;
 
     if (type === 'pronunciation') {
-      isCorrectUserAnswer = true;
-      setShowAnswerFeedback(null);
+      // Logic cho pronunciation được xử lý qua callback onAttempt, không qua nút "Kiểm tra" này.
+      console.warn(
+        'handleCheckAnswer called for pronunciation type - this path should ideally not be reached if Check button is hidden for pronunciation.',
+      );
       return;
-    } else if (type === 'writing') {
+    }
+
+    if (type === 'writing') {
       if (currentUserWritingText.trim() === '') {
         Alert.alert('Thông báo', 'Bạn vui lòng nhập câu trả lời.');
         return;
@@ -650,7 +631,6 @@ const ContentsScreen: React.FC = () => {
       const userAnswerString =
         wordOrderRef.current?.getUserAnswerString() || '';
       if (sapXepArrangedCount === 0 && (currentItem.options?.length || 0) > 0) {
-        // Dùng sapXepArrangedCount
         Alert.alert('Thông báo', 'Bạn chưa sắp xếp từ nào.');
         return;
       }
@@ -661,14 +641,22 @@ const ContentsScreen: React.FC = () => {
     }
 
     setShowAnswerFeedback(isCorrectUserAnswer);
+    // Cập nhật điểm: không tính cho 'writing' trong bài học, 'pronunciation' được tính điểm qua onAttempt
     if (isCorrectUserAnswer) {
-      setCorrectAnswersCount(prev => prev + 1);
+      if (type !== 'writing') {
+        // Chỉ loại trừ writing ở đây, pronunciation đã được xử lý riêng
+        setCorrectAnswersCount(prev => prev + 1);
+      }
     }
   };
 
   const handleContinue = () => {
     if (!currentItem) return;
     const type = currentItem.content_type;
+
+    // Bỏ guard cũ cho pronunciation ở đây vì "Bỏ qua" sẽ gọi trực tiếp handleContinue
+    // và luồng nói đúng/sai sẽ xử lý việc có cho qua hay không.
+
     const needsCheckBeforeContinue =
       (type === 'select' ||
         type === 'audio_choice' ||
@@ -689,7 +677,7 @@ const ContentsScreen: React.FC = () => {
         (type === 'sapXep' &&
           sapXepArrangedCount > 0 &&
           currentItem.options &&
-          currentItem.options.length > 0) || // Dùng sapXepArrangedCount
+          currentItem.options.length > 0) ||
         (type === 'writing' && currentUserWritingText.trim() !== '')
       ) {
         hasAttempt = true;
@@ -702,6 +690,7 @@ const ContentsScreen: React.FC = () => {
         return;
       }
     }
+
     const isLastItem = currentIndex >= itemsForThisLesson.length - 1;
     if (isLastItem) {
       const isSimpleSelectTypeWithNoOptions =
@@ -709,19 +698,24 @@ const ContentsScreen: React.FC = () => {
         (type === 'select' ||
           type === 'audio_choice' ||
           type === 'select_image');
+
+      // Nếu là pronunciation, chỉ qua summary khi showAnswerFeedback là true (nói đúng)
+      // Hoặc nếu là các loại khác đã có feedback, hoặc loại select lỗi không có options
       if (
-        showAnswerFeedback !== null ||
-        type === 'pronunciation' ||
+        (type === 'pronunciation' && showAnswerFeedback === true) ||
+        (type !== 'pronunciation' && showAnswerFeedback !== null) ||
         isSimpleSelectTypeWithNoOptions
       ) {
         setEndTime(new Date());
         setShowSummaryScreen(true);
-      } else {
+      } else if (type !== 'pronunciation') {
         Alert.alert(
           'Thông báo',
           "Đây là câu hỏi cuối cùng. Vui lòng nhấn 'Kiểm tra' trước khi hoàn thành bài học.",
         );
       }
+      // Nếu là pronunciation và showAnswerFeedback là null (nói sai, chỉ hiện alert), thì không làm gì ở đây,
+      // người dùng phải Skip hoặc thử lại.
     } else {
       setCurrentIndex(prev => prev + 1);
     }
@@ -738,7 +732,6 @@ const ContentsScreen: React.FC = () => {
     const diffSecs = diffSecsTotal % 60;
     return `${diffMins} phút ${diffSecs} giây`;
   }, [startTime, endTime]);
-
   const handleBackPress = () => {
     Alert.alert(
       'Thoát khỏi bài học?',
@@ -765,13 +758,21 @@ const ContentsScreen: React.FC = () => {
         </View>
       );
     }
-
     switch (currentItem.content_type) {
       case 'pronunciation':
         return (
           <PronunciationLessonContent
             item={currentItem}
             onPlaySound={playSound}
+            onSkip={handleContinue} // Bỏ qua sẽ gọi handleContinue
+            onAttempt={isCorrect => {
+              if (isCorrect) {
+                setShowAnswerFeedback(true); // Hiện footer đúng
+                setCorrectAnswersCount(prev => prev + 1); // TÍNH ĐIỂM KHI ĐÚNG
+              } else {
+                setShowAnswerFeedback(null); // Không hiện footer nào của cha, ở lại câu hỏi
+              }
+            }}
           />
         );
       case 'writing':
@@ -828,10 +829,6 @@ const ContentsScreen: React.FC = () => {
           />
         );
       default:
-        console.warn(
-          'Unhandled content_type in renderContentItem:',
-          currentItem.content_type,
-        );
         const unknownContentType = currentItem.content_type as any;
         return (
           <View style={styles.contentCard}>
@@ -933,19 +930,21 @@ const ContentsScreen: React.FC = () => {
     );
   }
 
-  const isPronunciationType = currentItem?.content_type === 'pronunciation';
+  const isPronunciationTypeCurrently =
+    currentItem?.content_type === 'pronunciation';
   const hasAttemptForCurrentQuestion =
     ((currentItem?.content_type === 'select' ||
       currentItem?.content_type === 'select_image' ||
       currentItem?.content_type === 'audio_choice') &&
       userSelectedOptionId) ||
-    (currentItem?.content_type === 'sapXep' && sapXepArrangedCount > 0) || // Sử dụng state đã cập nhật
+    (currentItem?.content_type === 'sapXep' && sapXepArrangedCount > 0) ||
     (currentItem?.content_type === 'writing' &&
       currentUserWritingText.trim() !== '');
 
+  // Nút "Kiểm tra" sẽ không hiển thị cho pronunciation
   const shouldShowCheckButton =
     currentItem &&
-    !isPronunciationType &&
+    !isPronunciationTypeCurrently &&
     showAnswerFeedback === null &&
     hasAttemptForCurrentQuestion &&
     (((currentItem.content_type === 'select' ||
@@ -956,34 +955,38 @@ const ContentsScreen: React.FC = () => {
       currentItem.options.length > 0) ||
       currentItem.content_type === 'writing');
 
-  const shouldShowNewFeedbackUi =
-    currentItem && !isPronunciationType && showAnswerFeedback !== null;
-  const isConsideredNonInteractiveForFooter =
-    isPronunciationType ||
-    (currentItem &&
-      (currentItem.content_type === 'select' ||
-        currentItem.content_type === 'select_image' ||
-        currentItem.content_type === 'audio_choice' ||
-        currentItem.content_type === 'sapXep') &&
-      (!currentItem.options || currentItem.options.length === 0));
+  // Thanh feedback (xanh/đỏ) sẽ hiển thị cho pronunciation NẾU nói đúng (showAnswerFeedback === true do onAttempt(true) gọi)
+  const shouldShowNewFeedbackUi = currentItem && showAnswerFeedback !== null;
+
+  // Nút "Tiếp tục" lớn ở giữa (Original/Skip button)
+  const isProblematicNonPronunTypeWithNoOptions =
+    !isPronunciationTypeCurrently && // Không phải pronunciation
+    currentItem &&
+    (currentItem.content_type === 'select' ||
+      currentItem.content_type === 'select_image' ||
+      currentItem.content_type === 'audio_choice' ||
+      currentItem.content_type === 'sapXep') &&
+    (!currentItem.options || currentItem.options.length === 0);
+
   const shouldShowOriginalContinueButton =
     !shouldShowCheckButton &&
-    !shouldShowNewFeedbackUi &&
-    isConsideredNonInteractiveForFooter;
+    !shouldShowNewFeedbackUi && // Sẽ false nếu pronunciation nói đúng (vì showAnswerFeedback=true)
+    isProblematicNonPronunTypeWithNoOptions;
 
-  const isContinueButtonDisabledIfPrimary = // Dùng cho nút Continue to ở giữa khi nó là nút chính (shouldShowOriginalContinueButton true)
-    shouldShowOriginalContinueButton && // Chỉ áp dụng khi nút này là nút chính
+  const isContinueButtonDisabledIfPrimary =
+    shouldShowOriginalContinueButton &&
     currentItem &&
     (currentItem.content_type === 'select' ||
       currentItem.content_type === 'select_image' ||
       currentItem.content_type === 'audio_choice') &&
-    !userSelectedOptionId && // Chưa chọn đáp án
-    showAnswerFeedback === null && // Và chưa kiểm tra
+    !userSelectedOptionId &&
+    showAnswerFeedback === null &&
     currentItem.options &&
     currentItem.options.length > 0;
 
-  const isPrimaryContinueButtonDisabled = // Dùng cho nút Continue to ở fallback (khi không có check, không có feedback mới, không phải original)
-    showAnswerFeedback === null && // Chưa kiểm tra
+  const isPrimaryContinueButtonDisabled =
+    showAnswerFeedback === null &&
+    !isPronunciationTypeCurrently &&
     (((currentItem?.content_type === 'select' ||
       currentItem?.content_type === 'select_image' ||
       currentItem?.content_type === 'audio_choice') &&
@@ -1024,6 +1027,7 @@ const ContentsScreen: React.FC = () => {
             style={styles.contentScrollArea}
             contentContainerStyle={styles.contentScrollContainer}
             showsVerticalScrollIndicator={false}
+            // GIỮ NGUYÊN KEY GỐC CỦA BẠN
             key={`content_scroll_${currentIndex}_${showAnswerFeedback}_${userSelectedOptionId}_${currentUserWritingText}`}>
             {renderContentItem()}
           </ScrollView>
@@ -1041,7 +1045,7 @@ const ContentsScreen: React.FC = () => {
                 setIsAudioLoading(true);
                 setAudioError('');
               }}
-              onLoad={() => {
+              onLoad={(data: OnLoadData) => {
                 setIsAudioLoading(false);
                 setIsAudioPlaying(true);
                 audioRef.current?.seek(0);
@@ -1067,6 +1071,7 @@ const ContentsScreen: React.FC = () => {
           {audioError && (
             <Text style={styles.audioErrorText}>{audioError}</Text>
           )}
+
           <View
             style={[
               styles.footer,
@@ -1084,6 +1089,7 @@ const ContentsScreen: React.FC = () => {
                 <Text style={styles.footerButtonText}>Kiểm tra</Text>
               </TouchableOpacity>
             )}
+
             {shouldShowNewFeedbackUi && currentItem && (
               <View style={styles.feedback_Container_NEW}>
                 <View style={styles.feedback_TextAudioWrapper_NEW}>
@@ -1091,62 +1097,68 @@ const ContentsScreen: React.FC = () => {
                     <Text
                       style={styles.feedback_CorrectAnswerText_NEW}
                       numberOfLines={2}>
-                      {showAnswerFeedback === false ? 'Đáp án đúng: ' : ''}
-                      {currentItem.correct_answer_foreign ||
-                        currentItem.content_detail}
-                      {currentItem.targetLanguageCode &&
-                        ` (${currentItem.targetLanguageCode.toUpperCase()})`}
+                      {
+                        showAnswerFeedback === true
+                          ? 'Chính xác!'
+                          : showAnswerFeedback === false
+                          ? 'Đáp án đúng: '
+                          : showAnswerFeedback === true
+                          ? 'Chính xác! '
+                          : '' // Thêm 'Chính xác!' cho các loại khác nếu đúng
+                      }
+                      {(currentItem.content_type !== 'pronunciation' ||
+                        showAnswerFeedback === false) &&
+                        (currentItem.correct_answer_foreign ||
+                          currentItem.content_detail)}
                     </Text>
-                    {currentItem.correct_answer_romaji && (
-                      <Text
-                        style={styles.feedback_CorrectAnswerRomaji_NEW}
-                        numberOfLines={1}>
-                        ({currentItem.correct_answer_romaji})
-                      </Text>
-                    )}
+                    {currentItem.correct_answer_romaji &&
+                      currentItem.content_type && (
+                        <Text
+                          style={styles.feedback_CorrectAnswerRomaji_NEW}
+                          numberOfLines={1}>
+                          ({currentItem.correct_answer_romaji})
+                        </Text>
+                      )}
                   </View>
                   {((currentItem.correct_answer_foreign &&
                     currentItem.options?.find(
                       opt => opt.id === currentItem.correct_answer,
                     )?.audioUrl) ||
-                    currentItem.audio_url) && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        let audioToPlayOnClick = currentItem.audio_url;
-                        if (
-                          typeof currentItem.correct_answer === 'string' &&
-                          (currentItem.content_type === 'select' ||
-                            currentItem.content_type === 'audio_choice' ||
-                            currentItem.content_type === 'select_image')
-                        ) {
-                          const correctOpt = currentItem.options?.find(
-                            opt => opt.id === currentItem.correct_answer,
-                          );
-                          if (correctOpt?.audioUrl) {
-                            audioToPlayOnClick = correctOpt.audioUrl;
+                    currentItem.audio_url) &&
+                    currentItem.content_type && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          let audioToPlayOnClick = currentItem.audio_url;
+                          if (
+                            typeof currentItem.correct_answer === 'string' &&
+                            (currentItem.content_type === 'select' ||
+                              currentItem.content_type === 'audio_choice' ||
+                              currentItem.content_type === 'select_image')
+                          ) {
+                            const correctOpt = currentItem.options?.find(
+                              opt => opt.id === currentItem.correct_answer,
+                            );
+                            if (correctOpt?.audioUrl) {
+                              audioToPlayOnClick = correctOpt.audioUrl;
+                            }
+                          } else if (
+                            currentItem.content_type === 'sapXep' ||
+                            currentItem.content_type === 'writing'
+                          ) {
                           }
-                        } else if (
-                          currentItem.content_type === 'sapXep' ||
-                          currentItem.content_type === 'writing'
-                        ) {
-                        }
-                        playSound(audioToPlayOnClick);
-                      }}
-                      style={styles.feedback_AudioButton_NEW}>
-                      <Image
-                        source={require('../../assets/images/amThanhTiepTuc.png')}
-                        style={[
-                          styles.feedback_AudioIcon_NEW,
-                          {
-                            tintColor: showAnswerFeedback
-                              ? COLORS.white
-                              : COLORS.white,
-                          },
-                        ]}
-                        resizeMode="contain"
-                      />
-                    </TouchableOpacity>
-                  )}
+                          playSound(audioToPlayOnClick);
+                        }}
+                        style={styles.feedback_AudioButton_NEW}>
+                        <Image
+                          source={require('../../assets/images/amThanhTiepTuc.png')}
+                          style={[
+                            styles.feedback_AudioIcon_NEW,
+                            {tintColor: COLORS.white},
+                          ]}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                    )}
                 </View>
                 <TouchableOpacity
                   style={styles.feedback_ContinueButton_NEW}
@@ -1161,10 +1173,12 @@ const ContentsScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Nút "Tiếp tục" lớn (original/skip) */}
             {shouldShowOriginalContinueButton && (
               <TouchableOpacity
                 style={[
-                  isConsideredNonInteractiveForFooter
+                  isProblematicNonPronunTypeWithNoOptions
                     ? styles.skipButton
                     : styles.continueButton,
                   isContinueButtonDisabledIfPrimary &&
@@ -1175,9 +1189,14 @@ const ContentsScreen: React.FC = () => {
                 <Text style={styles.footerButtonText}>Tiếp tục</Text>
               </TouchableOpacity>
             )}
+
+            {/* Nút Tiếp tục fallback */}
             {!shouldShowCheckButton &&
               !shouldShowNewFeedbackUi &&
-              !shouldShowOriginalContinueButton && (
+              !shouldShowOriginalContinueButton &&
+              !(
+                isPronunciationTypeCurrently && showAnswerFeedback === null
+              ) && ( // Điều kiện mới: Không hiện nếu là pronunciation và nói sai (đang chờ retry/skip)
                 <TouchableOpacity
                   style={[
                     styles.continueButton,
@@ -1196,7 +1215,7 @@ const ContentsScreen: React.FC = () => {
   );
 };
 
-// Styles (Sao chép toàn bộ styles và summaryStyles gốc của bạn vào đây)
+// Styles (GIỮ NGUYÊN)
 const screenWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.white},
@@ -1228,6 +1247,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray2,
+  },
+  feedback_ContinueButtonText_NEW: {
+    fontFamily: FONTS.bold?.fontFamily,
+    textAlign: 'center',
+    fontSize: SIZES.medium,
+    fontWeight: 'bold',
   },
   headerTitleError: {
     flex: 1,
@@ -1305,25 +1330,28 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
-    marginBottom: 30,
-  },
+    marginBottom: Platform.OS === 'android' ? 30 : 0,
+  }, // Khôi phục margin
   continueButton: {
     backgroundColor: COLORS.primary || '#4CAF50',
     paddingVertical: SIZES.padding * 1.2,
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
-    marginBottom: 30,
-  },
+    marginBottom: Platform.OS === 'android' ? 0 : 0,
+  }, // Giữ nguyên margin này
   skipButton: {
     backgroundColor: COLORS.gray,
     paddingVertical: SIZES.padding * 1.2,
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
-    marginBottom: 30,
-  },
-  disabledButtonFooter: {backgroundColor: COLORS.lightGray},
+    marginBottom: Platform.OS === 'android' ? 0 : 0,
+  }, // Giữ nguyên margin này
+  disabledButtonFooter: {
+    backgroundColor: COLORS.lightGray,
+    marginBottom: Platform.OS === 'android' ? 30 : 0,
+  }, // Khôi phục margin
   footerButtonText: {
     fontFamily: FONTS.bold?.fontFamily,
     color: COLORS.white,
@@ -1346,8 +1374,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SIZES.base / 2,
     paddingHorizontal: SIZES.padding * 0.5,
-    minHeight: 180,
-  },
+    minHeight: Platform.OS === 'ios' ? 90 : 80,
+  }, // Giữ nguyên minHeight gốc
   feedback_TextAudioWrapper_NEW: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1359,7 +1387,8 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: SIZES.base,
     marginLeft: 40,
-  },
+    alignItems: 'center',
+  }, // Thêm lại alignItems: 'center'
   feedback_CorrectAnswerText_NEW: {
     fontSize: SIZES.xxLarge,
     opacity: 0.9,
@@ -1393,14 +1422,8 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 3,
     marginTop: SIZES.base,
-    marginBottom: 30,
-  },
-  feedback_ContinueButtonText_NEW: {
-    fontFamily: FONTS.bold?.fontFamily,
-    textAlign: 'center',
-    fontSize: SIZES.medium,
-    fontWeight: 'bold',
-  },
+    marginBottom: Platform.OS === 'android' ? 30 : 0,
+  }, // Khôi phục margin
   audioActivityIndicator: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 100 : 80,
@@ -1415,15 +1438,6 @@ const styles = StyleSheet.create({
     padding: 5,
     borderRadius: 3,
   },
-  // Thêm lại các style đã bị lược bỏ trước đó nếu cần
-  // (Ví dụ: contentTitle, voiceContentDetailText, AudioIcon, recordIcon, contentCard2, recordButtonContainer, ...)
-  // (imageOptionsContainer, imageOptionButton, optionImage, optionImageTextContainer_NEW, ...)
-  // (questionSelectContainer, questionAudioButtonSelect, audioIconSmall, contentDetailSelect, optionsContainer, ...)
-  // (optionButton, selectedOption, correctOption, incorrectOption, optionText, correctOptionText, incorrectOptionText, optionTextRomaji)
-  // (contentTitleSelect, originalSentenceContainer, questionAudioButton, contentDetailXapXep, contentDetailXapXep_Answered, wordArrangeDropArea, arrangedTextPlaceholder, arrangedWordItem, wordBankContainer, wordBankItem, wordBankText, wordBankItemSelectedAndUsed, disabledWordBankItem, correctWordBackground, incorrectWordBackground)
-  // (contentTitleAudio, contentImage, contentDetailAudio, audioPlayerPlaceholder)
-  // ==> TẤT CẢ CÁC STYLE NÀY ĐÃ ĐƯỢC BAO GỒM TRONG KHỐI styles GỐC MÀ BẠN CUNG CẤP BAN ĐẦU
-  // VÀ TÔI ĐÃ GIỮ NGUYÊN CHÚNG Ở TRÊN.
 });
 
 const summaryStyles = StyleSheet.create({
@@ -1482,6 +1496,7 @@ const summaryStyles = StyleSheet.create({
     color: COLORS.white,
     fontSize: SIZES.large,
   },
+
   disabledButton: {backgroundColor: COLORS.gray},
 });
 

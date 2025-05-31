@@ -1,4 +1,4 @@
-// src/screens/lessons/ExamContentsScreen.tsx (Hoặc đường dẫn bạn muốn)
+// src/screens/lessons/ExamContentsScreen.tsx
 import React, {useState, useMemo, useEffect, useCallback, useRef} from 'react';
 import {
   View,
@@ -52,7 +52,7 @@ interface ApiQuestion {
   targetWordNative: string;
   targetLanguageCode: string;
   optionsLanguageCode: string;
-  audioUrlExam: string | null; // Đã đổi tên
+  audioUrlExam: string | null; // Đã đổi tên từ audioUrlQuestions
   questionChoices: ApiQuestionChoice[];
 }
 // --- End Types cho API lấy câu hỏi ---
@@ -117,7 +117,6 @@ const ProgressBar = ({current, total}: {current: number; total: number}) => {
 };
 
 interface ExamSummaryProps {
-  // Đổi tên cho phù hợp
   correctAnswersCount: number;
   totalQuestions: number;
   timeTaken: string;
@@ -126,7 +125,6 @@ interface ExamSummaryProps {
 }
 
 const ExamSummaryScreen: React.FC<ExamSummaryProps> = ({
-  // Đổi tên component
   correctAnswersCount,
   totalQuestions,
   timeTaken,
@@ -145,13 +143,13 @@ const ExamSummaryScreen: React.FC<ExamSummaryProps> = ({
         resizeMode="contain"
       />
       <Text style={summaryStyles.title}>Kết quả bài kiểm tra</Text>
-      {/* Thay đổi tiêu đề */}
       <View style={summaryStyles.card}>
         <Image
           source={require('../../assets/images/tiLeDung.png')}
           style={summaryStyles.iconText}
         />
         <Text style={summaryStyles.text}>
+          {' '}
           Tỷ lệ đúng: {correctAnswersCount}/{totalQuestions}
         </Text>
       </View>
@@ -187,12 +185,11 @@ const ExamSummaryScreen: React.FC<ExamSummaryProps> = ({
 };
 
 const ExamContentsScreen: React.FC = () => {
-  // Đổi tên component
   const route = useRoute<ExamContentsScreenRouteProp>();
   const navigation = useNavigation<ExamContentsScreenNavigationProp>();
 
   const {topicId, lessonName: lessonNameFromRoute = 'Bài kiểm tra'} =
-    route.params;
+    route.params; // Sử dụng lessonName từ route params nếu có, nếu không thì mặc định là 'Bài kiểm tra'
 
   const [apiQuestions, setApiQuestions] = useState<ApiQuestion[]>([]);
   const [isLoadingApiQuestions, setIsLoadingApiQuestions] = useState(true);
@@ -253,123 +250,161 @@ const ExamContentsScreen: React.FC = () => {
         let correctAnswerForeign: string | null = null;
         let correctAnswerRomaji: string | null = null;
         const choicesFromApi = apiQuestion.questionChoices || [];
-
         switch (apiQuestion.questionType) {
           case 'MULTIPLE_CHOICE_TEXT_ONLY':
             internalContentType = 'select';
+            mappedOptions = choicesFromApi.map(qc => ({
+              id: String(qc.id),
+              text: qc.textForeign || '',
+              textRomaji: qc.textRomaji ?? null,
+              audioUrl: qc.audioUrlForeign,
+            }));
+            const correctChoiceText = choicesFromApi.find(
+              qc => qc.isCorrect === true,
+            );
+            if (correctChoiceText) {
+              correctAnswerIds = String(correctChoiceText.id);
+              correctAnswerForeign = correctChoiceText.textForeign;
+              correctAnswerRomaji = correctChoiceText.textRomaji ?? null;
+            }
             break;
           case 'AUDIO_CHOICE':
             internalContentType = 'audio_choice';
+            mappedOptions = choicesFromApi.map(qc => ({
+              id: String(qc.id),
+              text: qc.textForeign || '',
+              textRomaji: qc.textRomaji ?? null,
+              audioUrl: qc.audioUrlForeign,
+            }));
+            const correctChoiceAudio = choicesFromApi.find(
+              qc => qc.isCorrect === true,
+            );
+            if (correctChoiceAudio) {
+              correctAnswerIds = String(correctChoiceAudio.id);
+              correctAnswerForeign = correctChoiceAudio.textForeign;
+              correctAnswerRomaji = correctChoiceAudio.textRomaji ?? null;
+            }
             break;
           case 'MULTIPLE_CHOICE_VOCAB_IMAGE':
             internalContentType = 'select_image';
+            mappedOptions = choicesFromApi.map(qc => ({
+              id: String(qc.id),
+              text: `${qc.textForeign || ''}${
+                qc.textRomaji ? `\n(${qc.textRomaji})` : ''
+              }`,
+              textRomaji: qc.textRomaji ?? null,
+              imageUrl: qc.imageUrl,
+              audioUrl: qc.audioUrlForeign,
+            }));
+            const correctImageChoice = choicesFromApi.find(
+              qc => qc.isCorrect === true,
+            );
+            if (correctImageChoice) {
+              correctAnswerIds = String(correctImageChoice.id);
+              correctAnswerForeign = apiQuestion.targetWordNative; // Default
+              correctAnswerRomaji = correctImageChoice.textRomaji ?? null;
+              if (
+                correctImageChoice.textForeign &&
+                correctImageChoice.textForeign.trim() !== ''
+              ) {
+                correctAnswerForeign = correctImageChoice.textForeign; // Override if textForeign exists
+              }
+            }
             break;
           case 'WORD_ORDER':
             internalContentType = 'sapXep';
+            const firstChoiceWordOrder = apiQuestion.questionChoices[0];
+            if (
+              firstChoiceWordOrder &&
+              typeof firstChoiceWordOrder.textBlock === 'string'
+            ) {
+              try {
+                const wordsInTextBlock = JSON.parse(
+                  firstChoiceWordOrder.textBlock,
+                );
+                if (Array.isArray(wordsInTextBlock)) {
+                  mappedOptions = wordsInTextBlock.map((word, index) => ({
+                    id: `${apiQuestion.id}_examchoice${firstChoiceWordOrder.id}_word${index}`,
+                    text: String(word),
+                    textRomaji: null,
+                    audioUrl: null,
+                  }));
+                  correctAnswerForeign = firstChoiceWordOrder.textForeign;
+                  correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
+                  correctAnswerIds = []; // For 'sapXep', correct_answer is not used directly from options
+                } else {
+                  mappedOptions = [];
+                  correctAnswerForeign = firstChoiceWordOrder.textForeign;
+                  correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
+                  correctAnswerIds = [];
+                  console.warn(
+                    `WORD_ORDER (exam id: ${apiQuestion.id}): textBlock không phải là mảng JSON.`,
+                  );
+                }
+              } catch (e) {
+                mappedOptions = [];
+                correctAnswerForeign =
+                  firstChoiceWordOrder?.textForeign ?? null;
+                correctAnswerRomaji = firstChoiceWordOrder?.textRomaji ?? null;
+                correctAnswerIds = [];
+                console.error(
+                  `WORD_ORDER (exam id: ${apiQuestion.id}): Lỗi parse textBlock JSON:`,
+                  e,
+                );
+              }
+            } else {
+              mappedOptions = [];
+              correctAnswerForeign = null;
+              correctAnswerRomaji = null;
+              correctAnswerIds = [];
+              console.warn(
+                `WORD_ORDER (exam id: ${apiQuestion.id}): Thiếu questionChoices[0] hoặc textBlock không hợp lệ.`,
+              );
+            }
             break;
           case 'PRONUNCIATION':
             internalContentType = 'pronunciation';
+            correctAnswerForeign =
+              choicesFromApi[0]?.textForeign || apiQuestion.promptTextTemplate;
+            correctAnswerRomaji = choicesFromApi[0]?.textRomaji || null;
+            mappedOptions = [];
+            correctAnswerIds = undefined; // Pronunciation does not use option IDs for correctness check in the same way
             break;
           case 'WRITING':
             internalContentType = 'writing';
+            correctAnswerForeign =
+              choicesFromApi[0]?.textForeign || apiQuestion.promptTextTemplate;
+            mappedOptions = [];
+            correctAnswerIds = undefined; // Writing does not use option IDs
             break;
           default:
             console.warn(
               `Unknown API questionType in Exam: ${apiQuestion.questionType}. Falling back to 'select'.`,
             );
-            internalContentType = 'select';
+            internalContentType = 'select'; // Fallback
+            mappedOptions = choicesFromApi.map(qc => ({
+              id: String(qc.id),
+              text: qc.textForeign || '',
+              textRomaji: qc.textRomaji ?? null,
+              audioUrl: qc.audioUrlForeign,
+            }));
+            const defaultCorrectChoice = choicesFromApi.find(
+              qc => qc.isCorrect === true,
+            );
+            if (defaultCorrectChoice) {
+              correctAnswerIds = String(defaultCorrectChoice.id);
+              correctAnswerForeign = defaultCorrectChoice.textForeign;
+              correctAnswerRomaji = defaultCorrectChoice.textRomaji ?? null;
+            }
             break;
-        }
-
-        if (
-          internalContentType === 'select' ||
-          internalContentType === 'audio_choice' ||
-          internalContentType === 'select_image'
-        ) {
-          mappedOptions = choicesFromApi.map(qc => ({
-            id: String(qc.id),
-            text:
-              internalContentType === 'select_image'
-                ? `${qc.textForeign || ''}${
-                    qc.textRomaji ? `\n(${qc.textRomaji})` : ''
-                  }`
-                : qc.textForeign || '',
-            textRomaji: qc.textRomaji ?? null,
-            imageUrl:
-              internalContentType === 'select_image' ? qc.imageUrl : null,
-            audioUrl: qc.audioUrlForeign,
-          }));
-          const correctChoice = choicesFromApi.find(
-            qc => qc.isCorrect === true,
-          );
-          if (correctChoice) {
-            correctAnswerIds = String(correctChoice.id);
-            correctAnswerForeign = correctChoice.textForeign;
-            correctAnswerRomaji = correctChoice.textRomaji ?? null;
-            if (
-              internalContentType === 'select_image' &&
-              apiQuestion.targetWordNative &&
-              (!correctChoice.textForeign ||
-                correctChoice.textForeign.trim() === '')
-            ) {
-              correctAnswerForeign = apiQuestion.targetWordNative;
-            }
-          }
-        } else if (internalContentType === 'sapXep') {
-          const firstChoiceWordOrder = apiQuestion.questionChoices[0];
-          if (
-            firstChoiceWordOrder &&
-            typeof firstChoiceWordOrder.textBlock === 'string'
-          ) {
-            try {
-              const wordsInTextBlock = JSON.parse(
-                firstChoiceWordOrder.textBlock,
-              );
-              if (Array.isArray(wordsInTextBlock)) {
-                mappedOptions = wordsInTextBlock.map((word, index) => ({
-                  id: `${apiQuestion.id}_examchoice${firstChoiceWordOrder.id}_word${index}`,
-                  text: String(word),
-                  textRomaji: null,
-                  audioUrl: null,
-                }));
-                correctAnswerForeign = firstChoiceWordOrder.textForeign;
-                correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
-                correctAnswerIds = [];
-              } else {
-                mappedOptions = [];
-                correctAnswerForeign = firstChoiceWordOrder.textForeign;
-                correctAnswerRomaji = firstChoiceWordOrder.textRomaji ?? null;
-                correctAnswerIds = [];
-              }
-            } catch (e) {
-              mappedOptions = [];
-              correctAnswerForeign = firstChoiceWordOrder?.textForeign ?? null;
-              correctAnswerRomaji = firstChoiceWordOrder?.textRomaji ?? null;
-              correctAnswerIds = [];
-            }
-          } else {
-            mappedOptions = [];
-            correctAnswerForeign = null;
-            correctAnswerRomaji = null;
-            correctAnswerIds = [];
-          }
-        } else if (
-          internalContentType === 'pronunciation' ||
-          internalContentType === 'writing'
-        ) {
-          correctAnswerForeign =
-            choicesFromApi[0]?.textForeign || apiQuestion.promptTextTemplate;
-          correctAnswerRomaji = choicesFromApi[0]?.textRomaji || null;
-          mappedOptions = [];
-          correctAnswerIds = undefined;
         }
         return {
           content_code: apiQuestion.id,
           content_type: internalContentType,
           title: apiQuestion.promptTextTemplate,
           content_detail: apiQuestion.targetWordNative || '',
-          audio_url: apiQuestion.audioUrlExam,
-          image_url: null,
+          audio_url: apiQuestion.audioUrlExam, // Use audioUrlExam
+          image_url: null, // Assuming image_url is not directly on apiQuestion for general types
           options: mappedOptions,
           correct_answer: correctAnswerIds,
           correct_answer_foreign: correctAnswerForeign,
@@ -382,6 +417,7 @@ const ExamContentsScreen: React.FC = () => {
   );
 
   const itemsForThisExam = useMemo(() => {
+    // Renamed from itemsForThisLesson
     if (apiQuestions.length > 0) {
       return mapApiQuestionsToMappedContent(apiQuestions);
     }
@@ -408,13 +444,14 @@ const ExamContentsScreen: React.FC = () => {
           return;
         }
         const response = await axios.get<ApiQuestion[]>(
-          `${API_USER_BASE_URL}/question/exam-question?topicId=${topicId}`,
+          `${API_USER_BASE_URL}/question/exam-question?topicId=${topicId}`, // Endpoint for exam questions
           {headers: {Authorization: `Bearer ${token}`}},
         );
         if (response.data && Array.isArray(response.data)) {
           if (response.data.length > 0) {
             setApiQuestions(response.data);
           } else {
+            // Set apiError if the array is empty, indicating no questions
             setApiError('Không có câu hỏi nào cho bài kiểm tra này.');
           }
         } else {
@@ -460,6 +497,7 @@ const ExamContentsScreen: React.FC = () => {
       totalQuestionsCount > 0
         ? (correctAnswersCount / totalQuestionsCount) * 100
         : 0;
+
     const currentUserId = await getUserId();
     if (!currentUserId) {
       showMessage({
@@ -470,6 +508,7 @@ const ExamContentsScreen: React.FC = () => {
       setIsSubmittingResult(false);
       return;
     }
+
     const currentTopicId = Number(topicId);
     if (isNaN(currentTopicId)) {
       console.error('ExamContentsScreen: topicId không hợp lệ.');
@@ -480,15 +519,18 @@ const ExamContentsScreen: React.FC = () => {
       setIsSubmittingResult(false);
       return;
     }
+
     const payload: SubmitExamResultPayload = {
-      examTime: examTimeSeconds,
+      examTime: examTimeSeconds > 0 ? examTimeSeconds : 0,
       scorePercent: parseFloat(scorePercentValue.toFixed(2)),
       totalQuestions: totalQuestionsCount,
       correctAnswers: correctAnswersCount,
-      topicId: currentTopicId,
+      topicId: currentTopicId, // Use numeric topicId
       userId: currentUserId,
     };
-    const resultEndpoint = `${API_USER_BASE_URL}/result/exam-result`;
+
+    const resultEndpoint = `${API_USER_BASE_URL}/result/exam-result`; // Endpoint for exam result
+
     try {
       const token = await getToken();
       if (!token) {
@@ -570,16 +612,18 @@ const ExamContentsScreen: React.FC = () => {
         setIsAudioPlaying(false);
         return;
       }
-      setAudioUrlToPlayState(null);
+      setAudioUrlToPlayState(null); // Reset first to ensure re-trigger if same URL
       audioUrlToPlayRef.current = audioUrlToPlayParam;
       setTimeout(() => {
         setAudioUrlToPlayState(audioUrlToPlayParam);
-      }, 50);
+      }, 50); // Small delay to allow Video component to re-initialize with new source if needed
     },
-    [isAudioPlaying],
+    [isAudioPlaying], // Dependency: re-create if isAudioPlaying changes
   );
+
   const handleOptionSelect = (optionId: string) => {
     if (showAnswerFeedback === null) {
+      // Only allow selection if feedback is not shown
       setUserSelectedOptionId(optionId);
       const currentQ = itemsForThisExam[currentIndex];
       if (currentQ && currentQ.options) {
@@ -599,10 +643,14 @@ const ExamContentsScreen: React.FC = () => {
     const type = currentItem.content_type;
 
     if (type === 'pronunciation') {
-      isCorrectUserAnswer = true;
-      setShowAnswerFeedback(null);
+      // Logic cho pronunciation được xử lý qua callback onAttempt, không qua nút "Kiểm tra" này.
+      console.warn(
+        'handleCheckAnswer called for pronunciation type in Exam - this path should ideally not be reached if Check button is hidden for pronunciation.',
+      );
       return;
-    } else if (type === 'writing') {
+    }
+
+    if (type === 'writing') {
       if (currentUserWritingText.trim() === '') {
         Alert.alert('Thông báo', 'Bạn vui lòng nhập câu trả lời.');
         return;
@@ -636,8 +684,13 @@ const ExamContentsScreen: React.FC = () => {
     }
 
     setShowAnswerFeedback(isCorrectUserAnswer);
-    // Trong bài kiểm tra, 'writing' được tính điểm nếu đúng. 'pronunciation' không tính.
+    // Cập nhật điểm:
+    // - 'pronunciation' được tính điểm qua onAttempt.
+    // - 'writing' trong bài thi sẽ được tính điểm ở đây.
+    // - Các loại khác cũng tính điểm ở đây.
     if (isCorrectUserAnswer) {
+      // Đối với ExamContentsScreen, chúng ta sẽ cộng điểm cho 'writing' ở đây nếu đúng.
+      // 'pronunciation' được xử lý riêng qua onAttempt.
       setCorrectAnswersCount(prev => prev + 1);
     }
   };
@@ -645,13 +698,15 @@ const ExamContentsScreen: React.FC = () => {
   const handleContinue = () => {
     if (!currentItem) return;
     const type = currentItem.content_type;
+
     const needsCheckBeforeContinue =
       (type === 'select' ||
         type === 'audio_choice' ||
         type === 'select_image' ||
         type === 'sapXep' ||
         type === 'writing') &&
-      showAnswerFeedback === null;
+      showAnswerFeedback === null; // Gilt für nicht-pronunciation Typen
+
     if (needsCheckBeforeContinue) {
       let hasAttempt = false;
       if (
@@ -676,7 +731,9 @@ const ExamContentsScreen: React.FC = () => {
         );
         return;
       }
+      // If no attempt for checkable types, allow to continue (acts like skip if no input)
     }
+
     const isLastItem = currentIndex >= itemsForThisExam.length - 1;
     if (isLastItem) {
       const isSimpleSelectTypeWithNoOptions =
@@ -684,37 +741,46 @@ const ExamContentsScreen: React.FC = () => {
         (type === 'select' ||
           type === 'audio_choice' ||
           type === 'select_image');
+
       if (
-        showAnswerFeedback !== null ||
-        type === 'pronunciation' ||
-        isSimpleSelectTypeWithNoOptions
+        (type === 'pronunciation' && showAnswerFeedback === true) || // Pronunciation: only if correct
+        (type !== 'pronunciation' && showAnswerFeedback !== null) || // Other types: if already checked
+        isSimpleSelectTypeWithNoOptions || // Problematic select types with no options
+        (type !== 'pronunciation' &&
+          showAnswerFeedback === null &&
+          !needsCheckBeforeContinue) // Allow continue if it was not a "needsCheck" type or if it was a checkable type but no input was made (acting as skip)
       ) {
         setEndTime(new Date());
         setShowSummaryScreen(true);
-      } else {
+      } else if (type !== 'pronunciation' && needsCheckBeforeContinue) {
+        // Only alert if it needed a check and didn't get one
         Alert.alert(
           'Thông báo',
           "Đây là câu hỏi cuối cùng. Vui lòng nhấn 'Kiểm tra' trước khi hoàn thành bài kiểm tra.",
         );
       }
+      // For pronunciation, if showAnswerFeedback is null or false, user stays on the question.
     } else {
       setCurrentIndex(prev => prev + 1);
     }
   };
+
   const formatTimeTaken = useCallback((): string => {
     if (!startTime) return '0 phút 0 giây';
-    const finalEndTime = endTime || new Date();
+    const finalEndTime = endTime || new Date(); // Use current time if endTime is not set
     const diffMs = finalEndTime.getTime() - startTime.getTime();
-    if (diffMs < 0) return '0 phút 0 giây';
+    if (diffMs < 0) return '0 phút 0 giây'; // Should not happen
     let diffSecsTotal = Math.round(diffMs / 1000);
     diffSecsTotal = diffSecsTotal > 0 ? diffSecsTotal : 0;
+
     const diffMins = Math.floor(diffSecsTotal / 60);
     const diffSecs = diffSecsTotal % 60;
     return `${diffMins} phút ${diffSecs} giây`;
   }, [startTime, endTime]);
+
   const handleBackPress = () => {
     Alert.alert(
-      'Thoát khỏi bài kiểm tra?',
+      'Thoát khỏi bài kiểm tra?', // Changed from "bài học"
       'Tiến trình của bạn sẽ không được lưu lại. Bạn có chắc muốn thoát không?',
       [
         {text: 'Hủy', style: 'cancel'},
@@ -741,9 +807,20 @@ const ExamContentsScreen: React.FC = () => {
     switch (currentItem.content_type) {
       case 'pronunciation':
         return (
-          <PronunciationLessonContent
+          <PronunciationLessonContent // Reusing the same component
             item={currentItem}
             onPlaySound={playSound}
+            onSkip={handleContinue} // Added for consistency with ContentsScreen logic
+            onAttempt={isCorrect => {
+              // Added for consistency
+              if (isCorrect) {
+                setShowAnswerFeedback(true);
+                setCorrectAnswersCount(prev => prev + 1); // Count points if correct
+              } else {
+                setShowAnswerFeedback(null); // Stays on question, no feedback from parent
+                // PronunciationLessonContent might show its own feedback for incorrect attempts
+              }
+            }}
           />
         );
       case 'writing':
@@ -826,7 +903,7 @@ const ExamContentsScreen: React.FC = () => {
       <SafeAreaView style={styles.safeAreaLoadingError}>
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.goBack()} // Simple goBack for error state
             style={styles.backButton}>
             <Text style={styles.backButtonText}>‹</Text>
           </TouchableOpacity>
@@ -834,15 +911,18 @@ const ExamContentsScreen: React.FC = () => {
             {lessonNameFromRoute || 'Lỗi'}
           </Text>
           <View style={{width: 30}} />
+          {/* Spacer */}
         </View>
         <View style={styles.contentLoadingError}>
           <Text style={styles.loadingErrorText}>{apiError}</Text>
+          {/* Optional: Add a retry button for API errors if desired */}
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={[
               styles.retryButton,
-              {marginTop: 10, backgroundColor: COLORS.gray},
-            ]}>
+              {marginTop: 20, backgroundColor: COLORS.gray},
+            ]} // Added retry button style
+          >
             <Text style={styles.retryButtonText}>Trở về</Text>
           </TouchableOpacity>
         </View>
@@ -860,6 +940,7 @@ const ExamContentsScreen: React.FC = () => {
             {lessonNameFromRoute || 'Bài kiểm tra trống'}
           </Text>
           <View style={{width: 30}} />
+          {/* Spacer */}
         </View>
         <View style={styles.contentLoadingError}>
           <Text style={styles.loadingErrorText}>
@@ -890,6 +971,7 @@ const ExamContentsScreen: React.FC = () => {
     );
   }
   if (!currentItem && !showSummaryScreen) {
+    // This case should ideally be covered by previous checks, but as a fallback
     return (
       <SafeAreaView style={styles.safeAreaLoadingError}>
         <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
@@ -911,7 +993,10 @@ const ExamContentsScreen: React.FC = () => {
     );
   }
 
-  const isPronunciationType = currentItem?.content_type === 'pronunciation';
+  // Logic for footer buttons and feedback UI, adapted from ContentsScreen
+  const isPronunciationTypeCurrently =
+    currentItem?.content_type === 'pronunciation';
+
   const hasAttemptForCurrentQuestion =
     ((currentItem?.content_type === 'select' ||
       currentItem?.content_type === 'select_image' ||
@@ -920,53 +1005,49 @@ const ExamContentsScreen: React.FC = () => {
     (currentItem?.content_type === 'sapXep' && sapXepArrangedCount > 0) ||
     (currentItem?.content_type === 'writing' &&
       currentUserWritingText.trim() !== '');
+
   const shouldShowCheckButton =
     currentItem &&
-    !isPronunciationType &&
-    showAnswerFeedback === null &&
-    hasAttemptForCurrentQuestion &&
-    (((currentItem.content_type === 'select' ||
+    !isPronunciationTypeCurrently && // Check button not for pronunciation
+    showAnswerFeedback === null && // Only if answer hasn't been checked yet
+    hasAttemptForCurrentQuestion && // Only if user has made an attempt
+    (((currentItem.content_type === 'select' || // And if it's a type with options
       currentItem.content_type === 'select_image' ||
       currentItem.content_type === 'audio_choice' ||
       currentItem.content_type === 'sapXep') &&
       currentItem.options &&
       currentItem.options.length > 0) ||
-      currentItem.content_type === 'writing');
-  const shouldShowNewFeedbackUi =
-    currentItem && !isPronunciationType && showAnswerFeedback !== null;
-  const isConsideredNonInteractiveForFooter =
-    isPronunciationType ||
-    (currentItem &&
-      (currentItem.content_type === 'select' ||
-        currentItem.content_type === 'select_image' ||
-        currentItem.content_type === 'audio_choice' ||
-        currentItem.content_type === 'sapXep') &&
-      (!currentItem.options || currentItem.options.length === 0));
-  const shouldShowOriginalContinueButton =
-    !shouldShowCheckButton &&
-    !shouldShowNewFeedbackUi &&
-    isConsideredNonInteractiveForFooter;
-  const isContinueButtonDisabledIfPrimary =
-    shouldShowOriginalContinueButton &&
+      currentItem.content_type === 'writing'); // Or if it's writing
+
+  const shouldShowNewFeedbackUi = currentItem && showAnswerFeedback !== null; // For all types if feedback (true/false) is set (pronunciation will set it via onAttempt)
+
+  const isProblematicNonPronunTypeWithNoOptions =
+    !isPronunciationTypeCurrently &&
     currentItem &&
     (currentItem.content_type === 'select' ||
       currentItem.content_type === 'select_image' ||
-      currentItem.content_type === 'audio_choice') &&
-    !userSelectedOptionId &&
-    showAnswerFeedback === null &&
-    currentItem.options &&
-    currentItem.options.length > 0;
-  const isPrimaryContinueButtonDisabled =
-    showAnswerFeedback === null &&
+      currentItem.content_type === 'audio_choice' ||
+      currentItem.content_type === 'sapXep') &&
+    (!currentItem.options || currentItem.options.length === 0);
+
+  // This button acts as "Skip" for pronunciation if no attempt, or "Continue" for problematic types
+  const shouldShowOriginalContinueButton =
+    !shouldShowCheckButton && // If check button isn't shown
+    !shouldShowNewFeedbackUi && // And feedback UI isn't shown
+    (isPronunciationTypeCurrently || isProblematicNonPronunTypeWithNoOptions); // And it's pronunciation OR a problematic type
+
+  const isPrimaryContinueButtonDisabled = // Generic continue button disable logic
+    showAnswerFeedback === null && // Only if not checked
+    !isPronunciationTypeCurrently && // Not for pronunciation (handled by its own logic / skip)
     (((currentItem?.content_type === 'select' ||
       currentItem?.content_type === 'select_image' ||
       currentItem?.content_type === 'audio_choice') &&
-      !userSelectedOptionId &&
+      !userSelectedOptionId && // No option selected for selectable types
       currentItem.options &&
       currentItem.options.length > 0) ||
-      (currentItem?.content_type === 'writing' &&
+      (currentItem?.content_type === 'writing' && // No text for writing
         currentUserWritingText.trim() === '') ||
-      (currentItem?.content_type === 'sapXep' &&
+      (currentItem?.content_type === 'sapXep' && // No words arranged for sapXep
         sapXepArrangedCount === 0 &&
         currentItem.options &&
         currentItem.options.length > 0));
@@ -993,6 +1074,7 @@ const ExamContentsScreen: React.FC = () => {
               />
             </View>
             <View style={{width: 30}} />
+            {/* Spacer */}
           </View>
           <ScrollView
             style={styles.contentScrollArea}
@@ -1001,27 +1083,29 @@ const ExamContentsScreen: React.FC = () => {
             key={`content_scroll_exam_${currentIndex}_${showAnswerFeedback}_${userSelectedOptionId}_${currentUserWritingText}`}>
             {renderContentItem()}
           </ScrollView>
+
           {audioURLToPlay && (
             <Video
               ref={audioRef}
               volume={1.0}
               muted={false}
               source={{uri: audioURLToPlay}}
-              paused={!isAudioPlaying}
+              paused={!isAudioPlaying} // Controlled by isAudioPlaying state
               playInBackground={false}
               playWhenInactive={false}
-              ignoreSilentSwitch={'ignore'}
+              ignoreSilentSwitch={'ignore'} // 'ignore', 'obey', or 'mix'
               onLoadStart={() => {
                 setIsAudioLoading(true);
                 setAudioError('');
               }}
               onLoad={(data: OnLoadData) => {
                 setIsAudioLoading(false);
-                setIsAudioPlaying(true);
-                audioRef.current?.seek(0);
+                setIsAudioPlaying(true); // Auto-play when loaded
+                audioRef.current?.seek(0); // Ensure playback starts from the beginning
               }}
               onEnd={() => {
                 setIsAudioPlaying(false);
+                // setAudioUrlToPlayState(null); // Optional: clear URL when done
               }}
               onError={error => {
                 console.error('Video: Lỗi khi phát audio:', error);
@@ -1029,7 +1113,7 @@ const ExamContentsScreen: React.FC = () => {
                 setIsAudioLoading(false);
                 setIsAudioPlaying(false);
               }}
-              style={{height: 0, width: 0}}
+              style={{height: 0, width: 0}} // Invisible player
             />
           )}
           {isAudioLoading && (
@@ -1041,6 +1125,8 @@ const ExamContentsScreen: React.FC = () => {
           {audioError && (
             <Text style={styles.audioErrorText}>{audioError}</Text>
           )}
+
+          {/* Footer UI */}
           <View
             style={[
               styles.footer,
@@ -1051,6 +1137,7 @@ const ExamContentsScreen: React.FC = () => {
                 showAnswerFeedback === false &&
                 styles.footer_IncorrectBackground_NEW,
             ]}>
+            {/* KIỂM TRA BUTTON */}
             {shouldShowCheckButton && (
               <TouchableOpacity
                 style={styles.checkButton}
@@ -1058,6 +1145,8 @@ const ExamContentsScreen: React.FC = () => {
                 <Text style={styles.footerButtonText}>Kiểm tra</Text>
               </TouchableOpacity>
             )}
+
+            {/* FEEDBACK UI (Correct/Incorrect) */}
             {shouldShowNewFeedbackUi && currentItem && (
               <View style={styles.feedback_Container_NEW}>
                 <View style={styles.feedback_TextAudioWrapper_NEW}>
@@ -1065,62 +1154,72 @@ const ExamContentsScreen: React.FC = () => {
                     <Text
                       style={styles.feedback_CorrectAnswerText_NEW}
                       numberOfLines={2}>
-                      {showAnswerFeedback === false ? 'Đáp án đúng: ' : ''}
-                      {currentItem.correct_answer_foreign ||
-                        currentItem.content_detail}
-                      {currentItem.targetLanguageCode &&
-                        ` (${currentItem.targetLanguageCode.toUpperCase()})`}
+                      {
+                        showAnswerFeedback === true
+                          ? 'Chính xác!'
+                          : 'Đáp án đúng: ' // For incorrect or when showing correct answer
+                      }
+                      {/* Show correct answer text if not pronunciation OR if pronunciation was wrong */}
+                      {
+                        (currentItem.content_type !== 'pronunciation' ||
+                          showAnswerFeedback === false) &&
+                          (currentItem.correct_answer_foreign ||
+                            currentItem.content_detail) // Fallback to content_detail if foreign is null
+                      }
                     </Text>
-                    {currentItem.correct_answer_romaji && (
-                      <Text
-                        style={styles.feedback_CorrectAnswerRomaji_NEW}
-                        numberOfLines={1}>
-                        ({currentItem.correct_answer_romaji})
-                      </Text>
-                    )}
+                    {currentItem.correct_answer_romaji &&
+                      currentItem.content_type && ( // Only show if romaji exists
+                        <Text
+                          style={styles.feedback_CorrectAnswerRomaji_NEW}
+                          numberOfLines={1}>
+                          ({currentItem.correct_answer_romaji})
+                        </Text>
+                      )}
                   </View>
-                  {((currentItem.correct_answer_foreign &&
+                  {/* Audio for correct answer (if applicable) */}
+                  {((currentItem.correct_answer_foreign && // Ensure there's a correct answer to play audio for
                     currentItem.options?.find(
                       opt => opt.id === currentItem.correct_answer,
-                    )?.audioUrl) ||
-                    currentItem.audio_url) && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        let audioToPlayOnClick = currentItem.audio_url;
-                        if (
-                          typeof currentItem.correct_answer === 'string' &&
-                          (currentItem.content_type === 'select' ||
-                            currentItem.content_type === 'audio_choice' ||
-                            currentItem.content_type === 'select_image')
-                        ) {
-                          const correctOpt = currentItem.options?.find(
-                            opt => opt.id === currentItem.correct_answer,
-                          );
-                          if (correctOpt?.audioUrl) {
-                            audioToPlayOnClick = correctOpt.audioUrl;
+                    )?.audioUrl) || // Audio from selected correct option
+                    currentItem.audio_url) && // Or main audio_url of the question (e.g. for pronunciation, writing, sapXep)
+                    currentItem.content_type && ( // Ensure content_type exists
+                      <TouchableOpacity
+                        onPress={() => {
+                          let audioToPlayOnClick = currentItem.audio_url; // Default to question's main audio
+                          // For select types, try to get audio from the correct option
+                          if (
+                            typeof currentItem.correct_answer === 'string' &&
+                            (currentItem.content_type === 'select' ||
+                              currentItem.content_type === 'audio_choice' ||
+                              currentItem.content_type === 'select_image')
+                          ) {
+                            const correctOpt = currentItem.options?.find(
+                              opt => opt.id === currentItem.correct_answer,
+                            );
+                            if (correctOpt?.audioUrl) {
+                              audioToPlayOnClick = correctOpt.audioUrl;
+                            }
+                          } else if (
+                            // For other types like sapXep, writing, pronunciation, audio_url on currentItem is primary
+                            currentItem.content_type === 'sapXep' ||
+                            currentItem.content_type === 'writing' ||
+                            currentItem.content_type === 'pronunciation'
+                          ) {
+                            // audioToPlayOnClick is already set to currentItem.audio_url
                           }
-                        } else if (
-                          currentItem.content_type === 'sapXep' ||
-                          currentItem.content_type === 'writing'
-                        ) {
-                        }
-                        playSound(audioToPlayOnClick);
-                      }}
-                      style={styles.feedback_AudioButton_NEW}>
-                      <Image
-                        source={require('../../assets/images/amThanhTiepTuc.png')}
-                        style={[
-                          styles.feedback_AudioIcon_NEW,
-                          {
-                            tintColor: showAnswerFeedback
-                              ? COLORS.white
-                              : COLORS.white,
-                          },
-                        ]}
-                        resizeMode="contain"
-                      />
-                    </TouchableOpacity>
-                  )}
+                          playSound(audioToPlayOnClick);
+                        }}
+                        style={styles.feedback_AudioButton_NEW}>
+                        <Image
+                          source={require('../../assets/images/amThanhTiepTuc.png')}
+                          style={[
+                            styles.feedback_AudioIcon_NEW,
+                            {tintColor: COLORS.white}, // White icon for both correct/incorrect feedback bg
+                          ]}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                    )}
                 </View>
                 <TouchableOpacity
                   style={styles.feedback_ContinueButton_NEW}
@@ -1128,35 +1227,45 @@ const ExamContentsScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.feedback_ContinueButtonText_NEW,
-                      {color: showAnswerFeedback ? COLORS.primary : COLORS.red},
+                      {color: showAnswerFeedback ? COLORS.primary : COLORS.red}, // Dynamic color based on correctness
                     ]}>
                     Tiếp tục
                   </Text>
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* "TIẾP TỤC" LỚN (ORIGINAL/SKIP) BUTTON */}
             {shouldShowOriginalContinueButton && (
               <TouchableOpacity
                 style={[
-                  isConsideredNonInteractiveForFooter
-                    ? styles.skipButton
+                  isPronunciationTypeCurrently ||
+                  isProblematicNonPronunTypeWithNoOptions
+                    ? styles.skipButton // Use skip style for pronunciation (acting as skip) or problematic types
                     : styles.continueButton,
-                  isContinueButtonDisabledIfPrimary &&
-                    styles.disabledButtonFooter,
+                  // No disable logic here as it's a skip/forced continue
                 ]}
                 onPress={handleContinue}
-                disabled={isContinueButtonDisabledIfPrimary}>
-                <Text style={styles.footerButtonText}>Tiếp tục</Text>
+                // disabled={isContinueButtonDisabledIfPrimary} // Original was disabling based on selection, but this button is often a "skip"
+              >
+                <Text style={styles.footerButtonText}>
+                  {isPronunciationTypeCurrently ? 'Bỏ qua' : 'Tiếp tục'}
+                </Text>
               </TouchableOpacity>
             )}
+
+            {/* FALLBACK "TIẾP TỤC" BUTTON (Primary Continue) */}
             {!shouldShowCheckButton &&
               !shouldShowNewFeedbackUi &&
-              !shouldShowOriginalContinueButton && (
+              !shouldShowOriginalContinueButton &&
+              !(
+                isPronunciationTypeCurrently && showAnswerFeedback === null
+              ) && ( // Don't show if pronunciation and waiting for retry/skip by Pronunciation component
                 <TouchableOpacity
                   style={[
-                    styles.continueButton,
+                    styles.continueButton, // Default continue button
                     isPrimaryContinueButtonDisabled &&
-                      styles.disabledButtonFooter,
+                      styles.disabledButtonFooter, // Disable if needed
                   ]}
                   onPress={handleContinue}
                   disabled={isPrimaryContinueButtonDisabled}>
@@ -1170,7 +1279,7 @@ const ExamContentsScreen: React.FC = () => {
   );
 };
 
-// Styles (SAO CHÉP Y HỆT TỪ ContentsScreen.tsx)
+// Styles (SAO CHÉP Y HỆT TỪ ContentsScreen.tsx, trừ những thay đổi nhỏ nếu cần cho Exam)
 const screenWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.white},
@@ -1193,6 +1302,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   retryButton: {
+    // Added for error screen
     marginTop: 20,
     backgroundColor: COLORS.primary,
     paddingVertical: 10,
@@ -1200,6 +1310,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radius,
   },
   retryButtonText: {
+    // Added for error screen
     color: COLORS.white,
     fontSize: SIZES.medium,
     fontWeight: 'bold',
@@ -1210,8 +1321,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SIZES.padding * 0.75,
     paddingVertical: SIZES.padding * 0.75,
-    marginTop: 15,
-    backgroundColor: COLORS.white,
+    marginTop: 15, // Consistent with ContentsScreen
+    backgroundColor: COLORS.white, // Consistent
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray2,
   },
@@ -1224,41 +1335,42 @@ const styles = StyleSheet.create({
   },
   backButton: {paddingHorizontal: SIZES.padding * 0.5},
   backButtonText: {
-    fontSize: SIZES.xLarge * 2.5,
+    fontSize: SIZES.xLarge * 2.5, // Adjusted for better visual
     color: COLORS.darkGray,
-    fontWeight: '600',
-    marginBottom: 10,
+    fontWeight: '600', // Make it a bit bolder
+    marginBottom: 10, // Align with progress bar visually
   },
   progressWrapper: {flex: 1, marginHorizontal: SIZES.base},
   progressBarContainer: {
-    height: 20,
-    backgroundColor: COLORS.white,
+    height: 20, // Standard height
+    backgroundColor: COLORS.white, // Light background for the bar
     borderRadius: SIZES.radius,
-    justifyContent: 'center',
+    justifyContent: 'center', // Center fill vertically if needed
     shadowColor: COLORS.black,
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowRadius: 10, // Softer shadow
+    elevation: 10, // Android shadow
   },
   progressBarFill: {
-    height: '80%',
-    backgroundColor: COLORS.primary || '#4CAF50',
-    borderRadius: SIZES.radius,
-    position: 'absolute',
-    alignSelf: 'flex-start',
+    height: '80%', // Fill almost full height
+    backgroundColor: COLORS.primary || '#4CAF50', // Use primary color or fallback
+    borderRadius: SIZES.radius, // Rounded fill
+    position: 'absolute', // Position within container
+    alignSelf: 'flex-start', // Align to the start
   },
   contentScrollArea: {flex: 1, marginTop: SIZES.padding * 0.5},
   contentScrollContainer: {
     flexGrow: 1,
-    paddingBottom: Platform.OS === 'ios' ? 180 : 160,
+    paddingBottom: Platform.OS === 'ios' ? 180 : 160, // Ensure enough space for footer
   },
   contentCard: {
+    // General card style for unknown content types
     marginHorizontal: SIZES.padding,
     marginTop: SIZES.padding,
     padding: SIZES.padding,
     borderRadius: SIZES.radius,
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: 'rgba(255,255,255,0.75)', // Slightly transparent white
   },
   emptyContentContainer: {
     flex: 1,
@@ -1276,40 +1388,44 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.padding * 0.75,
     paddingHorizontal: SIZES.padding,
     paddingBottom:
-      Platform.OS === 'ios' ? SIZES.padding * 1.5 : SIZES.padding * 1.2,
+      Platform.OS === 'ios' ? SIZES.padding * 1.5 : SIZES.padding * 1.2, // Platform-specific padding
     borderTopWidth: 1,
     borderTopColor: COLORS.lightGray2,
     backgroundColor: COLORS.white,
-    flexDirection: 'row',
+    flexDirection: 'row', // Usually row for buttons
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 70,
+    justifyContent: 'center', // Center button(s)
+    minHeight: 70, // Minimum height for the footer
   },
   checkButton: {
     backgroundColor: COLORS.orange || '#FFA500',
     paddingVertical: SIZES.padding * 1.2,
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
-    flex: 1,
-    marginBottom: 30,
-  }, // marginBottom đã là 0 cho checkButton trong ContentsScreen gốc
+    flex: 1, // Take full width if it's the only button
+    marginBottom: Platform.OS === 'android' ? 30 : 0, // Copied from ContentsScreen
+  },
   continueButton: {
     backgroundColor: COLORS.primary || '#4CAF50',
     paddingVertical: SIZES.padding * 1.2,
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
-    marginBottom: 30,
+    marginBottom: Platform.OS === 'android' ? 0 : 0, // Copied from ContentsScreen
   },
   skipButton: {
-    backgroundColor: COLORS.gray,
+    // Style for "Skip" or "Problematic Continue"
+    backgroundColor: COLORS.gray, // Neutral color
     paddingVertical: SIZES.padding * 1.2,
     borderRadius: SIZES.radius * 2.5,
     alignItems: 'center',
     flex: 1,
-    marginBottom: 30,
+    marginBottom: Platform.OS === 'android' ? 0 : 0, // Copied from ContentsScreen
   },
-  disabledButtonFooter: {backgroundColor: COLORS.lightGray}, // Removed platform specific margin
+  disabledButtonFooter: {
+    backgroundColor: COLORS.lightGray, // Style for disabled primary button
+    marginBottom: Platform.OS === 'android' ? 30 : 0, // Copied from ContentsScreen
+  },
   footerButtonText: {
     fontFamily: FONTS.bold?.fontFamily,
     color: COLORS.white,
@@ -1317,41 +1433,45 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   footer_CorrectBackground_NEW: {
-    backgroundColor: COLORS.green || '#D4EDDA',
+    backgroundColor: COLORS.green || '#D4EDDA', // Light green for correct
     borderTopColor: COLORS.green,
   },
   footer_IncorrectBackground_NEW: {
-    backgroundColor: COLORS.deeperRed || '#F8D7DA',
+    backgroundColor: COLORS.deeperRed || '#F8D7DA', // Light red for incorrect
     borderTopColor: COLORS.deeperRed,
   },
   feedback_Container_NEW: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    // Container for the new feedback UI
+    flexDirection: 'column', // Stack text/audio and button vertically
+    alignItems: 'center', // Center items horizontally
+    justifyContent: 'space-between', // Space out elements
     width: '100%',
-    flex: 1,
+    flex: 1, // Take available space
     paddingVertical: SIZES.base / 2,
     paddingHorizontal: SIZES.padding * 0.5,
-    minHeight: 180,
+    minHeight: Platform.OS === 'ios' ? 90 : 80, // Copied from ContentsScreen
   },
   feedback_TextAudioWrapper_NEW: {
+    // Wrapper for text and audio icon
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between', // Space text and audio
     alignItems: 'center',
     width: '100%',
-    marginBottom: SIZES.base * 0.5,
+    marginBottom: SIZES.base * 0.5, // Space before continue button
   },
   feedback_TextContainer_NEW: {
-    flex: 1,
-    marginRight: SIZES.base,
-    marginLeft: 40,
+    // Container for feedback text and romaji
+    flex: 1, // Allow text to take most space
+    marginRight: SIZES.base, // Space before audio icon
+    marginLeft: 40, // Copied from ContentsScreen (make space for potential icon on left)
+    alignItems: 'center', // Copied
   },
   feedback_CorrectAnswerText_NEW: {
-    fontSize: SIZES.xxLarge,
+    fontSize: SIZES.xxLarge, // Large text for feedback
     opacity: 0.9,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: COLORS.white,
+    fontWeight: '700', // Bold
+    textAlign: 'center', // Center align
+    color: COLORS.white, // White text on colored background
   },
   feedback_CorrectAnswerRomaji_NEW: {
     fontFamily: FONTS.regular?.fontFamily,
@@ -1359,41 +1479,46 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     textAlign: 'center',
     color: COLORS.white,
-    marginTop: 2,
+    marginTop: 2, // Small space below main feedback text
   },
   feedback_AudioButton_NEW: {
+    // Touchable for audio icon
     padding: SIZES.base * 0.5,
-    borderRadius: 20,
+    borderRadius: 20, // Circular touch area
   },
-
-  feedback_AudioIcon_NEW: {width: 28, height: 28},
+  feedback_AudioIcon_NEW: {
+    width: 28,
+    height: 28,
+  },
   feedback_ContinueButton_NEW: {
-    backgroundColor: COLORS.white,
+    // Style for the "Tiếp tục" button within feedback UI
+    backgroundColor: COLORS.white, // White button
     paddingVertical: SIZES.padding * 0.8,
     paddingHorizontal: SIZES.padding * 2.5,
     borderRadius: SIZES.radius * 2,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '90%',
+    width: '90%', // Almost full width
     alignSelf: 'center',
     minHeight: 40,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 3,
-    marginBottom: 30,
-    marginTop: SIZES.base,
+    elevation: 3, // Android shadow
+    marginTop: SIZES.base, // Space above this button
+    marginBottom: Platform.OS === 'android' ? 30 : 0, // Copied
   },
   feedback_ContinueButtonText_NEW: {
     fontFamily: FONTS.bold?.fontFamily,
     textAlign: 'center',
     fontSize: SIZES.medium,
     fontWeight: 'bold',
+    // Color is set dynamically in the component
   },
   audioActivityIndicator: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 100 : 80,
+    bottom: Platform.OS === 'ios' ? 100 : 80, // Position above footer
     alignSelf: 'center',
   },
   audioErrorText: {
@@ -1401,7 +1526,7 @@ const styles = StyleSheet.create({
     bottom: Platform.OS === 'ios' ? 100 : 80,
     alignSelf: 'center',
     color: COLORS.red,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.white, // Give it a background to be visible
     padding: 5,
     borderRadius: 3,
   },
@@ -1412,58 +1537,64 @@ const summaryStyles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 0,
-    margin: 0,
-    backgroundColor: COLORS.white,
+    padding: 0, // No padding for the main container to allow background full bleed
+    margin: 0, // No margin
+    backgroundColor: COLORS.white, // White background for summary content
   },
   logo: {
-    width: screenWidth * 0.3,
+    width: screenWidth * 0.3, // Responsive logo size
     height: screenWidth * 0.3,
-    marginBottom: SIZES.padding * 2,
+    marginBottom: SIZES.padding * 2, // Space below logo
   },
   title: {
     fontFamily: FONTS.bold?.fontFamily,
-    fontSize: SIZES.xxLarge,
-    color: COLORS.text,
-    marginBottom: SIZES.padding * 2,
+    fontSize: SIZES.xxLarge, // Large title
+    color: COLORS.text, // Primary text color
+    marginBottom: SIZES.padding * 2, // Space below title
     textAlign: 'center',
     fontWeight: 'bold',
   },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.white, // White cards
     borderRadius: SIZES.radius,
-    padding: SIZES.padding * 1.5,
-    marginBottom: SIZES.margin,
-    width: '90%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: COLORS.black,
+    padding: SIZES.padding * 1.5, // Generous padding
+    marginBottom: SIZES.margin, // Space between cards
+    width: '90%', // Responsive card width
+    flexDirection: 'row', // Align icon and text horizontally
+    alignItems: 'center', // Center items vertically
+    shadowColor: COLORS.black, // Card shadow
     shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.1, // Subtle shadow
     shadowRadius: SIZES.radius / 2,
-    elevation: 2,
+    elevation: 2, // Android shadow
   },
-  iconText: {width: SIZES.h2, height: SIZES.h2, marginRight: SIZES.base},
+  iconText: {
+    width: SIZES.h2, // Icon size
+    height: SIZES.h2,
+    marginRight: SIZES.base, // Space between icon and text
+  },
   text: {
     fontFamily: FONTS.medium?.fontFamily,
-    fontSize: SIZES.font,
-    color: COLORS.textSecondary || COLORS.darkGray,
+    fontSize: SIZES.font, // Standard font size
+    color: COLORS.textSecondary || COLORS.darkGray, // Secondary text color
   },
   completeButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primary, // Primary color for the button
     paddingVertical: SIZES.padding,
-    paddingHorizontal: SIZES.padding * 3,
-    borderRadius: SIZES.radius * 2.5,
-    marginTop: SIZES.padding * 2,
+    paddingHorizontal: SIZES.padding * 3, // Wide button
+    borderRadius: SIZES.radius * 2.5, // Very rounded
+    marginTop: SIZES.padding * 2, // Space above button
     alignItems: 'center',
-    width: '90%',
+    width: '90%', // Responsive button width
   },
   completeButtonText: {
     fontFamily: FONTS.bold?.fontFamily,
-    color: COLORS.white,
+    color: COLORS.white, // White text on primary button
     fontSize: SIZES.large,
   },
-  disabledButton: {backgroundColor: COLORS.gray},
+  disabledButton: {
+    backgroundColor: COLORS.gray, // Gray for disabled button
+  },
 });
 
 export default ExamContentsScreen;
