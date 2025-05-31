@@ -461,6 +461,7 @@ const ContentsScreen: React.FC = () => {
       setIsLoadingApiQuestions(false);
     }
   }, [lessonId]);
+
   const handleSubmitResult = async () => {
     if (!startTime || !lessonId) {
       showMessage({
@@ -535,6 +536,7 @@ const ContentsScreen: React.FC = () => {
       setIsSubmittingResult(false);
     }
   };
+
   useEffect(() => {
     if (
       itemsForThisLesson.length > 0 &&
@@ -548,12 +550,14 @@ const ContentsScreen: React.FC = () => {
       setCurrentIndex(0);
     }
   }, [itemsForThisLesson, startTime, isLoadingApiQuestions, apiError]);
+
   useEffect(() => {
     setUserSelectedOptionId(null);
     setShowAnswerFeedback(null);
     setCurrentUserWritingText('');
     setSapXepArrangedCount(0);
   }, [currentIndex]);
+
   const playSound = useCallback(
     (audioUrlToPlayParam: string | null) => {
       if (!audioUrlToPlayParam) {
@@ -579,6 +583,7 @@ const ContentsScreen: React.FC = () => {
     },
     [isAudioPlaying],
   );
+
   const handleOptionSelect = (optionId: string) => {
     if (showAnswerFeedback === null) {
       setUserSelectedOptionId(optionId);
@@ -600,7 +605,6 @@ const ContentsScreen: React.FC = () => {
     const type = currentItem.content_type;
 
     if (type === 'pronunciation') {
-      // Logic cho pronunciation được xử lý qua callback onAttempt, không qua nút "Kiểm tra" này.
       console.warn(
         'handleCheckAnswer called for pronunciation type - this path should ideally not be reached if Check button is hidden for pronunciation.',
       );
@@ -641,83 +645,87 @@ const ContentsScreen: React.FC = () => {
     }
 
     setShowAnswerFeedback(isCorrectUserAnswer);
-    // Cập nhật điểm: không tính cho 'writing' trong bài học, 'pronunciation' được tính điểm qua onAttempt
     if (isCorrectUserAnswer) {
       if (type !== 'writing') {
-        // Chỉ loại trừ writing ở đây, pronunciation đã được xử lý riêng
         setCorrectAnswersCount(prev => prev + 1);
       }
     }
   };
 
+  // HÀM NÀY XỬ LÝ RIÊNG CHO NÚT "BỎ QUA" CỦA PRONUNCIATION
+  const handleSkipPronunciation = useCallback(() => {
+    const isLastItem = currentIndex >= itemsForThisLesson.length - 1;
+    if (isLastItem) {
+      setEndTime(new Date());
+      setShowSummaryScreen(true); // Chuyển đến summary nếu là câu pronunciation cuối và nhấn bỏ qua
+    } else {
+      setCurrentIndex(prev => prev + 1); // Chuyển câu tiếp theo
+    }
+  }, [currentIndex, itemsForThisLesson.length]); // Thêm dependencies
+
+  // HÀM NÀY XỬ LÝ CHO NÚT "TIẾP TỤC" CHUNG Ở FOOTER
   const handleContinue = () => {
     if (!currentItem) return;
     const type = currentItem.content_type;
-
-    // Bỏ guard cũ cho pronunciation ở đây vì "Bỏ qua" sẽ gọi trực tiếp handleContinue
-    // và luồng nói đúng/sai sẽ xử lý việc có cho qua hay không.
-
-    const needsCheckBeforeContinue =
-      (type === 'select' ||
-        type === 'audio_choice' ||
-        type === 'select_image' ||
-        type === 'sapXep' ||
-        type === 'writing') &&
-      showAnswerFeedback === null;
-
-    if (needsCheckBeforeContinue) {
-      let hasAttempt = false;
-      if (
-        ((type === 'select' ||
-          type === 'audio_choice' ||
-          type === 'select_image') &&
-          userSelectedOptionId &&
-          currentItem.options &&
-          currentItem.options.length > 0) ||
-        (type === 'sapXep' &&
-          sapXepArrangedCount > 0 &&
-          currentItem.options &&
-          currentItem.options.length > 0) ||
-        (type === 'writing' && currentUserWritingText.trim() !== '')
-      ) {
-        hasAttempt = true;
-      }
-      if (hasAttempt) {
-        Alert.alert(
-          'Thông báo',
-          "Bạn vui lòng nhấn 'Kiểm tra' trước khi tiếp tục!",
-        );
-        return;
-      }
-    }
-
     const isLastItem = currentIndex >= itemsForThisLesson.length - 1;
-    if (isLastItem) {
-      const isSimpleSelectTypeWithNoOptions =
-        (!currentItem.options || currentItem.options.length === 0) &&
-        (type === 'select' ||
-          type === 'audio_choice' ||
-          type === 'select_image');
 
-      // Nếu là pronunciation, chỉ qua summary khi showAnswerFeedback là true (nói đúng)
-      // Hoặc nếu là các loại khác đã có feedback, hoặc loại select lỗi không có options
-      if (
-        (type === 'pronunciation' && showAnswerFeedback === true) ||
-        (type !== 'pronunciation' && showAnswerFeedback !== null) ||
-        isSimpleSelectTypeWithNoOptions
-      ) {
+    // 1. Đã có feedback (người dùng đã "Kiểm tra" hoặc "Nói đúng" cho pronunciation)
+    if (showAnswerFeedback !== null) {
+      if (isLastItem) {
         setEndTime(new Date());
         setShowSummaryScreen(true);
-      } else if (type !== 'pronunciation') {
-        Alert.alert(
-          'Thông báo',
-          "Đây là câu hỏi cuối cùng. Vui lòng nhấn 'Kiểm tra' trước khi hoàn thành bài học.",
-        );
+      } else {
+        setCurrentIndex(prev => prev + 1);
       }
-      // Nếu là pronunciation và showAnswerFeedback là null (nói sai, chỉ hiện alert), thì không làm gì ở đây,
-      // người dùng phải Skip hoặc thử lại.
+      return;
+    }
+
+    // 2. Chưa có feedback (showAnswerFeedback === null)
+    // Đối với pronunciation, nút "Tiếp tục" này của ContentsScreen không phải là luồng chính
+    // khi chưa có feedback nói đúng. Việc "Bỏ qua" của pronunciation dùng handleSkipPronunciation.
+    if (type === 'pronunciation') {
+      // Logic này được giữ lại từ phiên bản trước của bạn, nếu người dùng nhấn "Tiếp tục"
+      // ở footer khi đang ở câu pronunciation mà chưa nói đúng (showAnswerFeedback = null).
+      // Tuy nhiên, nút "Bỏ qua" riêng trong PronunciationLessonContent (gọi handleSkipPronunciation)
+      // là cách chính để bỏ qua. Có thể Alert ở đây để hướng dẫn người dùng.
+      if (isLastItem) {
+        // Alert.alert("Thông báo", "Bạn có thể thử lại hoặc bỏ qua bằng nút 'Bỏ qua' trong phần câu hỏi.");
+        // Hoặc nếu bạn vẫn muốn nút "Tiếp tục" chung ở footer cũng có thể skip câu pronunciation cuối cùng khi chưa nói:
+        // setEndTime(new Date());
+        // setShowSummaryScreen(true);
+      } else {
+        // Không tự động chuyển nếu chưa nói đúng và không phải câu cuối bằng nút này
+      }
+      return;
+    }
+
+    // Đối với các loại câu hỏi KHÁC pronunciation và CHƯA CÓ FEEDBACK
+    let hasUserInteraction = false;
+    if (
+      ((type === 'select' ||
+        type === 'audio_choice' ||
+        type === 'select_image') &&
+        userSelectedOptionId) ||
+      (type === 'sapXep' && sapXepArrangedCount > 0) ||
+      (type === 'writing' && currentUserWritingText.trim() !== '')
+    ) {
+      hasUserInteraction = true;
+    }
+
+    if (hasUserInteraction) {
+      Alert.alert(
+        'Thông báo',
+        "Bạn vui lòng nhấn 'Kiểm tra' trước khi tiếp tục!",
+      );
     } else {
-      setCurrentIndex(prev => prev + 1);
+      // Người dùng CHƯA tương tác và nhấn "Tiếp tục" (coi như "Bỏ qua" cho các loại này)
+      // Đây là logic "rất oke" mà bạn muốn giữ cho các loại khác pronunciation
+      if (isLastItem) {
+        setEndTime(new Date());
+        setShowSummaryScreen(true); // Chuyển đến summary nếu là câu cuối và "bỏ qua" (chưa làm gì)
+      } else {
+        setCurrentIndex(prev => prev + 1);
+      }
     }
   };
 
@@ -732,6 +740,7 @@ const ContentsScreen: React.FC = () => {
     const diffSecs = diffSecsTotal % 60;
     return `${diffMins} phút ${diffSecs} giây`;
   }, [startTime, endTime]);
+
   const handleBackPress = () => {
     Alert.alert(
       'Thoát khỏi bài học?',
@@ -764,13 +773,13 @@ const ContentsScreen: React.FC = () => {
           <PronunciationLessonContent
             item={currentItem}
             onPlaySound={playSound}
-            onSkip={handleContinue} // Bỏ qua sẽ gọi handleContinue
+            onSkip={handleSkipPronunciation} // Đảm bảo sử dụng hàm này
             onAttempt={isCorrect => {
               if (isCorrect) {
-                setShowAnswerFeedback(true); // Hiện footer đúng
-                setCorrectAnswersCount(prev => prev + 1); // TÍNH ĐIỂM KHI ĐÚNG
+                setShowAnswerFeedback(true);
+                setCorrectAnswersCount(prev => prev + 1);
               } else {
-                setShowAnswerFeedback(null); // Không hiện footer nào của cha, ở lại câu hỏi
+                setShowAnswerFeedback(null);
               }
             }}
           />
@@ -839,6 +848,32 @@ const ContentsScreen: React.FC = () => {
         );
     }
   };
+
+  // ... (Phần JSX trả về của ContentsScreen và các styles giữ nguyên như bạn đã cung cấp) ...
+  // Đảm bảo trong JSX, các nút và logic footer vẫn giữ nguyên như bạn mong muốn.
+  // Ví dụ:
+  /*
+   <View style={[styles.footer, ... ]}>
+     {shouldShowCheckButton && (
+       <TouchableOpacity onPress={handleCheckAnswer}>...</TouchableOpacity>
+     )}
+     {shouldShowNewFeedbackUi && ( // Feedback UI
+       <View>
+         ...
+         <TouchableOpacity onPress={handleContinue}>...</TouchableOpacity> // Nút Tiếp tục của feedback
+       </View>
+     )}
+     // Nút Tiếp tục lớn (original/skip)
+     {shouldShowOriginalContinueButton && (
+        <TouchableOpacity onPress={handleContinue}>...</TouchableOpacity>
+     )}
+     // Nút Tiếp tục fallback
+     {!shouldShowCheckButton && !shouldShowNewFeedbackUi && !shouldShowOriginalContinueButton &&
+      !(isPronunciationTypeCurrently && showAnswerFeedback === null) && (
+        <TouchableOpacity onPress={handleContinue}>...</TouchableOpacity>
+     )}
+   </View>
+  */
 
   if (isLoadingApiQuestions) {
     return (
@@ -941,7 +976,6 @@ const ContentsScreen: React.FC = () => {
     (currentItem?.content_type === 'writing' &&
       currentUserWritingText.trim() !== '');
 
-  // Nút "Kiểm tra" sẽ không hiển thị cho pronunciation
   const shouldShowCheckButton =
     currentItem &&
     !isPronunciationTypeCurrently &&
@@ -955,12 +989,10 @@ const ContentsScreen: React.FC = () => {
       currentItem.options.length > 0) ||
       currentItem.content_type === 'writing');
 
-  // Thanh feedback (xanh/đỏ) sẽ hiển thị cho pronunciation NẾU nói đúng (showAnswerFeedback === true do onAttempt(true) gọi)
   const shouldShowNewFeedbackUi = currentItem && showAnswerFeedback !== null;
 
-  // Nút "Tiếp tục" lớn ở giữa (Original/Skip button)
   const isProblematicNonPronunTypeWithNoOptions =
-    !isPronunciationTypeCurrently && // Không phải pronunciation
+    !isPronunciationTypeCurrently &&
     currentItem &&
     (currentItem.content_type === 'select' ||
       currentItem.content_type === 'select_image' ||
@@ -970,7 +1002,7 @@ const ContentsScreen: React.FC = () => {
 
   const shouldShowOriginalContinueButton =
     !shouldShowCheckButton &&
-    !shouldShowNewFeedbackUi && // Sẽ false nếu pronunciation nói đúng (vì showAnswerFeedback=true)
+    !shouldShowNewFeedbackUi &&
     isProblematicNonPronunTypeWithNoOptions;
 
   const isContinueButtonDisabledIfPrimary =
@@ -1027,7 +1059,6 @@ const ContentsScreen: React.FC = () => {
             style={styles.contentScrollArea}
             contentContainerStyle={styles.contentScrollContainer}
             showsVerticalScrollIndicator={false}
-            // GIỮ NGUYÊN KEY GỐC CỦA BẠN
             key={`content_scroll_${currentIndex}_${showAnswerFeedback}_${userSelectedOptionId}_${currentUserWritingText}`}>
             {renderContentItem()}
           </ScrollView>
@@ -1097,15 +1128,13 @@ const ContentsScreen: React.FC = () => {
                     <Text
                       style={styles.feedback_CorrectAnswerText_NEW}
                       numberOfLines={2}>
-                      {
-                        showAnswerFeedback === true
-                          ? 'Chính xác!'
-                          : showAnswerFeedback === false
-                          ? 'Đáp án đúng: '
-                          : showAnswerFeedback === true
-                          ? 'Chính xác! '
-                          : '' // Thêm 'Chính xác!' cho các loại khác nếu đúng
-                      }
+                      {showAnswerFeedback === true
+                        ? 'Chính xác!'
+                        : showAnswerFeedback === false
+                        ? 'Đáp án đúng: '
+                        : showAnswerFeedback === true
+                        ? 'Chính xác! '
+                        : ''}
                       {(currentItem.content_type !== 'pronunciation' ||
                         showAnswerFeedback === false) &&
                         (currentItem.correct_answer_foreign ||
@@ -1173,8 +1202,6 @@ const ContentsScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             )}
-
-            {/* Nút "Tiếp tục" lớn (original/skip) */}
             {shouldShowOriginalContinueButton && (
               <TouchableOpacity
                 style={[
@@ -1189,14 +1216,12 @@ const ContentsScreen: React.FC = () => {
                 <Text style={styles.footerButtonText}>Tiếp tục</Text>
               </TouchableOpacity>
             )}
-
-            {/* Nút Tiếp tục fallback */}
             {!shouldShowCheckButton &&
               !shouldShowNewFeedbackUi &&
               !shouldShowOriginalContinueButton &&
               !(
                 isPronunciationTypeCurrently && showAnswerFeedback === null
-              ) && ( // Điều kiện mới: Không hiện nếu là pronunciation và nói sai (đang chờ retry/skip)
+              ) && (
                 <TouchableOpacity
                   style={[
                     styles.continueButton,
@@ -1215,7 +1240,7 @@ const ContentsScreen: React.FC = () => {
   );
 };
 
-// Styles (GIỮ NGUYÊN)
+// Styles (GIỮ NGUYÊN NHƯ BẠN ĐÃ CUNG CẤP)
 const screenWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.white},
@@ -1331,7 +1356,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginBottom: Platform.OS === 'android' ? 30 : 0,
-  }, // Khôi phục margin
+  },
   continueButton: {
     backgroundColor: COLORS.primary || '#4CAF50',
     paddingVertical: SIZES.padding * 1.2,
@@ -1339,7 +1364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginBottom: Platform.OS === 'android' ? 0 : 0,
-  }, // Giữ nguyên margin này
+  },
   skipButton: {
     backgroundColor: COLORS.gray,
     paddingVertical: SIZES.padding * 1.2,
@@ -1347,11 +1372,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginBottom: Platform.OS === 'android' ? 0 : 0,
-  }, // Giữ nguyên margin này
+  },
   disabledButtonFooter: {
     backgroundColor: COLORS.lightGray,
     marginBottom: Platform.OS === 'android' ? 30 : 0,
-  }, // Khôi phục margin
+  },
   footerButtonText: {
     fontFamily: FONTS.bold?.fontFamily,
     color: COLORS.white,
@@ -1374,8 +1399,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SIZES.base / 2,
     paddingHorizontal: SIZES.padding * 0.5,
-    minHeight: Platform.OS === 'ios' ? 90 : 80,
-  }, // Giữ nguyên minHeight gốc
+    minHeight: 180,
+  },
   feedback_TextAudioWrapper_NEW: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1388,7 +1413,7 @@ const styles = StyleSheet.create({
     marginRight: SIZES.base,
     marginLeft: 40,
     alignItems: 'center',
-  }, // Thêm lại alignItems: 'center'
+  },
   feedback_CorrectAnswerText_NEW: {
     fontSize: SIZES.xxLarge,
     opacity: 0.9,
@@ -1423,7 +1448,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginTop: SIZES.base,
     marginBottom: Platform.OS === 'android' ? 30 : 0,
-  }, // Khôi phục margin
+  },
   audioActivityIndicator: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 100 : 80,
