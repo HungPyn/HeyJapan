@@ -209,10 +209,10 @@ const RootNavigator = () => {
   React.useEffect(() => {
     const fetchUserData = async () => {
       // Đổi tên hàm từ fetchRole
-      console.log('(RootNavigator) useEffect triggered. Deps: ', {
-        isAuthenticated,
-        selectionComplete,
-      });
+      // console.log('(RootNavigator) useEffect triggered. Deps: ', {
+      //   isAuthenticated,
+      //   selectionComplete,
+      // });
       if (isAuthenticated) {
         setIsCheckingData(true);
         try {
@@ -230,6 +230,8 @@ const RootNavigator = () => {
 
           setRole(storedRole);
           setLevel(storedLevel);
+
+          
         } catch (error) {
           console.error(
             '(RootNavigator) Lỗi khi lấy dữ liệu từ AsyncStorage:',
@@ -299,50 +301,23 @@ const RootNavigator = () => {
             name="ContentAdmin"
             component={ContentAdminScreen}
           />
-          {/* Các màn hình khác mà Admin có thể truy cập trực tiếp từ RootStack */}
           <RootStack.Screen
             name="CourseDetail"
             component={CourseDetailScreen}
           />
           <RootStack.Screen name="Lesson" component={LessonScreen} />
         </>
-      ) : !selectionComplete || level === null || level === 'null' ? (
-        // Nếu chưa hoàn thành lựa chọn (selectionComplete là false)
-        // HOẶC nếu level từ AsyncStorage chưa được load/set (level là null)
-        // thì hiển thị SelectionScreen.
-        // Khi SelectionScreen gọi markSelectionComplete() -> selectionComplete sẽ true.
-        // useEffect trên sẽ chạy lại, fetch lại level (mà CourseListScreen đã lưu).
-        // RootNavigator sẽ re-render. Nếu level mới khác null, sẽ vào nhánh else dưới.
+      ) : !selectionComplete ? (
         <RootStack.Screen name="Selection" component={SelectionScreen} />
       ) : (
-        // Đã đăng nhập, không phải admin, VÀ (selectionComplete = true VÀ level đã có giá trị)
         <>
           <RootStack.Screen name="Main" component={MainNavigator} />
-          {/* Các màn hình CourseDetail, Lesson, TienDoScreen cũng được khai báo ở RootStack.
-            Điều này cho phép điều hướng tới chúng từ bất kỳ đâu trong RootStack, 
-            ví dụ từ các màn hình bên trong MainNavigator (nếu bạn dùng navigation.navigate('CourseDetail', ...))
-            mà không cần phải dùng '../TênStackCha/CourseDetail'.
-            LƯU Ý: Đảm bảo rằng bạn không có xung đột tên nếu các màn hình này cũng được khai báo
-            bên trong một Stack con nào đó với cùng tên mà bạn không muốn ghi đè.
-            Trong trường hợp này, CourseDetail và Lesson cũng có trong CoursesStack.
-            Khi điều hướng từ bên trong CoursesStack (ví dụ từ CourseList sang CourseDetail), 
-            nó sẽ ưu tiên màn hình trong CoursesStack.
-            Khi điều hướng từ RootStack (ví dụ từ một màn hình không thuộc MainNavigator), 
-            nó sẽ dùng các khai báo ở đây.
-          */}
           <RootStack.Screen
             name="CourseDetail"
             component={CourseDetailScreen}
           />
           <RootStack.Screen name="Lesson" component={LessonScreen} />
           <RootStack.Screen name="TienDoScreen" component={TienDoScreen} />
-
-          {/* Dòng CourseListScreen ở đây không cần thiết nếu bạn đang điều hướng lồng vào
-              Main -> Courses -> CourseList. Lệnh navigation.replace('Main', ...) sẽ lo việc đó.
-              Việc khai báo CourseListScreen trong RootStackParamList vẫn hữu ích cho type checking 
-              khi bạn định nghĩa params cho nó.
-          */}
-          {/* <RootStack.Screen name="CourseListScreen" component={CourseListScreen} /> */}
         </>
       )}
     </RootStack.Navigator>

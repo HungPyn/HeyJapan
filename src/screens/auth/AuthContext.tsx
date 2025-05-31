@@ -221,30 +221,30 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
       return false;
     }
   };
-  function decodeJwtManually(tokenString: any) {
-    if (!tokenString) {
-      console.error('Token không được cung cấp.');
-      return null;
-    }
+  // function decodeJwtManually(tokenString: any) {
+  //   if (!tokenString) {
+  //     console.error('Token không được cung cấp.');
+  //     return null;
+  //   }
 
-    try {
-      const [headerBase64Url, payloadBase64Url] = tokenString.split('.');
+  //   try {
+  //     const [headerBase64Url, payloadBase64Url] = tokenString.split('.');
 
-      const base64UrlDecode = (str: string) => {
-        let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-        while (base64.length % 4) base64 += '=';
-        return atob(base64);
-      };
+  //     const base64UrlDecode = (str: string) => {
+  //       let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  //       while (base64.length % 4) base64 += '=';
+  //       return atob(base64);
+  //     };
 
-      const decodedHeader = JSON.parse(base64UrlDecode(headerBase64Url));
-      const decodedPayload = JSON.parse(base64UrlDecode(payloadBase64Url));
+  //     const decodedHeader = JSON.parse(base64UrlDecode(headerBase64Url));
+  //     const decodedPayload = JSON.parse(base64UrlDecode(payloadBase64Url));
 
-      return {header: decodedHeader, payload: decodedPayload};
-    } catch (error) {
-      console.error('Lỗi khi giải mã token thủ công:', error);
-      return null;
-    }
-  }
+  //     return {header: decodedHeader, payload: decodedPayload};
+  //   } catch (error) {
+  //     console.error('Lỗi khi giải mã token thủ công:', error);
+  //     return null;
+  //   }
+  // }
 
   const handleGoogleLoginData = async (googleData: any) => {
     if (googleData.idToken) {
@@ -254,8 +254,6 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
           '[AuthContext] Lấy được idToken từ Google:',
           googleData.idToken,
         );
-        Alert.alert('Đang xác thực với server...', 'Vui lòng chờ');
-
         // Gọi backend để xác thực token và lấy thông tin người dùng của hệ thống
         const backendUser = await authService.verifyGoogleToken(
           googleData.idToken,
@@ -264,74 +262,59 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({children}) => {
         if (backendUser) {
           // Lưu thông tin người dùng và đặt trạng thái là đã xác thực
           setIsAuthenticated(true);
-          console.log('logdsfasdfsadfasdfasdf', backendUser);
+          setSelectionComplete(backendUser.level !== null);
           // Lưu token vào AsyncStorage nếu có
-          if (backendUser.accessToken) {
-            await AsyncStorage.setItem('token', backendUser.accessToken);
+          // if (backendUser.accessToken) {
+          //   try {
+          //     await AsyncStorage.setItem('token', backendUser.accessToken);
 
-            const payloadBase64Url = backendUser.accessToken;
-            const decodedPayloadString = decodeJwtManually(payloadBase64Url);
-            console.log(decodedPayloadString);
-            const levelFromPayload = decodedPayloadString?.payload?.level;
-            // Lưu role nếu có
-            if (decodedPayloadString?.payload.roles) {
-              await AsyncStorage.setItem(
-                'role',
-                decodedPayloadString?.payload.roles,
-              );
-            }
+          //     // Giải mã token bằng jwt-decode
+          //     const decoded: any = jwtDecode(backendUser.accessToken);
 
-            if (levelFromPayload !== null && levelFromPayload !== undefined) {
-              const levelString = String(levelFromPayload);
-              await AsyncStorage.setItem('userLevel', levelString);
-              console.log(`Đã lưu level '${levelString}' vào AsyncStorage.`);
-            } else {
-              console.log(
-                "Giá trị 'level' không tồn tại trong token payload hoặc là null/undefined.",
-              );
-              await AsyncStorage.removeItem('level');
-            }
+          //     const levelFromPayload = decoded.level ?? null;
+          //     const rolesFromPayload =
+          //       decoded.roles ||
+          //       decoded.role ||
+          //       decoded.authorities ||
+          //       'ROLE_USER';
 
-            if (backendUser.userId) {
-              await AsyncStorage.setItem('userID', backendUser.userId);
-            }
-            // ---- BẮT ĐẦU PHẦN LOG ASYNCSTORAGE ----
-            console.log(
-              '\n--- Checking AsyncStorage Content Immediately After Google Login Set ---',
-            );
-            try {
-              const keys = await AsyncStorage.getAllKeys();
-              if (keys.length > 0) {
-                const items = await AsyncStorage.multiGet(keys);
-                items.forEach(([key, value]) => {
-                  console.log(`[AsyncStorage - Google] ${key}: ${value}`);
-                });
-              } else {
-                console.log('[AsyncStorage - Google] is empty.');
-              }
-            } catch (e) {
-              console.error(
-                'Error reading AsyncStorage for logging (Google):',
-                e,
-              );
-            }
-            console.log('--- End of AsyncStorage Check (Google) ---\n');
-            // ---- KẾT THÚC PHẦN LOG ASYNCSTORAGE ----
-          }
+          //     // Lưu trữ role và level vào AsyncStorage
+          //     await AsyncStorage.multiSet([
+          //       ['role', String(rolesFromPayload)],
+          //       [
+          //         'userLevel',
+          //         levelFromPayload !== null ? String(levelFromPayload) : 'null',
+          //       ],
+          //       ['userId', backendUser.userId || ''],
+          //     ]);
+              
+          //     const keys = await AsyncStorage.getAllKeys();
+          //     if (keys.length === 0) {
+          //       console.log('AsyncStorage is empty.');
+          //     } else {
+          //       const items = await AsyncStorage.multiGet(keys);
+          //       console.log('Nội dung AsyncStorage:');
+          //       items.forEach(([key, value]) => {
+          //         console.log(`Key: ${key}, Value: ${value}`);
+          //       });
+          //     }
+          //   } catch (error) {
+          //     console.error('Lỗi khi lưu thông tin xác thực Google', error);
+          //   }
+          // }
 
-          Alert.alert(
-            'Xác thực thành công!',
-            `Xin chào ${googleData.user.name}`,
-          );
+          showMessage({
+            message: `Xác thực thành công! Xin chào ${googleData.user.name}`,
+            type: 'success',
+            duration: 2000,
+            position: 'center',
+            style: {backgroundColor: 'rgba(128, 128, 128, 0.6)'},
+            textStyle: {fontSize: 16},
+          });
         } else {
           // Trường hợp backend không trả về dữ liệu user mong đợi
           console.error(
-            '[AuthContext] Phản hồi từ backend không hợp lệ:',
-            backendUser,
-          );
-          Alert.alert(
-            'Lỗi từ Server',
-            backendUser || 'Không nhận được thông tin người dùng hợp lệ.',
+            'Không nhận được thông tin người dùng hợp lệ từ server',
           );
         }
       } catch (backendError: any) {
