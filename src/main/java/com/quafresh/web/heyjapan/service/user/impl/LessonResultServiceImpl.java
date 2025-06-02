@@ -120,9 +120,6 @@ public class LessonResultServiceImpl implements LessonResultService {
     @Override
     public List<ResponseLessonResultDTO> getAllLessonResultByuserId(String userId) {
         List<ResponseLessonResultDTO> list = lessonResultRepository.getAllLessonResultByID(userId);
-        if (list.isEmpty()) {
-            throw new RuntimeException(ErrorMessages.INVALID_ACCOUNT.getMessage());
-        }
         return list;
     }
 
