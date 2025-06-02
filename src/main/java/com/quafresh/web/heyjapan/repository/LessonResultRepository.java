@@ -17,6 +17,7 @@ public interface LessonResultRepository extends JpaRepository<LessonResult, Inte
         :userId,
         l.id,
         l.name,
+             lr.endDatetime,
         (
             SELECT COUNT(lr2)
             FROM LessonResult lr2
@@ -41,6 +42,7 @@ public interface LessonResultRepository extends JpaRepository<LessonResult, Inte
         :userId,
         l.id,
         l.name,
+             lr.endDatetime,
         (
             SELECT COUNT(lr2)
             FROM LessonResult lr2
@@ -69,6 +71,7 @@ public interface LessonResultRepository extends JpaRepository<LessonResult, Inte
         :userId,
         l.id,
         l.name,
+        lr.endDatetime,
         (
             SELECT COUNT(lr2)
             FROM LessonResult lr2

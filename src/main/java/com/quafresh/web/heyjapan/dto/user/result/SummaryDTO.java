@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Data
 @AllArgsConstructor
@@ -14,4 +15,6 @@ public class SummaryDTO {
     private BigDecimal completionAverage;
     private Integer totalStudyTime;
     private Integer totalSum;
+    private Instant fromDate;
+    private Instant toDate;
 }

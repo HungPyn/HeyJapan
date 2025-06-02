@@ -70,11 +70,13 @@ public class ExamResultServiceImpl implements ExamResultService {
             dto.setScorePercent(er.getScorePercent());
             dto.setCorrectAnswers(er.getCorrectAnswers());
             dto.setExamTime(er.getExamTime());
+            dto.setCreateTime(er.getEndDatetime());
         } else {
             dto.setTotalQuestions(0);
             dto.setScorePercent(BigDecimal.ZERO);
             dto.setCorrectAnswers(0);
             dto.setExamTime(0);
+            dto.setCreateTime(null);
         }
 
         return dto;
@@ -91,24 +93,29 @@ public class ExamResultServiceImpl implements ExamResultService {
     }
 
     @Override
-    public SummaryDTO getExamResultSummary(String userId) {
+    public SummaryDTO getExamResultSummary(String userId, Instant fromDate, Instant toDate) {
         List<ResponseExamResultDTO> results = getAllById(userId).stream()
                 .filter(dto -> dto.getExamTime() != null && dto.getExamTime() > 0)
                 .toList();
 
         return SummaryHelper.calculateSummary(
                 results,
+                fromDate,
+                toDate,
+                ResponseExamResultDTO::getCreateTime, // Hàm lấy thời điểm tạo để lọc theo fromDate - toDate
                 dto -> {
                     int totalQuestions = dto.getTotalQuestions();
                     int correctAnswers = Optional.ofNullable(dto.getCorrectAnswers()).orElse(0);
                     return totalQuestions > 0
-                            ? BigDecimal.valueOf((double) correctAnswers * 100 / totalQuestions).setScale(2, RoundingMode.HALF_UP)
+                            ? BigDecimal.valueOf((double) correctAnswers * 100 / totalQuestions)
+                            .setScale(2, RoundingMode.HALF_UP)
                             : BigDecimal.ZERO;
                 },
                 dto -> Optional.ofNullable(dto.getScorePercent()).orElse(BigDecimal.ZERO),
                 dto -> Optional.ofNullable(dto.getExamTime()).orElse(0)
         );
     }
+
 
     @Override
     public ResponseExamResultDTO getById(String useId, Integer idTopic) {

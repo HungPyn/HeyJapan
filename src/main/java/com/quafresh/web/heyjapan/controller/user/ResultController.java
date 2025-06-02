@@ -33,7 +33,7 @@ public class ResultController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("exam-result")
+    @GetMapping("/exam-result")
     public ResponseEntity<?> getExamResultByTopic(@RequestParam("userId") String userId,@RequestParam("topicId") Integer topicId) {
         return ResponseEntity.ok(examResultService.getExamResultByID(userId,topicId));
     }

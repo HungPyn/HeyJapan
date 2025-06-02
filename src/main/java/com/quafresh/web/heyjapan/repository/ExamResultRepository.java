@@ -34,6 +34,7 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
                     FROM ExamResult er2
                     WHERE er2.topic.id = t.id AND er2.user.id = :userId
                 ),
+                er.endDatetime,
                 er.examTime,
                 t.name,
                 er.scorePercent,
@@ -41,7 +42,7 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
                 er.correctAnswers
             )
             FROM ExamResult er
-            JOIN er.topic t
+            LEFT JOIN er.topic t
             WHERE er.user.id = :userId
             AND er.scorePercent = (
                 SELECT MAX(er2.scorePercent)
@@ -66,6 +67,7 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
                         FROM ExamResult er2
                         WHERE er2.topic.id = t.id AND er2.user.id = :userId
                     ),
+                    er.endDatetime,
                     MAX(er.examTime),
                     t.name,
                     MAX(er.scorePercent),
@@ -95,6 +97,7 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
                         FROM ExamResult er2
                         WHERE er2.topic.id = t.id AND er2.user.id = :userId
                     ),
+                    er.endDatetime,
                     MAX(er.examTime),
                     t.name,
                     MAX(er.scorePercent),

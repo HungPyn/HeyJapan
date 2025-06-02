@@ -23,6 +23,8 @@ public class ResponseExamResultDTO {
 
     private Long total_attempts;
 
+    private Instant createTime;
+
     private Integer examTime;
 
     private String topicName;

@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -28,12 +29,17 @@ public class ResultAdminController {
     public ResponseEntity<ResponseLessonResultDTO> getLessonResultById(@RequestParam("userId") String userId,@RequestParam("lessonId") Integer lessonId) {
         return ResponseEntity.ok(lessonResultService.getLessonResultByLessonId(userId,lessonId));
     }
-    // Lấy summary bài học cho user
+    // Lấy summary bài học cho user theo khoảng thời gian (có thể không truyền fromDate/toDate)
     @GetMapping("/lesson/summary/{userId}")
-    public ResponseEntity<SummaryDTO> getLessonSummary(@PathVariable String userId) {
-        SummaryDTO summary = lessonResultService.getLessonResultSummary(userId);
+    public ResponseEntity<SummaryDTO> getLessonSummary(
+            @PathVariable String userId,
+            @RequestParam(required = false) Instant fromDate,
+            @RequestParam(required = false) Instant toDate
+    ) {
+        SummaryDTO summary = lessonResultService.getLessonResultSummary(userId, fromDate, toDate);
         return ResponseEntity.ok(summary);
     }
+
 
     @GetMapping("lesson-result/search")
     public ResponseEntity<?> searchLessonResult(@RequestParam("userId") String userId,@RequestParam("lessonName") String lessonName) {
@@ -54,10 +60,16 @@ public class ResultAdminController {
     public ResponseEntity<?> searchExamResult(@RequestParam("userId") String userId,@RequestParam("topicName") String topicName) {
         return ResponseEntity.ok(examResultService.search(userId,topicName));
     }
-    // Lấy summary exam cho user
+
+    // Lấy summary exam cho user theo khoảng thời gian (tùy chọn)
     @GetMapping("/exam-result/summary/{userId}")
-    public ResponseEntity<SummaryDTO> getExamSummary(@PathVariable String userId) {
-        SummaryDTO summary = examResultService.getExamResultSummary(userId);
+    public ResponseEntity<SummaryDTO> getExamSummary(
+            @PathVariable String userId,
+            @RequestParam(required = false) Instant fromDate,
+            @RequestParam(required = false) Instant toDate
+    ) {
+        SummaryDTO summary = examResultService.getExamResultSummary(userId, fromDate, toDate);
         return ResponseEntity.ok(summary);
     }
+
 }

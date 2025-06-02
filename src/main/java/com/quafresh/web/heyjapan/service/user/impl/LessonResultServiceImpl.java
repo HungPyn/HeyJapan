@@ -87,11 +87,13 @@ public class LessonResultServiceImpl implements LessonResultService {
             int totalQuestions = 0;
             int correctAnswers = 0;
             int studyTime = 0;
+            Instant createAt = null;
             BigDecimal completionPercent = BigDecimal.ZERO;
 
             if (lr != null) {
                 totalQuestions = lr.getTotalQuestions() != null ? lr.getTotalQuestions() : 0;
                 correctAnswers = lr.getCorrectAnswers() != null ? lr.getCorrectAnswers() : 0;
+                createAt = lr.getEndDatetime()!= null? lr.getEndDatetime(): null;
                 studyTime = lr.getStudyTime() != null ? lr.getStudyTime() : 0;
 
                 if (totalQuestions > 0) {
@@ -105,6 +107,7 @@ public class LessonResultServiceImpl implements LessonResultService {
             dto.setCorrectAnswers(correctAnswers);
             dto.setStudyTime(studyTime);
             dto.setCompletionPercent(completionPercent);
+            dto.setCreatedAt(createAt);
 
             dtos.add(dto);
         }
@@ -125,24 +128,28 @@ public class LessonResultServiceImpl implements LessonResultService {
     }
 
     @Override
-    public SummaryDTO getLessonResultSummary(String userId) {
-            List<ResponseLessonResultDTO> list = getAllLessonResultByuserId(userId).stream()
-                    .filter(dto -> dto.getStudyTime() != null && dto.getStudyTime() > 0)
-                    .toList();
+    public SummaryDTO getLessonResultSummary(String userId, Instant fromDate, Instant toDate) {
+        List<ResponseLessonResultDTO> list = getAllLessonResultByuserId(userId).stream()
+                .filter(dto -> dto.getStudyTime() != null && dto.getStudyTime() > 0)
+                .toList();
 
-            return SummaryHelper.calculateSummary(
-                    list,
-                    dto -> {
-                        int totalQuestions = dto.getTotalQuestions();
-                        int correctAnswers = Optional.ofNullable(dto.getCorrectAnswers()).orElse(0);
-                        return totalQuestions > 0
-                                ? BigDecimal.valueOf((double) correctAnswers * 100 / totalQuestions).setScale(2, RoundingMode.HALF_UP)
-                                : BigDecimal.ZERO;
-                    },
-                    dto -> Optional.ofNullable(dto.getCompletionPercent()).orElse(BigDecimal.ZERO),
-                    dto -> Optional.ofNullable(dto.getStudyTime()).orElse(0)
-            );
-        }
+        return SummaryHelper.calculateSummary(
+                list,
+                fromDate,
+                toDate,
+                dto -> dto.getCreatedAt(), // Giả sử ResponseLessonResultDTO có trường này
+                dto -> {
+                    int totalQuestions = dto.getTotalQuestions();
+                    int correctAnswers = Optional.ofNullable(dto.getCorrectAnswers()).orElse(0);
+                    return totalQuestions > 0
+                            ? BigDecimal.valueOf((double) correctAnswers * 100 / totalQuestions)
+                            .setScale(2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO;
+                },
+                dto -> Optional.ofNullable(dto.getCompletionPercent()).orElse(BigDecimal.ZERO),
+                dto -> Optional.ofNullable(dto.getStudyTime()).orElse(0)
+        );
+    }
 
     @Override
     public ResponseLessonResultDTO getLessonResultByLessonId(String userId, Integer lessonId) {

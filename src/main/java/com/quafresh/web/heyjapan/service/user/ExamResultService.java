@@ -5,6 +5,7 @@ import com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO;
 import com.quafresh.web.heyjapan.dto.user.result.SummaryDTO;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 
 public interface ExamResultService {
@@ -13,7 +14,7 @@ public interface ExamResultService {
     ResponseExamResultDTO getExamResultByID(String userId, Integer topicId);
 
     //admin
-    SummaryDTO getExamResultSummary(String userId);
+    public SummaryDTO getExamResultSummary(String userId, Instant fromDate, Instant toDate);
     List<ResponseExamResultDTO> getAllById(String userId);
     ResponseExamResultDTO getById(String useId,Integer idTopic);
     List<ResponseExamResultDTO> search(String userId, String keyword);

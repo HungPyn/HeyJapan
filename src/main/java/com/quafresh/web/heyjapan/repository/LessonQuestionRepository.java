@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface LessonQuestionRepository extends JpaRepository<LessonQuestion, Integer> {
     //Lấy tất cả câu hỏi ở bài học đó
-    @Query("SELECT q FROM LessonQuestion q LEFT JOIN FETCH q.questionChoices WHERE q.lesson.id = :lessonId ORDER BY q.lesson.id DESC")
+    @Query("SELECT q FROM LessonQuestion q LEFT JOIN FETCH q.questionChoices WHERE q.lesson.id = :lessonId ORDER BY q.id DESC")
     List<LessonQuestion> findQuestionsAndChoicesByLessonId(@Param("lessonId") Integer lessonId);
 
     List<LessonQuestion> findLessonQuestionByLesson_IdOrderByIdAsc(Integer lessonId);

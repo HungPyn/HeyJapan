@@ -19,9 +19,12 @@ public class ResponseLessonResultDTO {
 
     private String name;
 
+    private Instant createdAt;
+
     private Long total_attempts;
 
     private Integer studyTime;
+
 
     private BigDecimal completionPercent;
 
