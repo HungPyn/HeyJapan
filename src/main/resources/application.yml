@@ -1,4 +1,16 @@
 spring:
+  # khai báo cấu hình để gửi mail
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: your.email@gmail.com
+    password: your-app-password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   datasource:
     url: jdbc:mysql://localhost:3306/heyjapan?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true&sessionVariables=sql_mode='NO_ENGINE_SUBSTITUTION'
     username: root
@@ -64,3 +76,5 @@ app:
 gcp:
   storage:
     bucket-name: sakuranihongo-200e5.firebasestorage.app
+
+

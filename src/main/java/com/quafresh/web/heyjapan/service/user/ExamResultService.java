@@ -14,7 +14,7 @@ public interface ExamResultService {
     ResponseExamResultDTO getExamResultByID(String userId, Integer topicId);
 
     //admin
-    public SummaryDTO getExamResultSummary(String userId, Instant fromDate, Instant toDate);
+    SummaryDTO getExamResultSummary(String userId, Instant fromDate, Instant toDate);
     List<ResponseExamResultDTO> getAllById(String userId);
     ResponseExamResultDTO getById(String useId,Integer idTopic);
     List<ResponseExamResultDTO> search(String userId, String keyword);

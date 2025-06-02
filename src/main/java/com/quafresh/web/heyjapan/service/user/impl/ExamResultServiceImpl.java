@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
+
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -85,16 +85,31 @@ public class ExamResultServiceImpl implements ExamResultService {
     //admin
     @Override
     public List<ResponseExamResultDTO> getAllById(String userId) {
-        List<ResponseExamResultDTO> list = examResultRepository.getAllExamResultByUserId(userId);
-        if (list.isEmpty()) {
-            throw new RuntimeException(ErrorMessages.INVALID_ACCOUNT.getMessage());
-        }
-        return list;
+        return examResultRepository.getAllExamResultByUserId(userId);
     }
 
     @Override
     public SummaryDTO getExamResultSummary(String userId, Instant fromDate, Instant toDate) {
-        List<ResponseExamResultDTO> results = getAllById(userId).stream()
+        List<ExamResult> resultList = examResultRepository.findAllByUserId(userId);
+
+        // Convert từng ExamResult sang ResponseExamResultDTO
+        List<ResponseExamResultDTO> results = resultList.stream()
+                .map(er -> new ResponseExamResultDTO(
+                        er.getId(),
+                        er.getUser().getId(),
+                        er.getTopic().getId(),
+                        // Đếm số lần user làm đề cùng topic (boxed thành Long)
+                        resultList.stream()
+                                .filter(e -> e.getTopic().getId().equals(er.getTopic().getId()) && e.getUser().getId().equals(userId))
+                                .count(),
+                        er.getEndDatetime(),
+                        er.getExamTime(),
+                        er.getTopic().getName(),
+                        er.getScorePercent(),
+                        er.getTotalQuestions(),
+                        er.getCorrectAnswers()
+                ))
+                // Lọc examTime phải khác null và > 0
                 .filter(dto -> dto.getExamTime() != null && dto.getExamTime() > 0)
                 .toList();
 
@@ -102,7 +117,7 @@ public class ExamResultServiceImpl implements ExamResultService {
                 results,
                 fromDate,
                 toDate,
-                ResponseExamResultDTO::getCreateTime, // Hàm lấy thời điểm tạo để lọc theo fromDate - toDate
+                ResponseExamResultDTO::getCreateTime,
                 dto -> {
                     int totalQuestions = dto.getTotalQuestions();
                     int correctAnswers = Optional.ofNullable(dto.getCorrectAnswers()).orElse(0);
@@ -115,6 +130,7 @@ public class ExamResultServiceImpl implements ExamResultService {
                 dto -> Optional.ofNullable(dto.getExamTime()).orElse(0)
         );
     }
+
 
 
     @Override

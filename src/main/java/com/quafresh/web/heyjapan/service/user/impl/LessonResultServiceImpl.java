@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -137,7 +136,7 @@ public class LessonResultServiceImpl implements LessonResultService {
                 list,
                 fromDate,
                 toDate,
-                dto -> dto.getCreatedAt(), // Giả sử ResponseLessonResultDTO có trường này
+                ResponseLessonResultDTO::getCreatedAt, // Giả sử ResponseLessonResultDTO có trường này
                 dto -> {
                     int totalQuestions = dto.getTotalQuestions();
                     int correctAnswers = Optional.ofNullable(dto.getCorrectAnswers()).orElse(0);

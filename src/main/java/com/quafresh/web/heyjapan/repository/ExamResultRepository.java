@@ -24,6 +24,10 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
     ExamResponseDTO getExamStatusForTopic(@Param("userId") String userId, @Param("topicId") Integer topicId);
 
     //admin
+
+    @Query("SELECT er FROM ExamResult er WHERE er.user.id = :userId")
+    List<ExamResult> findAllByUserId(@Param("userId") String userId);
+
     @Query("""
             SELECT new com.quafresh.web.heyjapan.dto.user.result.ResponseExamResultDTO(
                 er.id,
@@ -42,12 +46,14 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
                 er.correctAnswers
             )
             FROM ExamResult er
-            LEFT JOIN er.topic t
+            JOIN er.topic t
             WHERE er.user.id = :userId
             AND er.scorePercent = (
                 SELECT MAX(er2.scorePercent)
                 FROM ExamResult er2
                 WHERE er2.topic.id = t.id AND er2.user.id = :userId
+                ORDER BY er2.scorePercent DESC, er2.endDatetime DESC
+                LIMIT 1
             )
             ORDER BY t.id ASC
             """)
@@ -105,7 +111,7 @@ public interface ExamResultRepository extends JpaRepository<ExamResult, Integer>
                     MAX(er.correctAnswers)
                 )
                 FROM Topic t
-                LEFT JOIN ExamResult er ON t.id = er.topic.id AND er.user.id = :userId
+                JOIN ExamResult er ON t.id = er.topic.id AND er.user.id = :userId
                 WHERE LOWER(t.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
                 GROUP BY t.id, t.name
                 ORDER BY t.id ASC
