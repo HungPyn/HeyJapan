@@ -32,17 +32,6 @@ const SelectImageLessonContent: React.FC<SelectImageLessonContentProps> = ({
     <View style={styles.contentCard}>
       <View style={styles.contentCardQuestion}>
         <View style={styles.questionSelectContainer}>
-          {item.audio_url && onPlaySound && (
-            <TouchableOpacity
-              onPress={() => onPlaySound(item.audio_url)}
-              style={styles.questionAudioButtonSelect}>
-              <Image
-                source={require('../../../assets/images/audioInconten.png')} // Đảm bảo đường dẫn đúng
-                style={styles.audioIconSmall}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          )}
           <Text style={styles.contentDetailSelect}>{fullQuestionText}</Text>
         </View>
       </View>

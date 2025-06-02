@@ -952,7 +952,7 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
     if (!questionType.trim())
       return Alert.alert('Lỗi', 'Loại câu hỏi không được để trống.');
     if (!promptTextTemplate.trim())
-      return Alert.alert('Lỗi', 'Mẫu câu hỏi/Yêu cầu không được để trống.');
+      return Alert.alert('Lỗi', 'Nội dung câu hỏi không đươc để trống.');
     if (!targetWordNative.trim())
       return Alert.alert(
         'Lỗi',
@@ -970,6 +970,9 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
     if (
       questionType !== 'WRITING' &&
       questionType !== 'PRONUNCIATION' &&
+      questionType !== 'MULTIPLE_CHOICE_VOCAB_IMAGE' &&
+      questionType !== 'MULTIPLE_CHOICE_TEXT_ONLY' &&
+      questionType !== 'WORD_ORDER' &&
       !audioUrlForm.trim()
     ) {
       return Alert.alert(
@@ -1184,7 +1187,7 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
               </View>
               <View style={formModalStylesCommon.inputGroup}>
                 <Text style={formModalStylesCommon.label}>
-                  Mẫu câu hỏi/Yêu cầu{' '}
+                  Nội dung câu hỏi
                   <Text style={formModalStylesCommon.requiredStar}>*</Text>
                 </Text>
                 <TextInput
@@ -1204,7 +1207,7 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
                   {questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE'
                     ? 'Từ khóa'
                     : questionType === 'WORD_ORDER'
-                    ? 'Nhập đáp án đúng'
+                    ? 'Nhập đáp án'
                     : questionType === 'PRONUNCIATION'
                     ? 'Câu/Từ cần luyện phát âm'
                     : questionType === 'WRITING'
@@ -1225,14 +1228,14 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
                   ]}
                   placeholder={
                     questionType === 'WORD_ORDER'
-                      ? 'Nhập câu đúng (vd: わたしは ごはんを たべます)'
+                      ? 'Nhập câu đúng'
                       : questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE'
                       ? 'Nhập từ vựng (vd: りんご)'
                       : questionType === 'PRONUNCIATION'
                       ? 'Nhập câu/từ để luyện phát âm'
                       : questionType === 'WRITING'
                       ? 'Nhập đề bài hoặc câu văn mẫu cho bài viết'
-                      : 'Nhập nội dung hoặc đáp án chính'
+                      : 'Nhập nội dung'
                   }
                   value={targetWordNative}
                   onChangeText={setTargetWordNative}
@@ -1247,11 +1250,12 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
               </View>
               <View style={formModalStylesCommon.inputGroup}>
                 <Text style={formModalStylesCommon.label}>
-                  URL Audio câu hỏi{' '}
-                  {/* Bắt buộc cho PRONUNCIATION và các loại khác trừ WRITING */}
+                  URL Audio câu hỏi
                   {(questionType === 'PRONUNCIATION' ||
                     (questionType !== 'WRITING' &&
-                      questionType !== 'PRONUNCIATION')) && (
+                      questionType !== 'WORD_ORDER' &&
+                      questionType !== 'MULTIPLE_CHOICE_TEXT_ONLY' &&
+                      questionType !== 'MULTIPLE_CHOICE_VOCAB_IMAGE')) && (
                     <Text style={formModalStylesCommon.requiredStar}>*</Text>
                   )}
                 </Text>
@@ -1382,7 +1386,8 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
                         </View>
                       )}
                       {questionType !== 'AUDIO_CHOICE' &&
-                        questionType !== 'WORD_ORDER' && (
+                        questionType !== 'WORD_ORDER' &&
+                        questionType !== 'MULTIPLE_CHOICE_TEXT_ONLY' && (
                           <View style={formModalStylesCommon.inputGroup}>
                             <Text style={formModalStylesCommon.label}>
                               URL Audio lựa chọn
@@ -1433,7 +1438,7 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
                       {questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE' && (
                         <View style={formModalStylesCommon.inputGroup}>
                           <Text style={formModalStylesCommon.label}>
-                            Hình ảnh{' '}
+                            Hình ảnh
                             <Text style={formModalStylesCommon.requiredStar}>
                               *
                             </Text>
@@ -1484,7 +1489,7 @@ const AddEditExamQuestionModal: React.FC<AddEditExamQuestionModalProps> = ({
                               {marginTop: SIZES.base},
                             ]}>
                             <Text style={formModalStylesCommon.label}>
-                              Các khối từ xáo trộn (JSON):
+                              Các khối từ xáo trộn:
                             </Text>
                             <TextInput
                               style={[

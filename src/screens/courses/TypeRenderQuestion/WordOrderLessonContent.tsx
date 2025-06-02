@@ -87,9 +87,6 @@ const WordOrderLessonContent = forwardRef<
       // JSX giữ nguyên như phiên bản trước bạn gửi, không thay đổi gì ở đây
       <View style={styles.contentCard}>
         <View style={styles.contentCardQuestion}>
-          {item.title && (
-            <Text style={styles.contentTitleSelect}>{item.title}</Text>
-          )}
           <View style={styles.originalSentenceContainer}>
             {item.audio_url && onPlaySound && (
               <TouchableOpacity
@@ -111,7 +108,7 @@ const WordOrderLessonContent = forwardRef<
               </Text>
             ) : (
               <Text style={styles.contentDetailXapXep}>
-                {'Sắp xếp các khối từ bên dưới'}
+                {'Sắp xếp các khối từ bên dưới thành câu có nghĩa'}
               </Text>
             )}
           </View>

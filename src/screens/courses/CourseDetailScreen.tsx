@@ -13,10 +13,13 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
+import {
+  RouteProp,
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-// SỬA Ở ĐÂY: Sử dụng CoursesStackParamList cho cả RouteProp và StackNavigationProp
-// vì CourseDetailScreen và các màn hình nó điều hướng tới chủ yếu nằm trong CoursesStack
 import {CoursesStackParamList} from '../../navigation';
 import {COLORS, FONTS, SIZES} from '../../constants/theme';
 import {Image} from 'react-native';
@@ -76,7 +79,6 @@ interface ApiTopicViewResponse {
   examResponseDTO: ApiExamResponseDTO | null;
 }
 
-// SỬA TYPE CHO ROUTE VÀ NAVIGATION PROP
 type CourseDetailScreenRouteProp = RouteProp<
   CoursesStackParamList,
   'CourseDetail'
@@ -85,9 +87,17 @@ type CourseDetailScreenNavigationProp = StackNavigationProp<
   CoursesStackParamList,
   'CourseDetail'
 >;
-// Với type trên, navigation.navigate sẽ được kiểm tra dựa trên các màn hình có trong CoursesStackParamList
 
-const LessonStatusIcon = ({status}: {status?: Lesson['status']}) => {
+const LessonStatusIcon = ({
+  status,
+  lessonName,
+}: {
+  status?: Lesson['status'];
+  lessonName: string;
+}) => {
+  if (lessonName.toLowerCase().includes('lý thuyết')) {
+    return null; // Không hiển thị icon nếu tiêu đề chứa "lý thuyết"
+  }
   if (status === 'completed') {
     return (
       <Image
@@ -314,63 +324,68 @@ const CourseDetailScreen: React.FC = () => {
     [initialTopicTitle, getToken],
   );
 
+  // Thay thế useEffect bằng useFocusEffect để gọi lại API khi màn hình được focus
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        if (!isMountedRef.current) return;
+        const isAlphabet =
+          (displayTitle || '').toLowerCase() === 'bảng chữ cái';
+
+        if (isAlphabet) {
+          if (currentTopicIdAsNumber !== null) {
+            fetchAlphabets(currentTopicIdAsNumber);
+          } else {
+            if (isMountedRef.current)
+              setAlphabetError('ID chủ đề bảng chữ cái không hợp lệ.');
+          }
+          if (isMountedRef.current) {
+            setIsLoading(false);
+            setAllScreenItems([]);
+            setError(null);
+          }
+        } else if (currentTopicIdAsNumber !== null) {
+          try {
+            const storedUserId = await AsyncStorage.getItem('UserId');
+            if (storedUserId) {
+              fetchTopicDetails(currentTopicIdAsNumber, storedUserId);
+            } else {
+              if (isMountedRef.current) {
+                setError('Không tìm thấy UserId.');
+                setIsLoading(false);
+              }
+            }
+          } catch (e) {
+            if (isMountedRef.current) {
+              setError('Lỗi đọc UserId.');
+              setIsLoading(false);
+            }
+          }
+        } else if (courseId) {
+          if (isMountedRef.current) {
+            setError('ID chủ đề không hợp lệ.');
+            setIsLoading(false);
+          }
+        } else {
+          if (isMountedRef.current) setIsLoading(false);
+        }
+      };
+      loadData();
+    }, [
+      currentTopicIdAsNumber,
+      displayTitle,
+      fetchTopicDetails,
+      fetchAlphabets,
+      courseId,
+    ]),
+  );
+
+  // Giữ lại useEffect để set tiêu đề ban đầu
   useEffect(() => {
     if (initialTopicTitle) {
       setDisplayTitle(initialTopicTitle);
     }
   }, [initialTopicTitle]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      if (!isMountedRef.current) return;
-      const isAlphabet = (displayTitle || '').toLowerCase() === 'bảng chữ cái';
-
-      if (isAlphabet) {
-        if (currentTopicIdAsNumber !== null) {
-          fetchAlphabets(currentTopicIdAsNumber);
-        } else {
-          if (isMountedRef.current)
-            setAlphabetError('ID chủ đề bảng chữ cái không hợp lệ.');
-        }
-        if (isMountedRef.current) {
-          setIsLoading(false);
-          setAllScreenItems([]);
-          setError(null);
-        }
-      } else if (currentTopicIdAsNumber !== null) {
-        try {
-          const storedUserId = await AsyncStorage.getItem('UserId');
-          if (storedUserId) {
-            fetchTopicDetails(currentTopicIdAsNumber, storedUserId);
-          } else {
-            if (isMountedRef.current) {
-              setError('Không tìm thấy UserId.');
-              setIsLoading(false);
-            }
-          }
-        } catch (e) {
-          if (isMountedRef.current) {
-            setError('Lỗi đọc UserId.');
-            setIsLoading(false);
-          }
-        }
-      } else if (courseId) {
-        if (isMountedRef.current) {
-          setError('ID chủ đề không hợp lệ.');
-          setIsLoading(false);
-        }
-      } else {
-        if (isMountedRef.current) setIsLoading(false);
-      }
-    };
-    loadData();
-  }, [
-    currentTopicIdAsNumber,
-    displayTitle,
-    fetchTopicDetails,
-    fetchAlphabets,
-    courseId,
-  ]);
 
   const playSound = useCallback(
     (audioUrlToPlayParam: string | null) => {
@@ -480,7 +495,7 @@ const CourseDetailScreen: React.FC = () => {
             {item.lesson_name}
           </Text>
         </View>
-        <LessonStatusIcon status={item.status} />
+        <LessonStatusIcon status={item.status} lessonName={item.lesson_name} />
       </TouchableOpacity>
     );
   };
@@ -716,7 +731,7 @@ const CourseDetailScreen: React.FC = () => {
   );
 };
 
-// Styles (Giữ nguyên)
+// Styles (Giữ nguyên tuyệt đối)
 const styles = StyleSheet.create({
   safeArea: {flex: 1, backgroundColor: COLORS.white},
   container: {flex: 1},

@@ -869,7 +869,7 @@ const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
     if (!questionType.trim())
       return Alert.alert('Lỗi', 'Loại câu hỏi không được để trống.');
     if (!promptTextTemplate.trim())
-      return Alert.alert('Lỗi', 'Mẫu câu hỏi/Yêu cầu không được để trống.');
+      return Alert.alert('Lỗi', 'Mẫu câu hỏikhông được để trống.');
     if (!targetWordNative.trim())
       return Alert.alert('Lỗi', 'Từ khóa/Nội dung chính không được để trống.');
 
@@ -884,8 +884,11 @@ const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
     // Đối với các loại khác, audioUrlQuestionsForm vẫn bắt buộc như cũ.
     // (Nếu không phải PRONUNCIATION)
     if (
+      questionType !== 'WRITING' &&
       questionType !== 'PRONUNCIATION' &&
-      questionType !== 'WRITING' && // WRITING không bắt buộc audio
+      questionType !== 'MULTIPLE_CHOICE_VOCAB_IMAGE' &&
+      questionType !== 'MULTIPLE_CHOICE_TEXT_ONLY' &&
+      questionType !== 'WORD_ORDER' && // WRITING không bắt buộc audio
       !audioUrlQuestionsForm.trim()
     ) {
       return Alert.alert('Lỗi', 'URL Audio câu hỏi không được để trống.');
@@ -1098,7 +1101,7 @@ const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
               <View style={formModalStyles.inputGroup}>
                 <Text style={formModalStyles.label}>
-                  Mẫu câu hỏi/Yêu cầu{' '}
+                  Nội dung câu hỏi
                   <Text style={formModalStyles.requiredStar}>*</Text>
                 </Text>
                 <TextInput
@@ -1119,7 +1122,7 @@ const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
                   {questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE'
                     ? 'Từ khóa'
                     : questionType === 'WORD_ORDER'
-                    ? 'Nhập đáp án đúng'
+                    ? 'Đáp án'
                     : questionType === 'PRONUNCIATION'
                     ? 'Câu/Từ cần luyện phát âm'
                     : questionType === 'WRITING'
@@ -1140,7 +1143,7 @@ const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
                   ]}
                   placeholder={
                     questionType === 'WORD_ORDER'
-                      ? 'Nhập câu đúng (vd: わたしは ごはんを たべます)'
+                      ? ''
                       : questionType === 'MULTIPLE_CHOICE_VOCAB_IMAGE'
                       ? 'Nhập từ vựng (vd: りんご)'
                       : questionType === 'PRONUNCIATION'
@@ -1162,11 +1165,12 @@ const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
               <View style={formModalStyles.inputGroup}>
                 <Text style={formModalStyles.label}>
-                  URL Audio câu hỏi{' '}
-                  {/* Chỉ bắt buộc cho PRONUNCIATION và các loại khác trừ WRITING */}
+                  URL Audio câu hỏi
                   {(questionType === 'PRONUNCIATION' ||
                     (questionType !== 'WRITING' &&
-                      questionType !== 'PRONUNCIATION')) && ( // Cập nhật điều kiện
+                      questionType !== 'WORD_ORDER' &&
+                      questionType !== 'MULTIPLE_CHOICE_TEXT_ONLY' &&
+                      questionType !== 'MULTIPLE_CHOICE_VOCAB_IMAGE')) && (
                     <Text style={formModalStyles.requiredStar}>*</Text>
                   )}
                 </Text>
@@ -1239,7 +1243,7 @@ const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
 
                       <Text style={formModalStyles.label}>
                         {questionType === 'WORD_ORDER'
-                          ? 'Câu gốc (đồng bộ từ "Nội dung/Đáp án chính")'
+                          ? 'Câu gốc'
                           : 'Nội dung tiếng nước ngoài'}
                         <Text style={formModalStyles.requiredStar}>*</Text>
                       </Text>
@@ -1390,7 +1394,7 @@ const AddEditContentModal: React.FC<AddEditContentModalProps> = ({
                               {marginTop: SIZES.base},
                             ]}>
                             <Text style={formModalStyles.label}>
-                              Các khối từ xáo trộn (JSON - tự động tạo):
+                              Các khối từ xáo trộn:
                             </Text>
                             <TextInput
                               style={[
