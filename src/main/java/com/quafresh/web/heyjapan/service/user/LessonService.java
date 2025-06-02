@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface LessonService {
     List<ResponseLessonDTO> getAll(Integer topicId );
+    List<ResponseLessonDTO> getAllASC(Integer topicId );
     
     void create(RequestLessonDTO requestLessonDTO);
     void update(Integer lessonId,RequestLessonDTO requestLessonDTO);

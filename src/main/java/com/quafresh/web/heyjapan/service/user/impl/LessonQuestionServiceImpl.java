@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -58,6 +59,14 @@ public class LessonQuestionServiceImpl implements LessonQuestionService {
         return dto;
     }
 
+
+    @Override
+    public List<ResponseLessonQuesDTO> getQuestionsByLessonASC(Integer lessonId) {
+        List<LessonQuestion> list = lessonQuestionRepository.findLessonQuestionByLesson_IdOrderByIdAsc(lessonId);
+        return list.stream()
+                .map(this::mapLessonQuestionToDTO)
+                .collect(Collectors.toList());
+    }
     @Override
     public List<ResponseLessonQuesDTO> getQuestionsAndChoicesForLesson(Integer lessonId) {
         List<LessonQuestion> lessonQuestions = lessonQuestionRepository.findQuestionsAndChoicesByLessonId(lessonId);

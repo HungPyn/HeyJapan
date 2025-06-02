@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface ExamQuestionService {
     List<?> getExamQuesWithTopicId(Integer topicID);
+    List<ResponseExamQuestionDTO> getExamQuestionDESC(Integer topicID);
 
     //admin
     void createNewExam(RequestExamQuestionDTO requestExamQuestion);

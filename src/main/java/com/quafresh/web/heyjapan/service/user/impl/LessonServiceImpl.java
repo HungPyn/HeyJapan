@@ -21,9 +21,19 @@ import java.util.stream.Collectors;
 public class LessonServiceImpl implements LessonService {
     private final LessonRepository lessonRepository;
     private final TopicRepository topicRepository;
+
     @Override
     public List<ResponseLessonDTO> getAll(Integer topicId) {
         List<Lesson> lessonList = lessonRepository.getAllLessonsByTopicId(topicId);
+        return lessonList.stream()
+                .map(lesson
+                        -> new ResponseLessonDTO(lesson.getId(),lesson.getName()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ResponseLessonDTO> getAllASC(Integer topicId) {
+        List<Lesson> lessonList = lessonRepository.findAllByTopic_IdOrderByDayCreationAsc(topicId);
         return lessonList.stream()
                 .map(lesson
                         -> new ResponseLessonDTO(lesson.getId(),lesson.getName()))

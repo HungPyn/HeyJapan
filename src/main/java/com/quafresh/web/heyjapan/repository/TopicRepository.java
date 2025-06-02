@@ -14,7 +14,7 @@ public interface TopicRepository extends JpaRepository<Topic, Integer> {
 
 
     //admin
-    @Query("SELECT t FROM Topic t  ORDER BY t.dayCreation ASC")
+    @Query("SELECT t FROM Topic t  ORDER BY t.dayCreation DESC ")
     List<Topic> getAll();
 
     @Query("SELECT t FROM Topic t where t.name like %:keyword% ORDER BY t.dayCreation ASC")

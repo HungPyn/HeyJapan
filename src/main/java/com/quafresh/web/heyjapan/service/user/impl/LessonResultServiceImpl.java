@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -35,26 +37,32 @@ public class LessonResultServiceImpl implements LessonResultService {
     @Override
     public String create(RequestLessonResultDTO requestLessonResultDTO) {
         Lesson lesson = lessonRepository.findById(requestLessonResultDTO.getLessonId())
-                .orElseThrow(()->new RuntimeException("Bài học không tồn tại"));
+                .orElseThrow(() -> new RuntimeException("Bài học không tồn tại"));
 
         User user = userRepository.findById(requestLessonResultDTO.getUserId())
-                .orElseThrow(()->new RuntimeException("Người dùng không tồn tại"));
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
 
         LessonResult lessonResult = new LessonResult();
         lessonResult.setLesson(lesson);
         lessonResult.setUser(user);
-        Instant startTime = Instant.now();
-        Instant endTime = startTime.plus(Duration.ofMinutes(requestLessonResultDTO.getStudyTime()));
-        lessonResult.setStartDatetime(startTime);
-        lessonResult.setEndDatetime(endTime);
+
+        // Dùng giờ Việt Nam
+        ZonedDateTime startTime = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        ZonedDateTime endTime = startTime.plusMinutes(requestLessonResultDTO.getStudyTime());
+
+        lessonResult.setStartDatetime(startTime.toInstant());
+        lessonResult.setEndDatetime(endTime.toInstant());
+
         lessonResult.setStudyTime(requestLessonResultDTO.getStudyTime());
         lessonResult.setCompletionPercent(requestLessonResultDTO.getCompletionPercent());
         lessonResult.setCorrectAnswers(requestLessonResultDTO.getCorrectAnswers());
         lessonResult.setTotalQuestions(requestLessonResultDTO.getTotalQuestions());
+
         lessonResultRepository.save(lessonResult);
 
         return "Kết quả bài học được thêm thành công";
     }
+
 
     @Override
     public List<ResponseLessonResultDTO> getLessonResultByTopic(String userId, Integer topicId) {

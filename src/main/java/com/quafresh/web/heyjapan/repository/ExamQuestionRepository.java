@@ -14,4 +14,7 @@ public interface ExamQuestionRepository extends JpaRepository<ExamQuestion, Inte
 //    )
 //    List<ExamQuestion> findQuestionsByTopicId(@Param("topicId") Integer topicId);
     List<ExamQuestion> findAllByTopic(Topic topic);
-  }
+
+
+    List<ExamQuestion> findAllByTopicOrderByIdDesc(Topic topic);
+}

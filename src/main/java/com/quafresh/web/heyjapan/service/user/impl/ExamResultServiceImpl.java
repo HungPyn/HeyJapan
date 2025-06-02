@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,10 +34,10 @@ public class ExamResultServiceImpl implements ExamResultService {
     @Override
     public String create(RequestExamResultDTO examResultDTO) {
         Topic topic = topicRepository.findById(examResultDTO.getTopicId())
-                .orElseThrow(()->new RuntimeException("Topic không tồn tại"));
+                .orElseThrow(() -> new RuntimeException("Topic không tồn tại"));
 
         User user = userRepository.findById(examResultDTO.getUserId())
-                .orElseThrow(()->new RuntimeException("Người dùng không tồn tại"));
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
 
         ExamResult examResult = new ExamResult();
         examResult.setTopic(topic);
@@ -44,13 +46,18 @@ public class ExamResultServiceImpl implements ExamResultService {
         examResult.setScorePercent(examResultDTO.getScorePercent());
         examResult.setCorrectAnswers(examResultDTO.getCorrectAnswers());
         examResult.setTotalQuestions(examResultDTO.getTotalQuestions());
-        Instant startTime = Instant.now();
-        Instant endTime = startTime.plus(Duration.ofMinutes(examResultDTO.getExamTime()));
-        examResult.setStartDatetime(startTime);
-        examResult.setEndDatetime(endTime);
+
+        // Dùng giờ Việt Nam để lưu start/end thời gian chính xác theo múi giờ
+        ZonedDateTime startTime = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        ZonedDateTime endTime = startTime.plusMinutes(examResultDTO.getExamTime());
+
+        examResult.setStartDatetime(startTime.toInstant());
+        examResult.setEndDatetime(endTime.toInstant());
+
         examResultRepository.save(examResult);
         return "Kết quả kiểm tra thêm thành công";
     }
+
 
     @Override
     public ResponseExamResultDTO getExamResultByID(String userId, Integer topicId) {

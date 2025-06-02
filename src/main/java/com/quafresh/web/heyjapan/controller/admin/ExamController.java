@@ -24,7 +24,7 @@ public class ExamController {
 
     @GetMapping
     public ResponseEntity<?> getExamQuestionByTopicId(@RequestParam Integer topicID) {
-        return ResponseEntity.ok(examQuestionService.getExamQuesWithTopicId(topicID));
+        return ResponseEntity.ok(examQuestionService.getExamQuestionDESC(topicID));
     }
 
     @GetMapping("/{id}")

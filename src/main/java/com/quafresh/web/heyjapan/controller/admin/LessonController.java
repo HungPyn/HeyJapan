@@ -17,7 +17,7 @@ public class LessonController {
     private final LessonService lessonService;
     @GetMapping
     private ResponseEntity<?> getLessons(@RequestParam Integer topicId) {
-        return ResponseEntity.ok(lessonService.getAll(topicId));
+        return ResponseEntity.ok(lessonService.getAllASC(topicId));
     }
 
     @GetMapping("/{lessonId}")

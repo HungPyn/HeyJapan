@@ -22,6 +22,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Integer> {
     LEFT JOIN LessonResult lr ON l.id = lr.lesson.id AND lr.user.id = :userId
     WHERE l.topic.id = :topicId
     GROUP BY l.id, l.name
+    ORDER BY l.id ASC
 """)
     List<ResponseLessonDTO> findLessonsWithStatusByTopicIdAndUserId(
             @Param("topicId") Integer topicId,
@@ -32,4 +33,6 @@ public interface LessonRepository extends JpaRepository<Lesson, Integer> {
     List<Lesson> getAllLessonsByTopicId(@Param("topicId") Integer topicId);
 
     List<Lesson> findByTopicId(Integer topicId);
+
+    List<Lesson> findAllByTopic_IdOrderByDayCreationAsc(Integer topicId);
 }

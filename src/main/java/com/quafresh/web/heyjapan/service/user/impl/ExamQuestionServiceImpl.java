@@ -60,6 +60,16 @@ public class ExamQuestionServiceImpl implements ExamQuestionService {
     }
 
     @Override
+    public List<ResponseExamQuestionDTO> getExamQuestionDESC(Integer topicID) {
+        Topic topic = topicRepository.findById(topicID)
+                .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));
+        List<ExamQuestion> list = examQuestionRepository.findAllByTopicOrderByIdDesc(topic);
+        return list.stream()
+                .map(this::mapExamQuestionToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<ResponseExamQuestionDTO> getExamQuesWithTopicId(Integer topicID) {
         Topic topic = topicRepository.findById(topicID)
                 .orElseThrow(() -> new RuntimeException(ErrorMessages.INVALID_TOPIC.getMessage()));

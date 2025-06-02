@@ -6,9 +6,11 @@ import com.quafresh.web.heyjapan.dto.user.question.ResponseLessonQuesDTO;
 import java.util.List;
 
 public interface LessonQuestionService {
-     List<ResponseLessonQuesDTO> getQuestionsAndChoicesForLesson(Integer lessonId);
+
+     List<ResponseLessonQuesDTO> getQuestionsByLessonASC(Integer lessonId);
 
      //admin
+     List<ResponseLessonQuesDTO> getQuestionsAndChoicesForLesson(Integer lessonId);
      void create(RequestLessonQuesDTO dto);
      void update(Integer id,RequestLessonQuesDTO dto);
      ResponseLessonQuesDTO getById(Integer id);
