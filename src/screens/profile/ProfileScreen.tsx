@@ -134,7 +134,7 @@ const ProfileScreen: React.FC = () => {
     for (let h = 0; h < 24; h++) {
       slots.push(`${formatTwoDigits(h)}:00`);
       // Giữ nguyên XX:28 như file bạn cung cấp, nếu muốn XX:30 thì sửa ở đây
-      slots.push(`${formatTwoDigits(h)}:30`);
+      slots.push(`${formatTwoDigits(h)}:31`);
     }
     return slots;
   };
@@ -155,7 +155,7 @@ const ProfileScreen: React.FC = () => {
 
   const handleSaveReminder = async () => {
     console.log(
-      '[ProfileScreen] Bắt đầu handleSaveReminder. isReminderEnabled:',
+      '[ProfileScreen] Bắt đầu handleSaveReminder. isReminderEnabled ////////dot 2:',
       isReminderEnabled,
       'reminderTime:',
       reminderTime,

@@ -1,4 +1,3 @@
-// screens/admin/TienDoDetailScreen.tsx
 import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
@@ -24,6 +23,7 @@ import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../../navigation';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 // --- Định nghĩa kiểu dữ liệu cho API response ---
 interface ApiLessonResult {
@@ -260,7 +260,12 @@ interface OverallStatsModalProps {
   examSummary: ApiOverallStatsSummary | null;
   username: string;
   isLoading: boolean;
-  activeTab: 'lessons' | 'tests'; // Thêm activeTab để biết tab nào đang hoạt động
+  activeTab: 'lessons' | 'tests';
+  fromDate: Date | null;
+  toDate: Date | null;
+  setFromDate: (date: Date | null) => void;
+  setToDate: (date: Date | null) => void;
+  onFilter: () => void;
 }
 const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
   visible,
@@ -269,7 +274,12 @@ const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
   examSummary,
   username,
   isLoading,
-  activeTab, // Nhận activeTab
+  activeTab,
+  fromDate,
+  toDate,
+  setFromDate,
+  setToDate,
+  onFilter,
 }) => {
   if (!visible) return null;
 
@@ -277,8 +287,39 @@ const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
   const sectionTitle = activeTab === 'lessons' ? 'Bài học' : 'Bài kiểm tra';
   const timeLabel = activeTab === 'lessons' ? 'học' : 'kiểm tra';
 
-  // Xác định minHeight dựa trên nội dung sẽ hiển thị (3 mục)
-  const modalMinHeight = 290; // Ước tính chiều cao cho header, 3 items và nút đóng
+  const [showFromDatePicker, setShowFromDatePicker] = useState(false);
+  const [showToDatePicker, setShowToDatePicker] = useState(false);
+
+  const modalMinHeight = 380; // Adjusted for date pickers
+
+  const formatDate = (date: Date | null): string => {
+    if (!date) return 'Chọn ngày';
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const handleFromDateChange = (
+    event: any,
+    selectedDate?: Date | undefined,
+  ) => {
+    setShowFromDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setFromDate(selectedDate);
+      if (toDate && selectedDate > toDate) {
+        setToDate(null);
+      }
+    }
+  };
+
+  const handleToDateChange = (event: any, selectedDate?: Date | undefined) => {
+    setShowToDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setToDate(selectedDate);
+    }
+  };
 
   return (
     <Modal
@@ -290,12 +331,11 @@ const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
         <Pressable
           style={[
             detailModalStyles.modalViewContainer,
-            {height: 'auto', minHeight: modalMinHeight}, // Điều chỉnh minHeight
+            {height: 'auto', minHeight: modalMinHeight},
           ]}
           onPress={() => {}}>
           <View style={detailModalStyles.modalViewContent}>
             <View style={detailModalStyles.header}>
-              {/* Spacer để căn giữa tiêu đề khi không có nút back thật sự */}
               <View style={detailModalStyles.headerSpacer} />
               <Text style={detailModalStyles.headerTitleInModal}>
                 Thống Kê {sectionTitle}: {username}
@@ -309,10 +349,66 @@ const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
                 </Text>
               </TouchableOpacity>
             </View>
+            <View style={{paddingHorizontal: 20, paddingTop: 20}}>
+              <View style={detailModalStyles.dateRangeContainer}>
+                <View style={detailModalStyles.infoItem}>
+                  <Text style={detailModalStyles.infoLabel}>Từ ngày</Text>
+                  <TouchableOpacity
+                    style={detailModalStyles.infoValueContainer}
+                    onPress={() => setShowFromDatePicker(true)}>
+                    <Text style={detailModalStyles.infoValue}>
+                      {formatDate(fromDate)}
+                    </Text>
+                  </TouchableOpacity>
+                  {showFromDatePicker && (
+                    <DateTimePicker
+                      value={fromDate || new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={handleFromDateChange}
+                      maximumDate={toDate || new Date()}
+                    />
+                  )}
+                </View>
+                <View style={detailModalStyles.infoItem}>
+                  <Text style={detailModalStyles.infoLabel}>Đến ngày</Text>
+                  <TouchableOpacity
+                    style={detailModalStyles.infoValueContainer}
+                    onPress={() => setShowToDatePicker(true)}
+                    disabled={!fromDate}>
+                    <Text
+                      style={[
+                        detailModalStyles.infoValue,
+                        !fromDate && {color: '#999'},
+                      ]}>
+                      {formatDate(toDate)}
+                    </Text>
+                  </TouchableOpacity>
+                  {showToDatePicker && (
+                    <DateTimePicker
+                      value={toDate || new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={handleToDateChange}
+                      minimumDate={fromDate || undefined}
+                      maximumDate={new Date()}
+                    />
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[
+                  detailModalStyles.closeButton,
+                  {marginHorizontal: 0, marginTop: 10},
+                ]}
+                onPress={onFilter}>
+                <Text style={detailModalStyles.closeButtonText}>Lọc</Text>
+              </TouchableOpacity>
+            </View>
             {isLoading ? (
               <View
                 style={{
-                  height: 150, // Giảm chiều cao cho phù hợp
+                  height: 150,
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}>
@@ -354,7 +450,6 @@ const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
                     </Text>
                   </View>
                 </View>
-                {/* Đã loại bỏ phần "Tổng cộng thời gian" */}
               </ScrollView>
             ) : (
               <View
@@ -370,7 +465,7 @@ const OverallStatsModal: React.FC<OverallStatsModalProps> = ({
                     color: COLORS.darkGray,
                     textAlign: 'center',
                   }}>
-                  Không có dữ liệu thống kê để hiển thị cho{' '}
+                  Không có dữ liệu thống kê để hiển thị cho
                   {sectionTitle.toLowerCase()}.
                 </Text>
               </View>
@@ -419,6 +514,8 @@ const TienDoDetailScreen = () => {
 
   const [activeTab, setActiveTab] = useState<'lessons' | 'tests'>('lessons');
   const [searchQuery, setSearchQuery] = useState('');
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
 
   const [allLessonResults, setAllLessonResults] = useState<ApiLessonResult[]>(
     [],
@@ -569,6 +666,80 @@ const TienDoDetailScreen = () => {
     [fetchLessonProgressInternal, fetchExamProgressInternalAPI],
   );
 
+  const fetchSummaryData = useCallback(
+    async (
+      userId: string,
+      token: string,
+      fromDate?: Date | null,
+      toDate?: Date | null,
+    ) => {
+      setIsLoadingOverallStats(true);
+      setOverallLessonSummary(null);
+      setOverallExamSummary(null);
+
+      try {
+        const lessonParams = new URLSearchParams();
+        const examParams = new URLSearchParams();
+        if (fromDate != null) {
+          lessonParams.append('fromDate', fromDate.toISOString());
+          examParams.append('fromDate', fromDate.toISOString());
+        }
+        if (toDate != null) {
+          lessonParams.append('toDate', toDate.toISOString());
+          examParams.append('toDate', toDate.toISOString());
+        }
+
+        const lessonSummaryUrl = `${API_ADMIN_BASE_URL}/lesson/summary/${userId}${
+          lessonParams.toString() ? '?' + lessonParams.toString() : ''
+        }`;
+        const examSummaryUrl = `${API_ADMIN_BASE_URL}/exam-result/summary/${userId}${
+          examParams.toString() ? '?' + examParams.toString() : ''
+        }`;
+
+        const [lessonSummaryRes, examSummaryRes] = await Promise.all([
+          axios.get<ApiOverallStatsSummary>(lessonSummaryUrl, {
+            headers: {Authorization: `Bearer ${token}`},
+          }),
+          axios.get<ApiOverallStatsSummary>(examSummaryUrl, {
+            headers: {Authorization: `Bearer ${token}`},
+          }),
+        ]);
+
+        setOverallLessonSummary(lessonSummaryRes.data);
+        setOverallExamSummary(examSummaryRes.data);
+      } catch (err) {
+        console.error('Lỗi khi tải dữ liệu thống kê tổng quan:', err);
+        Alert.alert('Lỗi', 'Không thể tải dữ liệu thống kê.');
+        setOverallLessonSummary(null);
+        setOverallExamSummary(null);
+      } finally {
+        setIsLoadingOverallStats(false);
+      }
+    },
+    [],
+  );
+  const handleOpenOverallStats = useCallback(async () => {
+    if (!userIdFromParam) return;
+    setIsOverallStatsModalVisible(true);
+    const token = await getAdminTokenFromStorage();
+    if (!token) {
+      Alert.alert('Lỗi', 'Không thể lấy token để tải thống kê.');
+      setIsLoadingOverallStats(false);
+      return;
+    }
+    await fetchSummaryData(userIdFromParam, token, fromDate, toDate);
+  }, [userIdFromParam, fromDate, toDate, fetchSummaryData]);
+
+  const handleFilter = useCallback(async () => {
+    if (!userIdFromParam) return;
+    const token = await getAdminTokenFromStorage();
+    if (!token) {
+      Alert.alert('Lỗi', 'Không thể lấy token để lọc thống kê.');
+      return;
+    }
+    await fetchSummaryData(userIdFromParam, token, fromDate, toDate);
+  }, [userIdFromParam, fromDate, toDate, fetchSummaryData]);
+
   useEffect(() => {
     if (userIdFromParam) {
       loadAllProgressDataForUser(userIdFromParam);
@@ -582,7 +753,6 @@ const TienDoDetailScreen = () => {
     const applyFiltersAndSearch = async () => {
       const token = await getAdminTokenFromStorage();
       if (!token && lowerCaseQuery !== '') {
-        // Chỉ kiểm tra token nếu có query
         Alert.alert('Lỗi', 'Lỗi xác thực khi tìm kiếm.');
         return;
       }
@@ -592,7 +762,6 @@ const TienDoDetailScreen = () => {
           setDisplayedLessonResults(allLessonResults);
         } else {
           if (!token) {
-            // Cần token để search API
             Alert.alert('Lỗi', 'Lỗi xác thực khi tìm kiếm bài học.');
             return;
           }
@@ -600,7 +769,7 @@ const TienDoDetailScreen = () => {
           try {
             const searchResults = await fetchLessonProgressInternal(
               userIdFromParam,
-              token, // Đã kiểm tra token ở trên
+              token,
               lowerCaseQuery,
             );
             setDisplayedLessonResults(searchResults);
@@ -609,18 +778,16 @@ const TienDoDetailScreen = () => {
               'Lỗi tìm kiếm',
               'Không thể thực hiện tìm kiếm bài học.',
             );
-            setDisplayedLessonResults(allLessonResults); // Fallback to all results
+            setDisplayedLessonResults(allLessonResults);
           } finally {
             setIsLoading(false);
           }
         }
       } else {
-        // activeTab === 'tests'
         if (lowerCaseQuery === '') {
           setDisplayedExamResults(allExamResults);
         } else {
           if (!token) {
-            // Cần token để search API
             Alert.alert('Lỗi', 'Lỗi xác thực khi tìm kiếm bài kiểm tra.');
             setIsLoading(false);
             return;
@@ -629,7 +796,7 @@ const TienDoDetailScreen = () => {
           try {
             const searchResults = await fetchExamProgressInternalAPI(
               userIdFromParam,
-              token, // Đã kiểm tra token ở trên
+              token,
               lowerCaseQuery,
             );
             setDisplayedExamResults(searchResults);
@@ -638,7 +805,7 @@ const TienDoDetailScreen = () => {
               'Lỗi tìm kiếm',
               'Không thể thực hiện tìm kiếm bài kiểm tra.',
             );
-            setDisplayedExamResults(allExamResults); // Fallback to all results
+            setDisplayedExamResults(allExamResults);
           } finally {
             setIsLoading(false);
           }
@@ -665,47 +832,6 @@ const TienDoDetailScreen = () => {
     setSelectedTestDetail(item);
     setIsTestDetailModalVisible(true);
   };
-
-  const handleOpenOverallStats = useCallback(async () => {
-    if (!userIdFromParam) return;
-    setIsLoadingOverallStats(true);
-    setIsOverallStatsModalVisible(true);
-    // Reset cả hai summary trước khi fetch để đảm bảo modal không hiển thị dữ liệu cũ nếu API fail 1 cái
-    setOverallLessonSummary(null);
-    setOverallExamSummary(null);
-
-    const token = await getAdminTokenFromStorage();
-    if (!token) {
-      Alert.alert('Lỗi', 'Không thể lấy token để tải thống kê.');
-      setIsLoadingOverallStats(false);
-      return;
-    }
-    try {
-      // Vẫn fetch cả hai, modal sẽ quyết định hiển thị cái nào
-      const lessonSummaryUrl = `${API_ADMIN_BASE_URL}/lesson/summary/${userIdFromParam}`;
-      const examSummaryUrl = `${API_ADMIN_BASE_URL}/exam-result/summary/${userIdFromParam}`;
-
-      const [lessonSummaryRes, examSummaryRes] = await Promise.all([
-        axios.get<ApiOverallStatsSummary>(lessonSummaryUrl, {
-          headers: {Authorization: `Bearer ${token}`},
-        }),
-        axios.get<ApiOverallStatsSummary>(examSummaryUrl, {
-          headers: {Authorization: `Bearer ${token}`},
-        }),
-      ]);
-
-      setOverallLessonSummary(lessonSummaryRes.data);
-      setOverallExamSummary(examSummaryRes.data);
-    } catch (err) {
-      console.error('Lỗi khi tải dữ liệu thống kê tổng quan:', err);
-      Alert.alert('Lỗi', 'Không thể tải dữ liệu thống kê.');
-      // Nếu lỗi, đảm bảo cả hai summary đều null
-      setOverallLessonSummary(null);
-      setOverallExamSummary(null);
-    } finally {
-      setIsLoadingOverallStats(false);
-    }
-  }, [userIdFromParam]); // activeTab không cần là dependency ở đây vì logic fetch không đổi
 
   const handleLogoutFromMenu = useCallback(async () => {
     setIsProfileMenuVisible(false);
@@ -913,7 +1039,7 @@ const TienDoDetailScreen = () => {
 
       {isLoading &&
         (displayedLessonResults.length > 0 ||
-          displayedExamResults.length > 0) && ( // Chỉ hiện loading nhỏ khi đã có list data
+          displayedExamResults.length > 0) && (
           <View style={{paddingVertical: 10, alignItems: 'center'}}>
             <ActivityIndicator size="small" color={COLORS.primary} />
           </View>
@@ -929,16 +1055,16 @@ const TienDoDetailScreen = () => {
         keyExtractor={item =>
           'lessonId' in item
             ? `lesson-${(item as ApiLessonResult).lessonId}-${
-                item.id || Math.random().toString() // Thêm fallback key
+                item.id || Math.random().toString()
               }`
             : `exam-${(item as ApiExamResult).topicId}-${
-                item.id || Math.random().toString() // Thêm fallback key
+                item.id || Math.random().toString()
               }`
         }
         style={mainStyles.listContainer}
         contentContainerStyle={mainStyles.listContentContainer}
         ListEmptyComponent={
-          !isLoading ? ( // Chỉ hiện empty text khi không loading
+          !isLoading ? (
             <View style={mainStyles.emptyListContainer}>
               <Text style={mainStyles.emptyListText}>
                 {searchQuery
@@ -966,15 +1092,21 @@ const TienDoDetailScreen = () => {
         visible={isOverallStatsModalVisible}
         onClose={() => {
           setIsOverallStatsModalVisible(false);
-          // Reset cả hai summary khi đóng để đảm bảo sạch sẽ cho lần mở tiếp theo
           setOverallLessonSummary(null);
           setOverallExamSummary(null);
+          setFromDate(null);
+          setToDate(null);
         }}
         lessonSummary={overallLessonSummary}
         examSummary={overallExamSummary}
         username={usernameFromParam || ''}
         isLoading={isLoadingOverallStats}
-        activeTab={activeTab} // Truyền activeTab vào đây
+        activeTab={activeTab}
+        fromDate={fromDate}
+        toDate={toDate}
+        setFromDate={setFromDate}
+        setToDate={setToDate}
+        onFilter={handleFilter}
       />
       <Modal
         animationType="fade"
@@ -1009,6 +1141,13 @@ const detailModalStyles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
+  dateRangeContainer: {
+    // <-- Thêm style này
+    flexDirection: 'row', // Đây là chìa khóa để các con nằm ngang
+    justifyContent: 'space-around', // Tùy chọn: Để các mục cách đều nhau
+    alignItems: 'center', // Tùy chọn: Căn giữa theo chiều dọc
+    marginVertical: 10, // Khoảng cách trên/dưới cho cả hàng
+  },
   modalViewContainer: {
     width: '90%',
     maxHeight: '85%',
@@ -1023,12 +1162,12 @@ const detailModalStyles = StyleSheet.create({
   modalViewContent: {
     borderRadius: 12,
     paddingBottom: 20,
-    overflow: 'hidden', // Đảm bảo content không tràn ra ngoài borderRadius
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Để spacer hoạt động đúng
+    justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
@@ -1036,7 +1175,6 @@ const detailModalStyles = StyleSheet.create({
   },
   backButton: {
     padding: 5,
-    // Không cần paddingHorizontal cố định ở đây nếu dùng spacer
   },
   backIcon: {
     width: 22,
@@ -1047,16 +1185,15 @@ const detailModalStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.black || '#000000',
     textAlign: 'center',
-    flex: 1, // Để tiêu đề chiếm không gian còn lại và tự căn giữa
+    flex: 1,
   },
   headerSpacer: {
-    // Dùng để căn giữa tiêu đề khi có nút đóng ở một bên
-    width: 22 + 5 * 2, // Chiều rộng của icon + padding của nút đóng
+    width: 22 + 5 * 2,
   },
   contentScroll: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 10, // Giảm padding bottom nếu cần thêm không gian cho nút Đóng
+    paddingBottom: 10,
   },
   infoItem: {
     marginBottom: 18,
@@ -1075,7 +1212,7 @@ const detailModalStyles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    justifyContent: 'center', // Căn giữa text bên trong nếu cần
+    justifyContent: 'center',
   },
   infoValue: {
     fontSize: 15,
@@ -1088,7 +1225,7 @@ const detailModalStyles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 20,
-    marginTop: 15, // Đảm bảo có khoảng cách với content
+    marginTop: 15,
   },
   closeButtonText: {
     color: COLORS.white || '#FFFFFF',
@@ -1096,7 +1233,6 @@ const detailModalStyles = StyleSheet.create({
     fontWeight: '600',
   },
   summarySectionTitle: {
-    // Giữ lại style này nếu bạn muốn dùng lại ở đâu đó, dù hiện tại không dùng trong OverallStatsModal
     fontSize: 16,
     fontWeight: 'bold',
     color: COLORS.text || COLORS.black,
@@ -1207,6 +1343,7 @@ const mainStyles = StyleSheet.create({
     paddingBottom: 20,
     paddingTop: 5,
   },
+
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
