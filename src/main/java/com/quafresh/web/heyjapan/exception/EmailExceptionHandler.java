@@ -19,4 +19,12 @@ public class EmailExceptionHandler {
         error.put("error", ErrorMessages.EMAIL_ALREADY_EXISTS.getMessage());
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
+
+    // Xử lý email không tồn tại
+    @ExceptionHandler(EmailNotFoundException.class)
+    public ResponseEntity<Map<String,String>> handleEmailNotFoundException(EmailNotFoundException ex){
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ErrorMessages.EMAIL_INVALID.getMessage());
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
 }

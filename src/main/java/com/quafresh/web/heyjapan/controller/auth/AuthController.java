@@ -1,14 +1,18 @@
 package com.quafresh.web.heyjapan.controller.auth;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.quafresh.web.heyjapan.dto.user.ResetPasswordDTO;
 import com.quafresh.web.heyjapan.dto.user.auth.*;
 import com.quafresh.web.heyjapan.entity.AuthProvider;
 import com.quafresh.web.heyjapan.entity.User;
+import com.quafresh.web.heyjapan.exception.VerifyCodeFoundException;
 import com.quafresh.web.heyjapan.repository.UserRepository;
 import com.quafresh.web.heyjapan.security.JwtTokenUtil;
 import com.quafresh.web.heyjapan.security.UserPrincipal;
 import com.quafresh.web.heyjapan.service.auth.GoogleTokenVerifierService;
 import com.quafresh.web.heyjapan.service.auth.UserService;
+import com.quafresh.web.heyjapan.service.user.PasswordResetService;
+import com.quafresh.web.heyjapan.util.ErrorMessages;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +42,7 @@ public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     // Sử dụng final để Lombok inject qua constructor
+    private final PasswordResetService passwordResetService;
     private final GoogleTokenVerifierService tokenVerifierService;
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
@@ -114,4 +119,46 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse(false,"Error: Authentication failed. " + e.getMessage()));
         }
     }
+
+    @PostMapping("/send-code")
+    public ResponseEntity<?> sendCode(@RequestBody ResetPasswordDTO.ForgotPasswordRequest dto) {
+        try {
+            passwordResetService.sendCodeToEmail(dto);
+            return ResponseEntity
+                    .status(HttpStatus.OK)
+                    .body(new ApiResponse(true, "Verify code đã được gửi"));
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse(false, "Gửi verify code thất bại: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/verify-code")
+    public ResponseEntity<?> verifyCode(@RequestBody ResetPasswordDTO.VerifyCodeRequest dto) {
+        try {
+            boolean valid = passwordResetService.verifyCode(dto);
+            return ResponseEntity.ok(new ApiResponse(true, "Mã code hợp lệ"));
+        } catch (VerifyCodeFoundException ex) {
+            String message = switch (ex.getReason()) {
+                case NOT_FOUND -> ErrorMessages.VERIFY_CODE_NOT_FOUND.getMessage();
+                case EXPIRED -> ErrorMessages.VERIFY_CODE_EXPIRED.getMessage();
+            };
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse(false, message));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse> resetPassword(@Valid @RequestBody ResetPasswordDTO.ResetPasswordRequest dto) {
+        try {
+            passwordResetService.resetPassword(dto);
+            return ResponseEntity.ok(new ApiResponse(true, "Đặt lại mật khẩu thành công"));
+        } catch (Exception ex) {
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse(false, ex.getMessage()));
+        }
+    }
+
 }
