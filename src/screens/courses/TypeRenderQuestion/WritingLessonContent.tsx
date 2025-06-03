@@ -1,5 +1,5 @@
 // src/screens/HandwritingScreen.tsx
-import React, {useRef, useState, useCallback, useMemo} from 'react'; // Thêm useCallback
+import React, {useRef, useState, useCallback, useMemo} from 'react';
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Platform,
   TextStyle,
+  TouchableOpacity, // Import TouchableOpacity để dùng cho nút Bỏ qua
 } from 'react-native';
 import {Svg, Path} from 'react-native-svg';
 import {
@@ -30,10 +31,17 @@ import {runOnJS} from 'react-native-reanimated';
 
 const {width: screenWidth} = Dimensions.get('window');
 const CANVAS_HEIGHT = 300;
-const DEFAULT_STROKE_WIDTH = 5; // <--- KHAI BÁO Ở ĐÂY
+const DEFAULT_STROKE_WIDTH = 5;
 const DEFAULT_STROKE_COLOR = '#000000';
 const CORRECT_COLOR = '#4CAF50';
 const INCORRECT_COLOR = '#F44336';
+
+// Thêm interface cho props của HandwritingScreen
+interface HandwritingScreenProps {
+  onSkip: () => void;
+  onAttempt: (isCorrect: boolean) => void;
+  // item: MappedContentItem; // Nếu màn hình này cũng cần item để hiển thị chữ cái mục tiêu từ API
+}
 
 interface SampleCharacter {
   /* ... */ char: string;
@@ -73,10 +81,14 @@ const sampleCharacters: SampleCharacter[] = [
 const japaneseFont =
   Platform.OS === 'ios' ? 'Hiragino Mincho ProN' : 'NotoSansJP-Regular';
 
-const HandwritingScreen: React.FC = () => {
+// Cập nhật FC để nhận props
+const HandwritingScreen: React.FC<HandwritingScreenProps> = ({
+  onSkip,
+  onAttempt,
+  // item, // Nếu có
+}) => {
   const paperTheme = useTheme<MD3Theme>();
   const [paths, setPaths] = useState<string[]>([]);
-  // const [currentPath, setCurrentPath] = useState<string[]>([]); // Dường như không còn sử dụng
   const [strokeWidth, setStrokeWidth] = useState<number>(DEFAULT_STROKE_WIDTH);
   const [currentPathForSVG, setCurrentPathForSVG] = useState<string[]>([]);
   const activePathPoints = useRef<string[]>([]);
@@ -106,13 +118,9 @@ const HandwritingScreen: React.FC = () => {
       Gesture.Pan()
         .onStart(
           (g: GestureStateChangeEvent<PanGestureHandlerEventPayload>) => {
-            'worklet'; // Giữ lại 'worklet'
+            'worklet';
             const newPathPart = `M${g.x.toFixed(0)},${g.y.toFixed(0)}`;
             activePathPoints.current = [newPathPart];
-            // Log ngay trên UI thread (có thể không hiển thị trên console JS, nhưng để kiểm tra)
-            // console.log('[UI onStart] activePathPoints.current set to:', activePathPoints.current[0]);
-
-            // Chỉ cập nhật SVG và log tối thiểu
             runOnJS(stableSetCurrentPathForSVG)([...activePathPoints.current]);
             runOnJS(log)('onStart', 'Ref after set:', [
               ...activePathPoints.current,
@@ -120,23 +128,20 @@ const HandwritingScreen: React.FC = () => {
           },
         )
         .onUpdate((g: GestureUpdateEvent<PanGestureHandlerEventPayload>) => {
-          'worklet'; // Giữ lại 'worklet'
-          // Log giá trị ref NGAY KHI VÀO onUpdate
-          // console.log('[UI onUpdate] activePathPoints.current at entry:', activePathPoints.current.join(' '));
-          const currentLength = activePathPoints.current.length; // Đọc độ dài
-          runOnJS(log)('onUpdate', `Ref length: ${currentLength}`); // Log độ dài này
+          'worklet';
+          const currentLength = activePathPoints.current.length;
+          runOnJS(log)('onUpdate', `Ref length: ${currentLength}`);
 
           if (currentLength > 0) {
             const newPathPart = `L${g.x.toFixed(0)},${g.y.toFixed(0)}`;
             activePathPoints.current.push(newPathPart);
-            // console.log('[UI onUpdate] activePathPoints.current after push:', activePathPoints.current.join(' '));
             runOnJS(stableSetCurrentPathForSVG)([...activePathPoints.current]);
           } else {
             runOnJS(log)('onUpdate', 'Ref is unexpectedly EMPTY!');
           }
         })
         .onEnd(() => {
-          'worklet'; // Giữ lại 'worklet'
+          'worklet';
           const currentLength = activePathPoints.current.length;
           runOnJS(log)('onEnd', `Ref length: ${currentLength}`);
 
@@ -153,14 +158,14 @@ const HandwritingScreen: React.FC = () => {
     [
       log,
       stableSetCurrentPathForSVG,
-      stableSetFeedbackMessage,
-      stableSetRecognitionResult,
+      stableSetFeedbackMessage, // Giữ lại vì nó được dùng trong `handleCheck` gọi thông qua `runOnJS`
+      stableSetRecognitionResult, // Giữ lại vì nó được dùng trong `handleCheck` gọi thông qua `runOnJS`
       stableSetPaths,
-    ], // Dependencies cho useMemo
+    ],
   );
 
   const handleClear = () => {
-    log('handleClear', 'Clearing all paths and current drawing.'); // Gọi log trực tiếp
+    log('handleClear', 'Clearing all paths and current drawing.');
     setPaths([]);
     setCurrentPathForSVG([]);
     activePathPoints.current = [];
@@ -171,7 +176,7 @@ const HandwritingScreen: React.FC = () => {
   const mockRecognizeHandwriting = async (
     drawnPaths: string[],
   ): Promise<RecognitionResult> => {
-    log('mockRecognizeHandwriting', 'Paths received:', drawnPaths); // Gọi log trực tiếp
+    log('mockRecognizeHandwriting', 'Paths received:', drawnPaths);
     if (drawnPaths.length === 0) {
       return {
         char: '',
@@ -181,7 +186,6 @@ const HandwritingScreen: React.FC = () => {
     }
     await new Promise<void>(resolve => setTimeout(resolve, 700));
     const randomFactor = Math.random();
-    // ... (phần còn lại của mockRecognizeHandwriting giữ nguyên)
     if (randomFactor < 0.05) {
       return {
         char: '',
@@ -209,28 +213,34 @@ const HandwritingScreen: React.FC = () => {
   };
 
   const handleCheck = async () => {
-    log('handleCheck', 'Check button pressed.'); // Gọi log trực tiếp
+    log('handleCheck', 'Check button pressed.');
     if (paths.length === 0) {
       log('handleCheck', 'No completed paths to check.');
       setFeedbackMessage('Bạn chưa hoàn thành nét vẽ nào để kiểm tra!');
       setFeedbackColor(INCORRECT_COLOR);
+      if (onAttempt) {
+        // Gọi onAttempt nếu không có nét vẽ
+        onAttempt(false);
+      }
       return;
     }
     log('handleCheck', 'Paths to check:', paths);
     setFeedbackMessage('Đang kiểm tra...');
     setFeedbackColor(paperTheme.colors.onSurface);
     const result = await mockRecognizeHandwriting(paths);
-    log('handleCheck', 'Recognition result:', result); // Gọi log trực tiếp
+    log('handleCheck', 'Recognition result:', result);
 
     setRecognitionResult(result);
+    let isCorrectAttempt = false; // Biến để lưu trạng thái đúng/sai
+
     if (result.error) {
       setFeedbackMessage(result.error);
       setFeedbackColor(INCORRECT_COLOR);
-      return;
-    }
-    if (result.char === currentTargetCharacter.char) {
+      isCorrectAttempt = false; // Lỗi thì không đúng
+    } else if (result.char === currentTargetCharacter.char) {
       setFeedbackMessage('Chính xác!');
       setFeedbackColor(CORRECT_COLOR);
+      isCorrectAttempt = true; // Đúng
       setTimeout(() => {
         handleClear();
         setCharIndex(prevIndex => (prevIndex + 1) % sampleCharacters.length);
@@ -241,19 +251,22 @@ const HandwritingScreen: React.FC = () => {
         `Sai, thử lại! (Nhận diện: ${result.char || 'Không rõ'})`,
       );
       setFeedbackColor(INCORRECT_COLOR);
+      isCorrectAttempt = false; // Sai
+    }
+
+    // GỌI onAttempt SAU KHI XÁC ĐỊNH ĐƯỢC KẾT QUẢ
+    if (onAttempt) {
+      onAttempt(isCorrectAttempt);
     }
   };
 
   const toggleStrokeOrder = () => {
-    log('toggleStrokeOrder', 'Toggling stroke order visibility.'); // Gọi log trực tiếp
+    log('toggleStrokeOrder', 'Toggling stroke order visibility.');
     setShowStrokeOrder(prev => !prev);
   };
 
   const textStyleWithJapaneseFont: TextStyle = {fontFamily: japaneseFont};
   const currentDrawingStrokeColor = DEFAULT_STROKE_COLOR;
-
-  // log('Render', 'currentPathForSVG to draw:', currentPathForSVG.join(' ')); // Có thể gây nhiều log
-  // log('Render', 'Completed paths to draw:', paths); // Có thể gây nhiều log
 
   return (
     <SafeAreaView
@@ -279,8 +292,7 @@ const HandwritingScreen: React.FC = () => {
                 textStyleWithJapaneseFont,
                 {color: paperTheme.colors.onSurfaceVariant},
               ]}>
-              {' '}
-              Thứ tự nét: {currentTargetCharacter.strokeOrderHint}{' '}
+              Thứ tự nét: {currentTargetCharacter.strokeOrderHint}
             </Paragraph>
           )}
         </Card.Content>
@@ -330,15 +342,22 @@ const HandwritingScreen: React.FC = () => {
           Kiểm tra
         </Button>
       </View>
+      {/* View bao bọc nút Hiện/Ẩn gợi ý và nút Bỏ qua để chúng nằm ngang */}
       <View style={styles.controls}>
+        {/* Sử dụng lại styles.controls để chúng nằm ngang */}
         <Button
           icon={showStrokeOrder ? 'eye-off-outline' : 'eye-outline'}
           mode="outlined"
           onPress={toggleStrokeOrder}
           style={styles.button}>
-          {' '}
-          {showStrokeOrder ? 'Ẩn gợi ý' : 'Hiện gợi ý'}{' '}
+          {showStrokeOrder ? 'Ẩn gợi ý' : 'Hiện gợi ý'}
         </Button>
+        {/* Nút Bỏ qua */}
+        <TouchableOpacity
+          onPress={onSkip} // Gọi prop onSkip nhận được từ trên xuống
+          style={styles.skipButton}>
+          <Text style={styles.skipButtonText}>Bỏ qua</Text>
+        </TouchableOpacity>
       </View>
 
       {feedbackMessage ? (
@@ -358,9 +377,8 @@ const HandwritingScreen: React.FC = () => {
             textStyleWithJapaneseFont,
             {color: paperTheme.colors.onSurfaceVariant},
           ]}>
-          {' '}
-          Nhận diện: {recognitionResult.char} (Độ chính xác:{' '}
-          {(recognitionResult.accuracy * 100).toFixed(1)}%){' '}
+          Nhận diện: {recognitionResult.char} (Độ chính xác:
+          {(recognitionResult.accuracy * 100).toFixed(1)}%)
         </Text>
       )}
       <View style={styles.customizationSection}>
@@ -369,8 +387,7 @@ const HandwritingScreen: React.FC = () => {
             textStyleWithJapaneseFont,
             {color: paperTheme.colors.onSurfaceVariant},
           ]}>
-          {' '}
-          Độ dày nét: {strokeWidth}px{' '}
+          Độ dày nét: {strokeWidth}px
         </Text>
         <View style={styles.sliderContainer}>
           <Button onPress={() => setStrokeWidth(prev => Math.max(1, prev - 1))}>
@@ -393,7 +410,6 @@ const HandwritingScreen: React.FC = () => {
   );
 };
 
-// ... (styles giữ nguyên)
 const styles = StyleSheet.create({
   safeArea: {flex: 1},
   card: {margin: 10, elevation: 2},
@@ -444,6 +460,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 5,
+  },
+  // Thêm styles cho nút bỏ qua
+  skipButton: {
+    // Sử dụng flex: 1 để nó chia không gian ngang với nút "Hiện/Ẩn gợi ý"
+    flex: 1,
+    marginHorizontal: 5, // Khoảng cách với các nút khác
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    backgroundColor: '#e0e0e0', // Màu nền nhẹ (tương tự paperTheme.colors.surfaceVariant)
+    justifyContent: 'center', // Căn giữa nội dung Text
+    alignItems: 'center', // Căn giữa nội dung Text
+  },
+  skipButtonText: {
+    // Để giữ nguyên phong cách như PronunciationLessonContent, có thể cần điều chỉnh font/size
+    // theo COLORS, FONTS, SIZES nếu bạn muốn. Ở đây, tôi giữ style tối giản.
+    fontSize: 14, // Slightly smaller than default button text, similar to original skipText
+    color: '#666', // Màu xám đậm hơn một chút
+    textDecorationLine: 'underline', // Gạch chân giống như PronunciationLessonContent
+    fontFamily: japaneseFont, // Đảm bảo dùng đúng font
   },
 });
 
