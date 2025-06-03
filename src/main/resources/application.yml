@@ -3,8 +3,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: javisvietnamad@gmail.com
-    password: naty ajlh yknu iotr
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
@@ -12,6 +12,7 @@ spring:
   logging:
     level:
       org.springframework.mail: DEBUG
+
   datasource:
     url: jdbc:mysql://localhost:3306/heyjapan?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true&sessionVariables=sql_mode='NO_ENGINE_SUBSTITUTION'
     username: root
