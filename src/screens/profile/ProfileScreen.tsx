@@ -14,64 +14,142 @@ import {
   Modal,
   Switch,
   Platform,
-  PermissionsAndroid, // Đã thêm
+  PermissionsAndroid,
 } from 'react-native';
 import {COLORS, FONTS, SIZES, SHADOWS} from '../../constants/theme';
 import {useAuth} from '../auth/AuthContext';
-import PushNotification from 'react-native-push-notification'; // Đã thêm
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Đã thêm
-import {showMessage} from 'react-native-flash-message'; // Đã thêm
-// Đảm bảo đường dẫn này chính xác tới file App.tsx của bạn
-import {PROFILE_REMINDER_CHANNEL_ID} from '../../../App';
+import notifee, {
+  TimestampTrigger,
+  TriggerType,
+  AndroidImportance,
+  AuthorizationStatus,
+  RepeatFrequency,
+  AndroidNotificationSetting,
+} from '@notifee/react-native'; // Thay thế PushNotification
+import DateTimePicker from '@react-native-community/datetimepicker'; // Thêm DateTimePicker
+import moment from 'moment'; // Thêm moment
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {showMessage} from 'react-native-flash-message';
+
+// ID kênh thông báo
+const PROFILE_REMINDER_CHANNEL_ID = 'profile-reminders-channel';
 
 // ID duy nhất cho thông báo của màn hình Profile
 const PROFILE_NOTIFICATION_UNIQUE_ID = 'userProfileReminderScheduled001';
 
-// Hàm xin quyền thông báo (cho Android 13+)
-const requestNotificationPermission = async () => {
+// Hàm khởi tạo kênh thông báo
+const createNotificationChannel = async () => {
   if (Platform.OS === 'android') {
-    if (Platform.Version >= 33) {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-          {
-            title: 'Quyền Gửi Thông Báo',
-            message:
-              'Ứng dụng cần quyền này để gửi thông báo nhắc nhở bạn học tập.',
-            buttonNeutral: 'Để sau',
-            buttonNegative: 'Từ chối',
-            buttonPositive: 'Cho phép',
-          },
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+    await notifee.createChannel({
+      id: PROFILE_REMINDER_CHANNEL_ID,
+      name: 'Nhắc nhở học tập',
+      description: 'Kênh thông báo nhắc nhở học tập hàng ngày',
+      lights: true,
+      vibration: true,
+      importance: AndroidImportance.HIGH,
+      sound: 'default',
+    });
+    console.log(
+      '[ProfileScreen] Đã tạo kênh thông báo:',
+      PROFILE_REMINDER_CHANNEL_ID,
+    );
+  }
+};
+
+// Hàm kiểm tra quyền thông báo
+const checkNotificationPermission = async () => {
+  const settings = await notifee.getNotificationSettings();
+
+  if (settings.authorizationStatus === AuthorizationStatus.AUTHORIZED) {
+    console.log('[ProfileScreen] Quyền thông báo đã được cấp.');
+    return true;
+  } else if (settings.authorizationStatus === AuthorizationStatus.DENIED) {
+    console.log('[ProfileScreen] Quyền thông báo bị từ chối.');
+    return false;
+  } else {
+    console.log('[ProfileScreen] Cần yêu cầu quyền thông báo.');
+    return false;
+  }
+};
+
+// Hàm yêu cầu quyền thông báo
+const requestNotificationPermission = async () => {
+  try {
+    const settings = await notifee.requestPermission({
+      sound: true,
+      alert: true,
+      badge: true,
+      criticalAlert: true,
+    });
+
+    if (settings.authorizationStatus === AuthorizationStatus.AUTHORIZED) {
+      console.log('[ProfileScreen] Quyền thông báo đã được cấp.');
+
+      // Với Android 13+, kiểm tra thêm quyền POST_NOTIFICATIONS
+      if (Platform.OS === 'android' && Platform.Version >= 33) {
+        // Kiểm tra quyền chi tiết trên Android
+        const androidSettings = await notifee.getNotificationSettings();
+
+        if (
+          androidSettings.android.alarm === AndroidNotificationSetting.ENABLED
+        ) {
           console.log(
-            '[ProfileScreen] Đã cấp quyền gửi thông báo (Android 13+).',
+            '[ProfileScreen] Quyền SCHEDULE_EXACT_ALARM đã được cấp.',
           );
           return true;
         } else {
-          console.log(
-            '[ProfileScreen] Quyền gửi thông báo bị từ chối (Android 13+).',
-          );
-          Alert.alert(
-            'Thông báo',
-            'Bạn đã từ chối quyền gửi thông báo. Tính năng nhắc nhở sẽ không hoạt động.',
-          );
-          return false;
+          console.log('[ProfileScreen] Chưa có quyền SCHEDULE_EXACT_ALARM.');
+          // Yêu cầu quyền bổ sung thông qua PermissionsAndroid nếu cần
+          try {
+            const granted = await PermissionsAndroid.request(
+              PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+              {
+                title: 'Quyền Gửi Thông Báo',
+                message:
+                  'Ứng dụng cần quyền này để gửi thông báo nhắc nhở bạn học tập.',
+                buttonNeutral: 'Để sau',
+                buttonNegative: 'Từ chối',
+                buttonPositive: 'Cho phép',
+              },
+            );
+
+            if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+              console.log(
+                '[ProfileScreen] Đã cấp quyền POST_NOTIFICATIONS thành công.',
+              );
+              return true;
+            } else {
+              console.log(
+                '[ProfileScreen] Quyền POST_NOTIFICATIONS bị từ chối.',
+              );
+              Alert.alert(
+                'Thông báo',
+                'Bạn đã từ chối quyền gửi thông báo. Tính năng nhắc nhở sẽ không hoạt động.',
+              );
+              return false;
+            }
+          } catch (err) {
+            console.warn(
+              '[ProfileScreen] Lỗi khi yêu cầu quyền POST_NOTIFICATIONS:',
+              err,
+            );
+            return false;
+          }
         }
-      } catch (err) {
-        console.warn('[ProfileScreen] Lỗi xin quyền thông báo:', err);
-        return false;
       }
+      return true;
+    } else {
+      console.log('[ProfileScreen] Quyền thông báo bị từ chối.');
+      Alert.alert(
+        'Thông báo',
+        'Bạn cần cấp quyền thông báo để sử dụng tính năng nhắc nhở.',
+      );
+      return false;
     }
-    console.log(
-      '[ProfileScreen] Android < 13, quyền thông báo được coi là đã cấp (trừ khi bị chặn trong cài đặt).',
-    );
-    return true;
+  } catch (err) {
+    console.error('[ProfileScreen] Lỗi khi yêu cầu quyền thông báo:', err);
+    return false;
   }
-  console.log(
-    '[ProfileScreen] Không phải Android, bỏ qua xin quyền POST_NOTIFICATIONS.',
-  );
-  return true;
 };
 
 const ProfileScreen: React.FC = () => {
@@ -79,9 +157,22 @@ const ProfileScreen: React.FC = () => {
 
   const [isNotificationModalVisible, setIsNotificationModalVisible] =
     useState(false);
-  const [reminderTime, setReminderTime] = useState<string>('19:30');
-  const [isReminderEnabled, setIsReminderEnabled] = useState(false); // Mặc định là tắt
-  const scrollViewRef = useRef<ScrollView>(null);
+  const [isReminderEnabled, setIsReminderEnabled] = useState(false);
+
+  // State mới để lưu trữ thời gian dưới dạng Date object
+  const [reminderDate, setReminderDate] = useState<Date>(new Date());
+
+  // State để hiển thị DateTimePicker
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  // Khởi tạo thông báo khi component mount
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      await createNotificationChannel();
+    };
+
+    initializeNotifications();
+  }, []);
 
   useEffect(() => {
     const loadReminderSettings = async () => {
@@ -97,20 +188,28 @@ const ProfileScreen: React.FC = () => {
             enabled,
           );
         } else {
-          setIsReminderEnabled(false); // Mặc định là tắt nếu chưa từng đặt
+          setIsReminderEnabled(false);
           console.log(
             '[ProfileScreen] Không tìm thấy isReminderEnabled trong AsyncStorage, đặt thành false.',
           );
         }
-        const time = await AsyncStorage.getItem('profileReminderTime_v1');
-        if (time !== null) {
-          setReminderTime(time);
+
+        const timeString = await AsyncStorage.getItem('profileReminderTime_v1');
+        if (timeString !== null) {
+          const [hours, minutes] = timeString.split(':').map(Number);
+          const date = new Date();
+          date.setHours(hours, minutes, 0, 0);
+          setReminderDate(date);
           console.log(
             '[ProfileScreen] Đã tải reminderTime từ AsyncStorage:',
-            time,
+            timeString,
+            'Chuyển thành Date:',
+            date.toLocaleTimeString(),
           );
         } else {
-          setReminderTime('19:30'); // Thời gian mặc định nếu chưa có
+          const defaultDate = new Date();
+          defaultDate.setHours(19, 30, 0, 0);
+          setReminderDate(defaultDate);
           console.log(
             '[ProfileScreen] Không tìm thấy reminderTime trong AsyncStorage, đặt thành 19:30.',
           );
@@ -125,23 +224,20 @@ const ProfileScreen: React.FC = () => {
     loadReminderSettings();
   }, []);
 
-  const formatTwoDigits = (num: number) => {
-    return num < 10 ? `0${num}` : `${num}`;
-  };
-
-  const generateTimeSlots = () => {
-    const slots: string[] = [];
-    for (let h = 0; h < 24; h++) {
-      slots.push(`${formatTwoDigits(h)}:00`);
-      // Giữ nguyên XX:28 như file bạn cung cấp, nếu muốn XX:30 thì sửa ở đây
-      slots.push(`${formatTwoDigits(h)}:30`);
-    }
-    return slots;
-  };
-  const timeSlots = generateTimeSlots();
-
   const handleNotificationSettings = () => {
     setIsNotificationModalVisible(true);
+  };
+
+  const onTimeChange = (event: any, selectedDate?: Date) => {
+    setShowTimePicker(Platform.OS === 'ios'); // Ẩn picker trên Android sau khi chọn
+
+    if (selectedDate) {
+      console.log(
+        '[ProfileScreen] Thời gian đã chọn:',
+        selectedDate.toLocaleTimeString(),
+      );
+      setReminderDate(selectedDate);
+    }
   };
 
   const menuItems = [
@@ -157,117 +253,115 @@ const ProfileScreen: React.FC = () => {
     console.log(
       '[ProfileScreen] Bắt đầu handleSaveReminder. isReminderEnabled:',
       isReminderEnabled,
-      'reminderTime:',
-      reminderTime,
+      'reminderDate:',
+      reminderDate.toLocaleTimeString(),
     );
     setIsNotificationModalVisible(false);
 
     if (isReminderEnabled) {
       console.log('[ProfileScreen] Nhắc nhở đang BẬT. Tiến hành đặt lịch.');
-      if (Platform.OS === 'android') {
-        // Chỉ kiểm tra quyền cho Android
-        const permissionGranted = await requestNotificationPermission();
-        if (!permissionGranted) {
-          console.log(
-            '[ProfileScreen] Quyền không được cấp. Tự động tắt Switch và lưu.',
-          );
-          setIsReminderEnabled(false);
-          try {
-            await AsyncStorage.setItem(
-              'profileReminderEnabled_v1',
-              JSON.stringify(false),
-            );
-            // Không cần lưu reminderTime mới nếu nhắc nhở bị tắt do từ chối quyền
-          } catch (e) {
-            console.error(
-              '[ProfileScreen] Lỗi lưu trạng thái nhắc nhở (quyền từ chối):',
-              e,
-            );
-          }
-          return;
-        }
+
+      const permissionGranted = await requestNotificationPermission();
+      if (!permissionGranted) {
         console.log(
-          '[ProfileScreen] Quyền đã được cấp (hoặc không cần thiết cho phiên bản Android này).',
+          '[ProfileScreen] Quyền không được cấp. Tự động tắt Switch và lưu.',
         );
-      }
-
-      const [hourStr, minuteStr] = reminderTime.split(':');
-      const selectedHour = parseInt(hourStr, 10);
-      const selectedMinute = parseInt(minuteStr, 10);
-
-      console.log(
-        `[ProfileScreen] Đã parse thời gian: Hour=${selectedHour}, Minute=${selectedMinute}`,
-      );
-
-      if (isNaN(selectedHour) || isNaN(selectedMinute)) {
-        showMessage({
-          message: 'Thời gian nhắc nhở không hợp lệ.',
-          type: 'danger',
-        });
-        console.error('[ProfileScreen] Thời gian parse không hợp lệ.');
+        setIsReminderEnabled(false);
+        try {
+          await AsyncStorage.setItem(
+            'profileReminderEnabled_v1',
+            JSON.stringify(false),
+          );
+        } catch (e) {
+          console.error(
+            '[ProfileScreen] Lỗi lưu trạng thái nhắc nhở (quyền từ chối):',
+            e,
+          );
+        }
         return;
       }
 
+      console.log(
+        '[ProfileScreen] Quyền đã được cấp. Tiến hành lên lịch thông báo.',
+      );
+
+      await notifee.cancelNotification(PROFILE_NOTIFICATION_UNIQUE_ID);
+      console.log('[ProfileScreen] Đã hủy thông báo cũ (nếu có)');
+
       const now = new Date();
-      const notificationFireDate = new Date();
-      notificationFireDate.setHours(selectedHour, selectedMinute, 0, 0);
-
-      console.log(
-        `[ProfileScreen] Thời gian ban đầu được đặt (trước khi kiểm tra quá khứ): ${notificationFireDate.toLocaleString()}`,
-      );
-      console.log(
-        `[ProfileScreen] Thời gian hiện tại trên máy: ${now.toLocaleString()}`,
+      const triggerDate = new Date();
+      triggerDate.setHours(
+        reminderDate.getHours(),
+        reminderDate.getMinutes(),
+        0,
+        0,
       );
 
-      if (notificationFireDate.getTime() <= now.getTime()) {
-        notificationFireDate.setDate(notificationFireDate.getDate() + 1);
+      console.log(
+        `[ProfileScreen] Thời gian ban đầu được đặt: ${triggerDate.toLocaleString()}`,
+      );
+      console.log(
+        `[ProfileScreen] Thời gian hiện tại: ${now.toLocaleString()}`,
+      );
+
+      if (triggerDate.getTime() <= now.getTime()) {
+        triggerDate.setDate(triggerDate.getDate() + 1);
         console.log(
-          `[ProfileScreen] Thời gian đã qua, điều chỉnh cho ngày mai: ${notificationFireDate.toLocaleString()}`,
+          `[ProfileScreen] Thời gian đã qua, điều chỉnh cho ngày mai: ${triggerDate.toLocaleString()}`,
         );
       }
 
-      console.log('[ProfileScreen] Hủy bỏ thông báo cũ (nếu có)...');
-      PushNotification.cancelLocalNotification(PROFILE_NOTIFICATION_UNIQUE_ID);
+      // Tạo trigger cho notifee
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: triggerDate.getTime(),
+        repeatFrequency: RepeatFrequency.DAILY,
+      };
 
-      const logDate = new Date(notificationFireDate.getTime()); // Tạo bản sao để log
-      console.log(`[ProfileScreen] Chuẩn bị đặt lịch với các thông số:
-        channelId: ${PROFILE_REMINDER_CHANNEL_ID},
+      // Định dạng thời gian đẹp hơn với moment
+      const formattedTime = moment(reminderDate).format('HH:mm');
+
+      console.log(`[ProfileScreen] Chuẩn bị đặt lịch thông báo với các thông số:
         id: ${PROFILE_NOTIFICATION_UNIQUE_ID},
-        message: 'Đến giờ học rồi! Mở HeyJapan lên nào bạn ơi! 📖',
-        date (UTC): ${logDate.toISOString()} (Timestamp: ${logDate.getTime()}),
-        date (Local for schedule): ${notificationFireDate.toLocaleString()},
-        allowWhileIdle: true,
-        repeatType: 'day',
         title: '⏰ HeyJapan Nhắc Nhở Học Tập',
-        bigText: 'Đã đến ${reminderTime}! Hãy dành chút thời gian để học tiếng Nhật cùng HeyJapan nhé!'
+        body: 'Đến giờ học rồi! Mở HeyJapan lên nào bạn ơi! 📖',
+        triggerDate: ${triggerDate.toLocaleString()} (${triggerDate.getTime()}),
+        repeatFrequency: DAILY
       `);
 
-      PushNotification.localNotificationSchedule({
-        channelId: PROFILE_REMINDER_CHANNEL_ID,
-        id: PROFILE_NOTIFICATION_UNIQUE_ID,
-        message: 'Đến giờ học rồi! Mở HeyJapan lên nào bạn ơi! 📖',
-        date: notificationFireDate, // Đối tượng Date đã được điều chỉnh
-        allowWhileIdle: true,
-        repeatType: 'day',
-        title: '⏰ HeyJapan Nhắc Nhở Học Tập',
-        bigText: `Đã đến ${reminderTime}! Hãy dành chút thời gian để học tiếng Nhật cùng HeyJapan nhé!`,
-        vibrate: true,
-        vibration: 300,
-        playSound: true,
-        soundName: 'default',
-      });
+      // Lên lịch thông báo với notifee
+      await notifee.createTriggerNotification(
+        {
+          id: PROFILE_NOTIFICATION_UNIQUE_ID,
+          title: '⏰ HeyJapan Nhắc Nhở Học Tập',
+          body: `Đã đến ${formattedTime}! Hãy dành chút thời gian để học tiếng Nhật cùng HeyJapan nhé!`,
+          android: {
+            channelId: PROFILE_REMINDER_CHANNEL_ID,
+            importance: AndroidImportance.HIGH,
+            pressAction: {
+              id: 'default',
+            },
+            smallIcon: 'logoopen', // Đổi thành tên biểu tượng trong dự án của bạn
+            color: COLORS.primary,
+            sound: 'default',
+            vibrationPattern: [300, 500],
+            lights: ['#FF0000', 300, 600],
+          },
+        },
+        trigger,
+      );
 
       showMessage({
-        message: `Đã đặt nhắc nhở vào ${reminderTime} hàng ngày.`,
+        message: `Đã đặt nhắc nhở vào ${formattedTime} hàng ngày.`,
         type: 'success',
         icon: 'success',
       });
       console.log(
-        `[ProfileScreen] Đã lên lịch thông báo ID ${PROFILE_NOTIFICATION_UNIQUE_ID} vào (local time): ${notificationFireDate.toLocaleString()}`,
+        `[ProfileScreen] Đã lên lịch thông báo ID ${PROFILE_NOTIFICATION_UNIQUE_ID} vào ${triggerDate.toLocaleString()}`,
       );
     } else {
       console.log('[ProfileScreen] Nhắc nhở đang TẮT. Hủy bỏ thông báo.');
-      PushNotification.cancelLocalNotification(PROFILE_NOTIFICATION_UNIQUE_ID);
+      await notifee.cancelNotification(PROFILE_NOTIFICATION_UNIQUE_ID);
       showMessage({
         message: 'Đã tắt nhắc nhở.',
         type: 'info',
@@ -283,13 +377,19 @@ const ProfileScreen: React.FC = () => {
         '[ProfileScreen] Lưu cài đặt vào AsyncStorage: isReminderEnabled =',
         isReminderEnabled,
         ', reminderTime =',
-        reminderTime,
+        moment(reminderDate).format('HH:mm'),
       );
+
       await AsyncStorage.setItem(
         'profileReminderEnabled_v1',
         JSON.stringify(isReminderEnabled),
       );
-      await AsyncStorage.setItem('profileReminderTime_v1', reminderTime);
+
+      // Lưu thời gian dưới dạng chuỗi HH:MM
+      await AsyncStorage.setItem(
+        'profileReminderTime_v1',
+        moment(reminderDate).format('HH:mm'),
+      );
     } catch (e) {
       console.error('[ProfileScreen] Lỗi lưu cài đặt nhắc nhở:', e);
     }
@@ -316,20 +416,6 @@ const ProfileScreen: React.FC = () => {
       {cancelable: false},
     );
   };
-
-  useEffect(() => {
-    if (isNotificationModalVisible && reminderTime && scrollViewRef.current) {
-      const selectedIndex = timeSlots.findIndex(slot => slot === reminderTime);
-      if (selectedIndex !== -1) {
-        const itemHeight = SIZES.padding * 0.75 * 2 + (SIZES.h3 || 20);
-        const scrollToY = selectedIndex * itemHeight - itemHeight * 2;
-        scrollViewRef.current.scrollTo({
-          y: Math.max(0, scrollToY),
-          animated: true,
-        });
-      }
-    }
-  }, [isNotificationModalVisible, reminderTime, timeSlots]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -378,6 +464,7 @@ const ProfileScreen: React.FC = () => {
         </View>
       </ImageBackground>
 
+      {/* Modal cài đặt thông báo */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -390,9 +477,14 @@ const ProfileScreen: React.FC = () => {
             <Text style={modalStyles.modalTitle_NEW}>Thông báo nhắc nhở</Text>
 
             <View style={modalStyles.timeSwitchRow_NEW}>
-              <Text style={modalStyles.selectedTimeText_NEW}>
-                {reminderTime}
-              </Text>
+              {/* Hiển thị thời gian đã chọn */}
+              <TouchableOpacity
+                style={modalStyles.timePickerButton_NEW}
+                onPress={() => setShowTimePicker(true)}>
+                <Text style={modalStyles.selectedTimeText_NEW}>
+                  {moment(reminderDate).format('HH:mm')}
+                </Text>
+              </TouchableOpacity>
 
               <Switch
                 trackColor={{false: COLORS.gray, true: COLORS.green}}
@@ -402,39 +494,23 @@ const ProfileScreen: React.FC = () => {
                 value={isReminderEnabled}
               />
             </View>
-            <View
-              style={{
-                height: 1,
-                backgroundColor: COLORS.white,
-                width: '100%',
-                marginVertical: 10,
-              }}
-            />
-            <View style={modalStyles.timeSlotsScrollViewContainer_NEW}>
-              <ScrollView
-                ref={scrollViewRef}
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled={true}>
-                {timeSlots.map((slot, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      modalStyles.timeSlotButton_NEW,
-                      reminderTime === slot &&
-                        modalStyles.timeSlotButtonSelected_NEW,
-                    ]}
-                    onPress={() => setReminderTime(slot)}>
-                    <Text
-                      style={[
-                        modalStyles.timeSlotText_NEW,
-                        reminderTime === slot &&
-                          modalStyles.timeSlotTextSelected_NEW,
-                      ]}>
-                      {slot}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+
+            {/* Hiển thị DateTimePicker khi cần */}
+            {showTimePicker && (
+              <DateTimePicker
+                value={reminderDate}
+                mode="time"
+                is24Hour={true}
+                display="default"
+                onChange={onTimeChange}
+              />
+            )}
+
+            <View style={modalStyles.infoContainer_NEW}>
+              <Text style={modalStyles.infoText_NEW}>
+                Bạn sẽ nhận được thông báo nhắc nhở học tập vào lúc{' '}
+                {moment(reminderDate).format('HH:mm')} hàng ngày.
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -508,7 +584,7 @@ const styles = StyleSheet.create({
 });
 // --- KẾT THÚC STYLES GỐC ---
 
-// --- STYLES MỚI CHỈ DÀNH CHO MODAL VÀ DANH SÁCH CUỘN THỜI GIAN (Thêm vào cuối) ---
+// --- STYLES MỚI (Đã chỉnh sửa cho DateTimePicker) ---
 const modalStyles = StyleSheet.create({
   centeredView_NEW: {
     flex: 1,
@@ -541,15 +617,14 @@ const modalStyles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-
     marginBottom: SIZES.padding,
     paddingHorizontal: SIZES.padding * 0.5,
   },
-  hr: {
-    borderBottomColor: '#ccc',
-    borderBottomWidth: 1,
-    width: '100%',
-    marginVertical: 10,
+  timePickerButton_NEW: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: SIZES.padding,
+    paddingHorizontal: SIZES.padding * 2,
+    borderRadius: SIZES.radius,
   },
   selectedTimeText_NEW: {
     fontWeight: 'bold',
@@ -557,28 +632,19 @@ const modalStyles = StyleSheet.create({
     fontSize: SIZES.h2,
     color: COLORS.white,
   },
-  timeSlotsScrollViewContainer_NEW: {
-    height: SIZES.height * 0.17,
-    width: '50%',
-
+  infoContainer_NEW: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: SIZES.padding,
+    paddingHorizontal: SIZES.padding * 1.5,
     borderRadius: SIZES.radius,
-    marginBottom: SIZES.padding * 1.5,
+    marginVertical: SIZES.padding * 1.5,
+    width: '100%',
   },
-  timeSlotButton_NEW: {
-    paddingVertical: SIZES.padding * 0.75,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  timeSlotButtonSelected_NEW: {},
-  timeSlotText_NEW: {
-    fontFamily: FONTS.medium?.fontFamily || 'System',
-    fontSize: SIZES.h3,
-    color: COLORS.lightGray,
-  },
-  timeSlotTextSelected_NEW: {
+  infoText_NEW: {
+    fontFamily: FONTS.regular?.fontFamily || 'System',
+    fontSize: SIZES.h4 || 14,
     color: COLORS.white,
-    fontWeight: 'bold',
+    textAlign: 'center',
   },
   saveButton_NEW: {
     backgroundColor: COLORS.white,
