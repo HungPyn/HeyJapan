@@ -610,7 +610,6 @@ const ContentsScreen: React.FC = () => {
       );
       return;
     }
-
     if (type === 'writing') {
       if (currentUserWritingText.trim() === '') {
         Alert.alert('Thông báo', 'Bạn vui lòng nhập câu trả lời.');
@@ -787,10 +786,19 @@ const ContentsScreen: React.FC = () => {
       case 'writing':
         return (
           <WritingLessonContent
-            item={currentItem}
-            isInteractionDisabled={showAnswerFeedback !== null}
-            onTextChange={setCurrentUserWritingText}
-            initialText={currentUserWritingText}
+            onSkip={handleSkipPronunciation} // Truyền handleSkipPronunciation để nút "Bỏ qua" hoạt động giống Pronunciation
+            onAttempt={(isCorrect: boolean) => {
+              if (isCorrect) {
+                setCorrectAnswersCount(prev => prev + 1); // Cập nhật số câu đúng
+                setShowAnswerFeedback(true); // Hiển thị feedback đúng
+                setCurrentUserWritingText(
+                  currentItem.correct_answer_foreign || '',
+                ); // Đồng bộ với logic hiện tại
+              } else {
+                setShowAnswerFeedback(false); // Hiển thị feedback sai
+                setCurrentUserWritingText(''); // Đặt lại text
+              }
+            }}
           />
         );
       case 'select':

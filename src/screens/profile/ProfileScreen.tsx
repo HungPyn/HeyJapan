@@ -323,8 +323,8 @@ const ProfileScreen: React.FC = () => {
 
       console.log(`[ProfileScreen] Chuẩn bị đặt lịch thông báo với các thông số:
         id: ${PROFILE_NOTIFICATION_UNIQUE_ID},
-        title: '⏰ HeyJapan Nhắc Nhở Học Tập',
-        body: 'Đến giờ học rồi! Mở HeyJapan lên nào bạn ơi! 📖',
+        title: '⏰ Javis Nhắc Nhở Học Tập',
+        body: 'Đến giờ học rồi! Mở Javis lên nào bạn ơi! 📖',
         triggerDate: ${triggerDate.toLocaleString()} (${triggerDate.getTime()}),
         repeatFrequency: DAILY
       `);
@@ -333,8 +333,8 @@ const ProfileScreen: React.FC = () => {
       await notifee.createTriggerNotification(
         {
           id: PROFILE_NOTIFICATION_UNIQUE_ID,
-          title: '⏰ HeyJapan Nhắc Nhở Học Tập',
-          body: `Đã đến ${formattedTime}! Hãy dành chút thời gian để học tiếng Nhật cùng HeyJapan nhé!`,
+          title: '⏰ Javis Nhắc Nhở Học Tập',
+          body: `Đã đến ${formattedTime}! Hãy dành chút thời gian để học tiếng Nhật cùng Javis nhé!`,
           android: {
             channelId: PROFILE_REMINDER_CHANNEL_ID,
             importance: AndroidImportance.HIGH,
@@ -642,7 +642,7 @@ const modalStyles = StyleSheet.create({
   },
   infoText_NEW: {
     fontFamily: FONTS.regular?.fontFamily || 'System',
-    fontSize: SIZES.h4 || 14,
+    fontSize: SIZES.medium || 14,
     color: COLORS.white,
     textAlign: 'center',
   },
